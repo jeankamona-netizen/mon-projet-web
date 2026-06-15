@@ -1,19 +1,19 @@
 # mon-projet-web
-## 📌 Description
+## Description
 Application web développée dans le cadre du cours 
 Atelier / Projets — Développement et Déploiement d'Applications.
 
-## 🎯 Objectif
+## Objectif
 Concevoir, développer et déployer une application web complète.
 
-## 🛠️ Technologies prévues
+## Technologies prévues
 - Frontend : HTML / CSS / JavaScript
 - Backend : (à définir)
 - Base de données : (à définir)
 - Déploiement : (à définir)
 
-## 📅 Statut
-🚧 En cours de développement
+## Statut
+En cours de développement
 
-## 👤 Auteur
+## Auteur
 jeankamona-internaute
