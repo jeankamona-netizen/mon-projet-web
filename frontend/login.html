@@ -238,3 +238,41 @@
             </div>
             <div class="form-group">
               <label>Post-nom</label>
+              <input type="text" placeholder="Post-nom" id="ref-postnom">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Prénom <span class="required">*</span></label>
+            <input type="text" placeholder="Prénom" id="ref-prenom">
+          </div>
+          <div class="form-group">
+            <label>Adresse <span class="required">*</span></label>
+            <input type="text" placeholder="Adresse complète" id="ref-adresse">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Téléphone <span class="required">*</span></label>
+              <input type="tel" placeholder="+243 000 000 000" id="ref-telephone">
+            </div>
+            <div class="form-group">
+              <label>Email <span class="info">(optionnel)</span></label>
+              <input type="email" placeholder="email@exemple.com" id="ref-email">
+            </div>
+          </div>
+          <div class="form-nav">
+            <button class="btn-precedent" onclick="allerEtape(3)">← Précédent</button>
+            <button class="btn-submit" onclick="soumettreDossier()">
+              ✅ Soumettre ma candidature
+            </button>
+          </div>
+        </div>
+
+      </div>
+      <!-- FIN PRE-INSCRIPTION -->
+
+    </div>
+  </main>
+
+  <script src="js/login.js"></script>
+</body>
+</html>
