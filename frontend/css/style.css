@@ -193,3 +193,115 @@ body { font-family:'Segoe UI',sans-serif; color:#333; line-height:1.6; }
   background:var(--bleu); border-top:4px solid var(--jaune);
   color:#ccd9f0; text-align:center; padding:30px 20px; font-size:13px;
 }
+
+
+/* HERO FIXE */
+.hero {
+  height: 520px;
+  background: url('../img/campagne.jpg') center/cover no-repeat;
+  position: relative;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 30, 70, 0.62);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  color: var(--blanc);
+}
+
+.hero-overlay h1 {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  max-width: 720px;
+}
+
+.hero-overlay p {
+  font-size: 17px;
+  color: #ccd9f0;
+  margin-bottom: 8px;
+}
+
+/* BANNIERE ACTUALITES */
+.actualites {
+  background: var(--bleu);
+  padding: 0;
+  overflow: hidden;
+}
+
+.actu-header {
+  display: none;
+}
+
+.ticker-wrap {
+  width: 100%;
+  overflow: hidden;
+  padding: 14px 0;
+  background: var(--bleu);
+  border-top: 2px solid var(--jaune);
+  border-bottom: 2px solid var(--jaune);
+}
+
+.ticker {
+  display: flex;
+  width: max-content;
+  animation: ticker 35s linear infinite;
+}
+
+.ticker:hover {
+  animation-play-state: paused;
+}
+
+.ticker-item {
+  color: var(--blanc);
+  font-size: 14px;
+  padding: 0 60px;
+  white-space: nowrap;
+}
+
+.ticker-item::after {
+  content: '|';
+  margin-left: 60px;
+  color: var(--jaune);
+}
+
+@keyframes ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* CONTACT COMPACT */
+.contact {
+  padding: 30px 0;
+  background: var(--gris);
+}
+
+.contact h2 {
+  text-align: center;
+  font-size: 22px;
+  color: var(--bleu);
+  margin-bottom: 16px;
+}
+
+.contact-compact {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 30px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.contact-compact .contact-item {
+  font-size: 14px;
+  color: #444;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
