@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — UML</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <img src="img/logo.png" alt="Logo UML" class="nav-logo">
+        <div>
+          <span class="brand-name">Université Méthodiste de Lubumbashi</span>
+          <span class="brand-devise">Scientia, Sanctitas et Veritas</span>
+        </div>
+      </div>
+      <a href="index.html" class="btn-retour">← Retour à l'accueil</a>
+    </div>
+  </nav>
+
+  <!-- CONTENU PRINCIPAL -->
+  <main class="login-main">
+
+    <!-- ONGLETS -->
+    <div class="login-box">
+      <div class="login-tabs">
+        <button class="tab-btn active" onclick="afficherOnglet('connexion')">
+          🔐 Connexion
+        </button>
+        <button class="tab-btn" onclick="afficherOnglet('preinscription')">
+          📝 Pré-inscription
+        </button>
+      </div>
+
+      <!-- ONGLET CONNEXION -->
+      <div id="onglet-connexion" class="tab-content active">
+        <h2>Espace étudiant</h2>
+        <p class="form-sous-titre">Connectez-vous avec vos identifiants UML</p>
+
+        <div class="form-group">
+          <label>Numéro étudiant</label>
+          <input type="text" placeholder="ex: UML-2024-0012" id="numero-etudiant">
+        </div>
+
+        <div class="form-group">
+          <label>Mot de passe</label>
+          <div class="input-password">
+            <input type="password" placeholder="••••••••" id="mot-de-passe">
+            <span class="toggle-pwd" onclick="togglePassword()">👁️</span>
+          </div>
+        </div>
+
+        <div class="form-options">
+          <label class="checkbox-label">
+            <input type="checkbox"> Se souvenir de moi
+          </label>
+          <a href="#" class="lien-oubli">Mot de passe oublié ?</a>
+        </div>
+
+        <button class="btn-submit" onclick="seConnecter()">Se connecter</button>
+
+        <p class="form-footer">
+          Pas encore inscrit ?
+          <a href="#" onclick="afficherOnglet('preinscription')">Faire une pré-inscription</a>
+        </p>
+      </div>
+
+      <!-- ONGLET PRE-INSCRIPTION -->
+      <div id="onglet-preinscription" class="tab-content">
+        <h2>Pré-inscription</h2>
+        <p class="form-sous-titre">Remplissez ce formulaire pour soumettre votre candidature</p>
+
+        <!-- ETAPE INDICATEUR -->
+        <div class="etapes">
+          <div class="etape active" id="etape-1">1. Identité</div>
+          <div class="etape-ligne"></div>
+          <div class="etape" id="etape-2">2. Contact</div>
+          <div class="etape-ligne"></div>
+          <div class="etape" id="etape-3">3. Académique</div>
+          <div class="etape-ligne"></div>
+          <div class="etape" id="etape-4">4. Référence</div>
+        </div>
+
+        <!-- FORMULAIRE ETAPE 1 : IDENTITE -->
+        <div id="form-etape-1" class="form-etape active">
+          <h3>Informations d'identité</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nom <span class="required">*</span></label>
+              <input type="text" placeholder="Nom de famille" id="nom">
+            </div>
+            <div class="form-group">
+              <label>Post-nom <span class="required">*</span></label>
+              <input type="text" placeholder="Post-nom" id="postnom">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Prénom <span class="required">*</span></label>
+            <input type="text" placeholder="Prénom" id="prenom">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Date de naissance <span class="required">*</span></label>
+              <input type="date" id="date-naissance">
+            </div>
+            <div class="form-group">
+              <label>Lieu de naissance <span class="required">*</span></label>
+              <input type="text" placeholder="Ville de naissance" id="lieu-naissance">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nationalité <span class="required">*</span></label>
+              <input type="text" placeholder="ex: Congolaise" id="nationalite">
+            </div>
+            <div class="form-group">
+              <label>Sexe <span class="required">*</span></label>
+              <select id="sexe">
+                <option value="">-- Choisir --</option>
+                <option value="M">Masculin</option>
+                <option value="F">Féminin</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Numéro carte d'identité <span class="required">*</span></label>
+            <select id="type-identite" style="margin-bottom:8px">
+              <option value="">-- Type de document --</option>
+              <option>Carte d'identité nationale</option>
+              <option>Passeport</option>
+              <option>Permis de conduire</option>
+              <option>Carte d'élève</option>
+            </select>
+            <input type="text" placeholder="Numéro du document" id="num-identite">
+          </div>
+          <div class="form-nav">
+            <span></span>
+            <button class="btn-suivant" onclick="allerEtape(2)">Suivant →</button>
+          </div>
+        </div>
+
+        <!-- FORMULAIRE ETAPE 2 : CONTACT -->
+        <div id="form-etape-2" class="form-etape">
+          <h3>Informations de contact</h3>
+          <div class="form-group">
+            <label>Adresse principale <span class="required">*</span></label>
+            <input type="text" placeholder="Avenue, Numéro, Quartier" id="adresse1">
+          </div>
+          <div class="form-group">
+            <label>Adresse secondaire</label>
+            <input type="text" placeholder="Complément d'adresse (optionnel)" id="adresse2">
+          </div>
+          <div class="form-group">
+            <label>Numéro de téléphone <span class="required">*</span></label>
+            <input type="tel" placeholder="+243 000 000 000" id="telephone">
+          </div>
+          <div class="form-group">
+            <label>Adresse email <span class="info">(optionnel)</span></label>
+            <input type="email" placeholder="exemple@email.com" id="email">
+          </div>
+          <div class="form-nav">
+            <button class="btn-precedent" onclick="allerEtape(1)">← Précédent</button>
+            <button class="btn-suivant" onclick="allerEtape(3)">Suivant →</button>
+          </div>
+        </div>
+
+        <!-- FORMULAIRE ETAPE 3 : ACADEMIQUE -->
+        <div id="form-etape-3" class="form-etape">
+          <h3>Informations académiques</h3>
+          <div class="form-group">
+            <label>École de provenance <span class="required">*</span></label>
+            <input type="text" placeholder="Nom de votre école / lycée" id="ecole">
+          </div>
+          <div class="form-group">
+            <label>Spécialité sollicitée <span class="required">*</span></label>
+            <select id="specialite">
+              <option value="">-- Choisir une filière --</option>
+              <optgroup label="Faculté de Théologie">
+                <option>Missiologie</option>
+                <option>Théologie Pratique</option>
+                <option>Théologie Systématique</option>
+                <option>Théologie Biblique AT & NT</option>
+              </optgroup>
+              <optgroup label="Sciences Informatiques">
+                <option>Gestion Informatique</option>
+                <option>Réseau & Télécom</option>
+                <option>Génie Logicielle</option>
+                <option>Design</option>
+              </optgroup>
+              <optgroup label="Sciences Économiques">
+                <option>Gestion des Ressources Humaines</option>
+                <option>Finances, Banque & Comptabilité</option>
+                <option>Gestion Marketing</option>
+                <option>Entrepreneuriat</option>
+                <option>Douane</option>
+              </optgroup>
+              <optgroup label="Sciences de l'Éducation & Psychologie">
+                <option>Sciences de l'Éducation</option>
+                <option>Psychologie</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Niveau souhaité <span class="required">*</span></label>
+            <select id="niveau">
+              <option value="">-- Choisir --</option>
+              <option>Licence (Bac)</option>
+              <option>Master</option>
+            </select>
+          </div>
+          <div class="form-checkboxes">
+            <label class="checkbox-label">
+              <input type="checkbox" id="redoublant"> Redoublant
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="professionnel"> En activité professionnelle
+            </label>
+          </div>
+          <div class="form-nav">
+            <button class="btn-precedent" onclick="allerEtape(2)">← Précédent</button>
+            <button class="btn-suivant" onclick="allerEtape(4)">Suivant →</button>
+          </div>
+        </div>
+
+        <!-- FORMULAIRE ETAPE 4 : REFERENCE -->
+        <div id="form-etape-4" class="form-etape">
+          <h3>Personne de référence</h3>
+          <p class="form-sous-titre">Parent, tuteur ou personne à contacter en cas d'urgence</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Nom <span class="required">*</span></label>
+              <input type="text" placeholder="Nom" id="ref-nom">
+            </div>
+            <div class="form-group">
+              <label>Post-nom</label>
