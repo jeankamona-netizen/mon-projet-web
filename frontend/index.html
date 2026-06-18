@@ -3,56 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Université Méthodiste de Lubumbashi — Inscription, facultés, espace étudiant">
   <title>Université Méthodiste de Lubumbashi</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-  <!-- NAVBAR -->
+  <!-- ========== NAVBAR ========== -->
   <nav class="navbar">
     <div class="nav-container">
-      <div class="nav-brand">
+
+      <a href="#accueil" class="nav-brand">
         <img src="img/logo.png" alt="Logo UML" class="nav-logo">
         <div>
           <span class="brand-name">Université Méthodiste de Lubumbashi</span>
           <span class="brand-devise">Scientia, Sanctitas et Veritas</span>
         </div>
-      </div>
+      </a>
+
       <ul class="nav-links">
         <li><a href="#accueil">Accueil</a></li>
         <li><a href="#facultes">Facultés</a></li>
-        <li><a href="#actualites">Actualités</a></li>
+        <li><a href="#galerie">Galerie</a></li>
+        <li><a href="#lmd">LMD</a></li>
         <li><a href="#contact">Contact</a></li>
       </ul>
+
       <a href="login.html" class="btn-connexion">Connexion</a>
+
     </div>
   </nav>
 
-  <!-- SLIDER HERO -->
-<section class="slider" id="accueil">
-   
-    <div class="slides">
-      <div class="slide active" style="background-image: url('img/corps.jpg')">
-        <div class="slide-overlay">
-          <h1>Université Méthodiste de Lubumbashi</h1>
-          <p class="slide-devise">Devise : Intégrité, Efficacité & Excellence Académique</p>
-          <p class="slide-lmd">Système LMD — Licence · Master · Doctorat</p>
-          <div class="slide-btns">
-            <a href="login.html" class="btn-primary">Faire une pré-inscription</a>
-            <a href="#facultes" class="btn-outline">Nos facultés</a>
-          </div>
-        </div>
+  <!-- ========== HERO ========== -->
+  <section class="hero" id="accueil">
+      <div class="hero-overlay">
+      <h1>Université Méthodiste de Lubumbashi</h1>
+      <p class="hero-devise">Intégrité, Efficacité &amp; Excellence Académique</p>
+      <span class="hero-lmd">Système LMD — Licence · Master · Doctorat</span>
+      <div class="hero-btns">
+        <a href="login.html" class="btn-primary">Faire une pré-inscription</a>
+        <a href="#facultes" class="btn-outline">Nos facultés</a>
       </div>
+    </div>
+  </section>
 
-</section>
+  <!-- ========== TICKER ========== -->
+  <div class="ticker-section">
+    <span class="ticker-label">📢 Actualités</span>
+    <div class="ticker-wrap">
+      <div class="ticker">
+        <span class="ticker-item">📅 Début des inscriptions :du 01/08 au 09/09/2026</span>
+        <span class="ticker-item">🎓 Dernière délibération pour l'année académique 2025-2026 : 01/09/2026</span>
+        <span class="ticker-item">🏆 Félicitations aux lauréats de la collation des grades 2025 !</span>
+        <span class="ticker-item">📅 Début des cours en présentiel : lundi 10/09/2026</span>
+        <span class="ticker-item">🎓 Rentrée académique 2025-2026 : 01/09/2025</span>
+        <span class="ticker-item">🏆 Félicitations aux lauréats de la collation des grades 2025 !</span>
+      </div>
+    </div>
+  </div>
 
-
-
-  <!-- FACULTES -->
+  <!-- ========== FACULTES ========== -->
   <section class="facultes" id="facultes">
     <div class="container">
       <h2>Facultés organisées</h2>
-      <p class="section-sous-titre">L'UML propose 4 facultés avec plusieurs filières spécialisées</p>
+      <p class="sous-titre">4 facultés avec plusieurs filières spécialisées</p>
       <div class="facultes-grid">
 
         <div class="faculte-card">
@@ -63,9 +77,9 @@
             <li>✓ Missiologie</li>
             <li>✓ Théologie Pratique</li>
             <li>✓ Théologie Systématique</li>
-            <li>✓ Théologie Biblique AT & NT</li>
+            <li>✓ Théologie Biblique AT &amp; NT</li>
           </ul>
-           <div class="master-badge">Master disponible</div>
+          <div class="master-badge">Master disponible</div>
         </div>
 
         <div class="faculte-card">
@@ -73,12 +87,12 @@
             <h3>Sciences Informatiques</h3>
           </div>
           <ul class="filieres">
-            <li>✓ Gestion</li>
-            <li>✓ Réseau & Télécom</li>
+            <li>✓ Gestion Informatique</li>
+            <li>✓ Réseau &amp; Télécom</li>
             <li>✓ Génie Logicielle</li>
             <li>✓ Design</li>
           </ul>
-           <div class="master-badge">Master disponible</div>
+          <div class="master-badge">Master disponible</div>
         </div>
 
         <div class="faculte-card">
@@ -87,7 +101,7 @@
           </div>
           <ul class="filieres">
             <li>✓ Gestion des Ressources Humaines</li>
-            <li>✓ Finances, Banque & Comptabilité</li>
+            <li>✓ Finances, Banque &amp; Comptabilité</li>
             <li>✓ Gestion Marketing</li>
             <li>✓ Entrepreneuriat</li>
             <li>✓ Douane</li>
@@ -96,170 +110,154 @@
 
         <div class="faculte-card">
           <div class="faculte-header education">
-            <h3>Sciences de l'Éducation & Psychologie</h3>
+            <h3>Sciences de l'Éducation &amp; Psychologie</h3>
           </div>
           <ul class="filieres">
             <li>✓ Sciences de l'Éducation</li>
             <li>✓ Psychologie</li>
           </ul>
-         
         </div>
 
       </div>
     </div>
   </section>
 
-  <!-- SYSTEME LMD -->
-  <section class="lmd">
+  <!-- ========== GALERIE ========== -->
+  <section class="galerie" id="galerie">
+    <div class="container">
+      <h2>Vie universitaire</h2>
+      <p class="sous-titre">Découvrez l'UML à travers ses événements et activités</p>
+      <div class="galerie-grid">
+
+        <div class="galerie-card grand">
+          <img src="img/collation.jpg" alt="Collation des grades UML" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag">Cérémonie</span>
+            <p>Collation des grades — promotion 2025</p>
+          </div>
+        </div>
+
+        <div class="galerie-card">
+          <img src="img/collation2.jpg" alt="Diplômés UML" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag">Diplômés</span>
+            <p>Nos lauréats fiers et diplômés</p>
+          </div>
+        </div>
+
+        <div class="galerie-card">
+          <img src="img/grade.jpg" alt="Remise de diplôme" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag">Remise</span>
+            <p>Remise officielle des diplômes</p>
+          </div>
+        </div>
+
+        <div class="galerie-card">
+          <img src="img/corps.jpg" alt="Corps académique UML" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag">Équipe</span>
+            <p>Notre corps académique dévoué</p>
+          </div>
+        </div>
+
+        <div class="galerie-card">
+          <img src="img/salle.jpg" alt="Salle informatique UML" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag">Infrastructures</span>
+            <p>Salle informatique équipée</p>
+          </div>
+        </div>
+
+        <div class="galerie-card grand">
+          <img src="img/cours.jpg" alt="Déroulement des cours à l'UML" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag">Dispense de cours</span>
+            <p>Université Méthodiste de Lubumbashi</p>
+          </div>
+        </div>
+
+        
+        <div class="galerie-card">
+          <img src="img/acquisition.jpg" alt="Acquisition de nouvelles machines pour la salle informatique" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag">Acquisition</span>
+            <p>Modernisation des infrastructures informatiques</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+
+<!-- LIGHTBOX -->
+  <div class="lightbox" id="lightbox">
+    <button class="lb-fermer" onclick="fermerLightbox()">✕</button>
+    <button class="lb-prev" onclick="changerPhoto(-1)">&#8249;</button>
+    <div class="lb-contenu">
+      <img id="lb-img" src="" alt="">
+      <p id="lb-legende"></p>
+    </div>
+    <button class="lb-next" onclick="changerPhoto(1)">&#8250;</button>
+  </div>
+
+
+  <!-- ========== SYSTEME LMD ========== -->
+  <section class="lmd" id="lmd">
     <div class="container">
       <h2>Système LMD</h2>
-      <p class="section-sous-titre">L'UML applique le système Licence - Master - Doctorat reconnu internationalement</p>
+      <p class="sous-titre">Licence · Master · Doctorat — reconnu internationalement</p>
       <div class="lmd-grid">
+
         <div class="lmd-card">
-          <div class="lmd-lettre bleu">L</div>
+          <div class="lmd-lettre jaune">L</div>
           <h3>Licence</h3>
-          <p>3 ans d'études après le diplôme d'État. Formation générale et spécialisée dans votre filière.</p>
-          <div class="lmd-frais">Frais : 350$ payable en tranches</div>
+          <p>3 ans après le diplôme d'État. Formation générale et spécialisée dans votre filière.</p>
+          <div class="lmd-frais">350$ — payable en tranches</div>
           <div class="lmd-inscription">Inscription : 20$ + Rame papiers</div>
         </div>
+
         <div class="lmd-card">
           <div class="lmd-lettre vert">M</div>
           <h3>Master</h3>
           <p>2 ans après la Licence. Approfondissement et spécialisation dans votre domaine.</p>
-          <div class="lmd-frais">Frais : 500$ payable en tranches</div>
+          <div class="lmd-frais">500$ — payable en tranches</div>
           <div class="lmd-inscription">Inscription : 50$ + Rame papiers</div>
         </div>
+
         <div class="lmd-card">
           <div class="lmd-lettre rouge">D</div>
           <h3>Doctorat</h3>
           <p>Recherche avancée après le Master. Formation des enseignants et chercheurs.</p>
-          <div class="lmd-frais">Disponible en Théologie & Informatique</div>
+          <div class="lmd-frais">Théologie &amp; Informatique</div>
           <div class="lmd-inscription">Contactez l'administration</div>
         </div>
+
       </div>
     </div>
   </section>
-<!-- ACTUALITES BANNIERE -->
-<section class="actualites" id="actualites">
-  <div class="actu-header">
-    <span class="actu-label">📢 Actualités</span>
-  </div>
-  <div class="ticker-wrap">
-    <div class="ticker">
-      <span class="ticker-item">📅 Début des inscriptions : 01/09/2026</span>
-      <span class="ticker-item">🎓 Rentrée académique 2025-2026 : 06/10/2025</span>
-      <span class="ticker-item">🏆 Cérémonie de collation des grades pour la licence édition 2025-2026 — ce vendredi 10 octobre 2026</span>
-      
-      <span class="ticker-item">🎓 Rentrée académique 2025-2026 : 06/10/2026</span>
-      <span class="ticker-item">🏆 Cérémonie de collation des grades pour le master édition 2025-2026 — ce jeudi 9 octobre 2026</span>
-    </div>
-  </div>
-</section>
 
-<!-- EVENEMENTS -->
-<section class="evenements" id="evenements">
-  <div class="container">
-    <h2>Calendrier des événements</h2>
-    <p class="section-sous-titre">Restez informé des activités et dates importantes de l'UML</p>
-    <div class="events-grid">
-
-      <div class="event-card">
-        <div class="event-img" style="background-image: url('img/collation.jpg')">
-          <div class="event-date">
-            <span class="event-mois">SEP</span>
-            <span class="event-jour">01</span>
-          </div>
-        </div>
-        <div class="event-body">
-          <h4>Début des inscriptions 2025-2026</h4>
-          <p>Les inscriptions pour l'année académique 2025-2026 sont officiellement ouvertes.</p>
-          <div class="event-tags">
-            <span class="tag bleu">Inscriptions</span>
-            <span class="tag vert">Important</span>
-          </div>
-        </div>
+  <!-- ========== CONTACT ========== -->
+  <section class="contact" id="contact">
+    <div class="container">
+      <h2>Nous contacter</h2>
+      <div class="contact-compact">
+        <span class="contact-item">📍 N°249, Croisement Av. Kasavubu &amp; Likasi, Lubumbashi, RDC</span>
+        <span class="contact-item">✉️ contact@uml.ac.cd</span>
+        <span class="contact-item">🕐 Lundi - Vendredi : 7h00 - 17h00</span>
+        <span class="contact-item">📋 Arrêté N° 0173/MINESU/2021</span>
       </div>
-
-      <div class="event-card">
-        <div class="event-img" style="background-image: url('img/corps.jpg')">
-          <div class="event-date">
-            <span class="event-mois">OCT</span>
-            <span class="event-jour">06</span>
-          </div>
-        </div>
-        <div class="event-body">
-          <h4>Rentrée académique 2025-2026</h4>
-          <p>Cérémonie officielle de rentrée académique. Bienvenue à tous les étudiants !</p>
-          <div class="event-tags">
-            <span class="tag bleu">Rentrée</span>
-            <span class="tag jaune">Cérémonie</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="event-card">
-        <div class="event-img" style="background-image: url('img/grade.jpg')">
-          <div class="event-date">
-            <span class="event-mois">DÉC</span>
-            <span class="event-jour">15</span>
-          </div>
-        </div>
-        <div class="event-body">
-          <h4>Collation des grades</h4>
-          <p>Cérémonie solennelle de remise des diplômes aux lauréats de l'UML.</p>
-          <div class="event-tags">
-            <span class="tag rouge">Diplômes</span>
-            <span class="tag vert">Cérémonie</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="event-card">
-        <div class="event-img" style="background-image: url('img/salle.jpg')">
-          <div class="event-date">
-            <span class="event-mois">JAN</span>
-            <span class="event-jour">15</span>
-          </div>
-        </div>
-        <div class="event-body">
-          <h4>Examens session de janvier</h4>
-          <p>Début de la session d'examens du premier semestre pour toutes les promotions.</p>
-          <div class="event-tags">
-            <span class="tag bleu">Examens</span>
-            <span class="tag jaune">Académique</span>
-          </div>
-        </div>
-      </div>
-
     </div>
+  </section>
 
-    <div class="events-btns">
-      <a href="#" class="btn-events">📅 Tous les événements</a>
-      <a href="login.html" class="btn-events-outline">🎓 Faire une pré-inscription</a>
-    </div>
-  </div>
-</section>
-
-<!-- CONTACT COMPACT -->
-<section class="contact" id="contact">
-  <div class="container">
-    <h2>Nous contacter</h2>
-    <div class="contact-compact">
-      <div class="contact-item">📍 N°249, Croisement Av. Kasavubu & Likasi, Lubumbashi, RDC</div>
-      <div class="contact-item">✉️ contact@uml.ac.cd</div>
-      <div class="contact-item">🕐 Lundi - Vendredi : 7h00 - 17h00</div>
-      <div class="contact-item">📋 Arrêté N° 0173/MINESU/2021</div>
-    </div>
-  </div>
-</section>
-
-  <!-- FOOTER -->
+  <!-- ========== FOOTER ========== -->
   <footer class="footer">
     <div class="container">
-      
-      <p><strong>Université Méthodiste de Lubumbashi</strong></p>
-      <p style="font-style:italic; color:#f0c020; margin:6px 0;">Scientia, Sanctitas et Veritas</p>
-      <p>© 2026 UML — Tous droits réservés</p>
+    
+      <p class="footer-nom">Université Méthodiste de Lubumbashi</p>
+      <p class="footer-devise">Scientia, Sanctitas et Veritas</p>
+      <p class="footer-copy">© 2026 UML — Tous droits réservés</p>
     </div>
   </footer>
 
