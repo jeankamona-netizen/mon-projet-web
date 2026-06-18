@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Espace Étudiant — UML</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body class="dashboard-body">
+
+  <!-- HEADER -->
+  <header class="dash-header">
+    <div class="dash-header-left">
+      <img src="img/logo.png" alt="Logo UML" class="dash-logo">
+      <div>
+        <span class="dash-brand">Université Méthodiste de Lubumbashi</span>
+        <span class="dash-brand-sub">Espace Étudiant</span>
+      </div>
+    </div>
+    <div class="dash-header-right">
+      <span class="dash-notif">🔔</span>
+      <div class="dash-avatar">JK</div>
+      <a href="index.html" class="dash-deconnexion">Déconnexion</a>
+    </div>
+  </header>
+
+  <!-- LAYOUT PRINCIPAL -->
+  <div class="dash-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="dash-sidebar">
+      <div class="sidebar-profil">
+        <div class="profil-avatar">JK</div>
+        <div class="profil-info">
+          <span class="profil-nom">Jean Kamona</span>
+          <span class="profil-promo">L2 Informatique</span>
+          <span class="profil-annee">2025 - 2026</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" onclick="afficherSection('tableau-de-bord', this)">
+          📊 Tableau de bord
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSection('mes-notes', this)">
+          📝 Mes notes
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSection('horaires', this)">
+          🕐 Horaires
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSection('programme', this)">
+          📚 Programme annuel
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSection('profil', this)">
+          👤 Mon profil
+        </a>
+      </nav>
+    </aside>
+
+    <!-- CONTENU PRINCIPAL -->
+    <main class="dash-main">
+
+      <!-- ===== TABLEAU DE BORD ===== -->
+      <section id="tableau-de-bord" class="dash-section active">
+        <h2>Tableau de bord</h2>
+        <p class="dash-sous-titre">Bienvenue, Jean ! Voici un résumé de votre parcours.</p>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-icon">📈</span>
+            <span class="stat-valeur">13.4</span>
+            <span class="stat-label">Moyenne générale</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">📚</span>
+            <span class="stat-valeur">8</span>
+            <span class="stat-label">Cours ce semestre</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">✅</span>
+            <span class="stat-valeur">6</span>
+            <span class="stat-label">Matières réussies</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">⏳</span>
+            <span class="stat-valeur">2</span>
+            <span class="stat-label">En attente</span>
+          </div>
+        </div>
+
+        <div class="dash-row">
+          <div class="dash-card">
+            <h3>Dernières notes</h3>
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>Matière</th>
+                  <th>Note</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Algorithmique</td>
+                  <td>15/20</td>
+                  <td><span class="badge reussi">Réussi</span></td>
+                </tr>
+                <tr>
+                  <td>Base de données</td>
+                  <td>12/20</td>
+                  <td><span class="badge reussi">Réussi</span></td>
+                </tr>
+                <tr>
+                  <td>Réseaux</td>
+                  <td>08/20</td>
+                  <td><span class="badge echec">Échec</span></td>
+                </tr>
+                <tr>
+                  <td>Programmation Web</td>
+                  <td>—</td>
+                  <td><span class="badge attente">En attente</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="dash-card">
+            <h3>Cours aujourd'hui</h3>
+            <div class="cours-liste">
+              <div class="cours-item">
+                <div class="cours-heure">
+                  <span>07h30</span>
+                  <span>09h30</span>
+                </div>
+                <div class="cours-detail">
+                  <span class="cours-nom">Algorithmique avancée</span>
+                  <span class="cours-info">Prof. Mutombo · Salle A12</span>
+                </div>
+              </div>
+              <div class="cours-item">
+                <div class="cours-heure">
+                  <span>10h00</span>
+                  <span>12h00</span>
+                </div>
+                <div class="cours-detail">
+                  <span class="cours-nom">Base de données</span>
+                  <span class="cours-info">Prof. Kabwe · Salle Info 1</span>
+                </div>
+              </div>
+              <div class="cours-item">
+                <div class="cours-heure">
+                  <span>14h00</span>
+                  <span>16h00</span>
+                </div>
+                <div class="cours-detail">
+                  <span class="cours-nom">Réseaux & Télécom</span>
+                  <span class="cours-info">Prof. Ilunga · Salle B04</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== MES NOTES ===== -->
+      <section id="mes-notes" class="dash-section">
+        <h2>Mes notes</h2>
+        <p class="dash-sous-titre">Résultats académiques — Année 2025-2026</p>
+
+        <div class="filtre-session">
+          <button class="filtre-btn active" onclick="filtrerSession('S1', this)">Semestre 1</button>
+          <button class="filtre-btn" onclick="filtrerSession('S2', this)">Semestre 2</button>
+        </div>
+
+        <div class="dash-card" style="margin-top:20px">
+          <table class="dash-table" id="table-notes">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Matière</th>
+                <th>Crédits</th>
+                <th>Note /20</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody id="notes-body">
+              <tr data-session="S1">
+                <td>INF201</td>
+                <td>Algorithmique avancée</td>
+                <td>4</td>
+                <td>15</td>
+                <td><span class="badge reussi">Réussi</span></td>
+              </tr>
+              <tr data-session="S1">
+                <td>INF202</td>
+                <td>Base de données</td>
+                <td>4</td>
+                <td>12</td>
+                <td><span class="badge reussi">Réussi</span></td>
+              </tr>
+              <tr data-session="S1">
+                <td>INF203</td>
+                <td>Réseaux & Télécom</td>
+                <td>3</td>
+                <td>08</td>
+                <td><span class="badge echec">Échec</span></td>
+              </tr>
+              <tr data-session="S1">
+                <td>INF204</td>
+                <td>Programmation Web</td>
+                <td>4</td>
+                <td>16</td>
+                <td><span class="badge reussi">Réussi</span></td>
+              </tr>
+              <tr data-session="S1">
+                <td>INF205</td>
+                <td>Système d'exploitation</td>
+                <td>3</td>
+                <td>11</td>
+                <td><span class="badge reussi">Réussi</span></td>
+              </tr>
+              <tr data-session="S2">
+                <td>INF206</td>
+                <td>Intelligence artificielle</td>
+                <td>4</td>
+                <td>—</td>
+                <td><span class="badge attente">En attente</span></td>
+              </tr>
+              <tr data-session="S2">
+                <td>INF207</td>
+                <td>Génie logiciel</td>
+                <td>4</td>
+                <td>—</td>
+                <td><span class="badge attente">En attente</span></td>
+              </tr>
+              <tr data-session="S2">
+                <td>INF208</td>
+                <td>Sécurité informatique</td>
+                <td>3</td>
+                <td>—</td>
+                <td><span class="badge attente">En attente</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="notes-resume">
+          <div class="resume-item">
+            <span class="resume-label">Moyenne S1</span>
+            <span class="resume-valeur">12.4 / 20</span>
+          </div>
+          <div class="resume-item">
+            <span class="resume-label">Crédits validés</span>
+            <span class="resume-valeur">14 / 18</span>
+          </div>
+          <div class="resume-item">
+            <span class="resume-label">Mention</span>
+            <span class="resume-valeur">Assez bien</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== HORAIRES ===== -->
+      <section id="horaires" class="dash-section">
+        <h2>Horaires de la semaine</h2>
+        <p class="dash-sous-titre">Semaine du 16 au 20 juin 2026</p>
+
+        <div class="dash-card">
+          <table class="dash-table horaire-table">
+            <thead>
+              <tr>
+                <th>Jour</th>
+                <th>Heure</th>
+                <th>Cours</th>
+                <th>Professeur</th>
+                <th>Salle</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="jour-badge">Lundi</span></td>
+                <td>07h30 – 09h30</td>
+                <td>Algorithmique avancée</td>
+                <td>Prof. Mutombo</td>
+                <td>Salle A12</td>
+              </tr>
+              <tr>
+                <td><span class="jour-badge">Lundi</span></td>
+                <td>10h00 – 12h00</td>
+                <td>Base de données</td>
+                <td>Prof. Kabwe</td>
+                <td>Info 1</td>
+              </tr>
+              <tr>
+                <td><span class="jour-badge">Mardi</span></td>
+                <td>07h30 – 09h30</td>
+                <td>Réseaux & Télécom</td>
+                <td>Prof. Ilunga</td>
+                <td>Salle B04</td>
+              </tr>
+              <tr>
+                <td><span class="jour-badge">Mardi</span></td>
+                <td>14h00 – 16h00</td>
+                <td>Programmation Web</td>
+                <td>Prof. Kasongo</td>
+                <td>Info 2</td>
+              </tr>
+              <tr>
+                <td><span class="jour-badge">Mercredi</span></td>
+                <td>07h30 – 09h30</td>
+                <td>Système d'exploitation</td>
+                <td>Prof. Mbuyi</td>
+                <td>Salle A08</td>
+              </tr>
+              <tr>
+                <td><span class="jour-badge">Jeudi</span></td>
+                <td>10h00 – 12h00</td>
+                <td>Intelligence artificielle</td>
+                <td>Prof. Tshimanga</td>
+                <td>Info 1</td>
+              </tr>
+              <tr>
+                <td><span class="jour-badge">Vendredi</span></td>
+                <td>07h30 – 09h30</td>
+                <td>Génie logiciel</td>
+                <td>Prof. Luboya</td>
+                <td>Salle A12</td>
+              </tr>
+              <tr>
+                <td><span class="jour-badge">Vendredi</span></td>
+                <td>10h00 – 12h00</td>
+                <td>Sécurité informatique</td>
+                <td>Prof. Kabamba</td>
+                <td>Info 2</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== PROGRAMME ANNUEL ===== -->
+      <section id="programme" class="dash-section">
+        <h2>Programme annuel</h2>
+        <p class="dash-sous-titre">Tous les cours de l'année — L2 Sciences Informatiques</p>
+
+        <div class="dash-row">
+          <div class="dash-card">
+            <h3>Semestre 1</h3>
+            <div class="prog-liste">
+              <div class="prog-item">
+                <span class="prog-code">INF201</span>
+                <span class="prog-nom">Algorithmique avancée</span>
+                <span class="prog-credits">4 crédits</span>
+              </div>
+              <div class="prog-item">
+                <span class="prog-code">INF202</span>
+                <span class="prog-nom">Base de données</span>
+                <span class="prog-credits">4 crédits</span>
+              </div>
+              <div class="prog-item">
+                <span class="prog-code">INF203</span>
+                <span class="prog-nom">Réseaux & Télécom</span>
+                <span class="prog-credits">3 crédits</span>
+              </div>
+              <div class="prog-item">
+                <span class="prog-code">INF204</span>
+                <span class="prog-nom">Programmation Web</span>
+                <span class="prog-credits">4 crédits</span>
+              </div>
+              <div class="prog-item">
+                <span class="prog-code">INF205</span>
+                <span class="prog-nom">Système d'exploitation</span>
+                <span class="prog-credits">3 crédits</span>
+              </div>
+              <div class="prog-total">
+                Total : 18 crédits
+              </div>
+            </div>
+          </div>
+
+          <div class="dash-card">
+            <h3>Semestre 2</h3>
+            <div class="prog-liste">
+              <div class="prog-item">
+                <span class="prog-code">INF206</span>
+                <span class="prog-nom">Intelligence artificielle</span>
+                <span class="prog-credits">4 crédits</span>
+              </div>
+              <div class="prog-item">
+                <span class="prog-code">INF207</span>
+                <span class="prog-nom">Génie logiciel</span>
+                <span class="prog-credits">4 crédits</span>
+              </div>
+              <div class="prog-item">
+                <span class="prog-code">INF208</span>
+                <span class="prog-nom">Sécurité informatique</span>
+                <span class="prog-credits">3 crédits</span>
+              </div>
+              <div class="prog-item">
+                <span class="prog-code">INF209</span>
+                <span class="prog-nom">Projet de fin d'année</span>
+                <span class="prog-credits">6 crédits</span>
+              </div>
+              <div class="prog-item">
+                <span class="prog-code">INF210</span>
+                <span class="prog-nom">Stage professionnel</span>
+                <span class="prog-credits">3 crédits</span>
+              </div>
+              <div class="prog-total">
+                Total : 20 crédits
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== PROFIL ===== -->
+      <section id="profil" class="dash-section">
+        <h2>Mon profil</h2>
+        <p class="dash-sous-titre">Vos informations personnelles et académiques</p>
+
+        <div class="dash-row">
+          <div class="dash-card">
+            <h3>Informations personnelles</h3>
+            <div class="profil-details">
+              <div class="profil-ligne">
+                <span class="profil-cle">Nom complet</span>
+                <span class="profil-val">Jean Kamona Netizen</span>
+              </div>
+              <div class="profil-ligne">
+                <span class="profil-cle">Date de naissance</span>
+                <span class="profil-val">01/01/2000</span>
+              </div>
+              <div class="profil-ligne">
+                <span class="profil-cle">Nationalité</span>
+                <span class="profil-val">Congolaise</span>
+              </div>
+              <div class="profil-ligne">
+                <span class="profil-cle">Téléphone</span>
+                <span class="profil-val">+243 000 000 000</span>
+              </div>
+              <div class="profil-ligne">
+                <span class="profil-cle">Email</span>
+                <span class="profil-val">jean.kamona@ism.edu.sn</span>
+              </div>
+              <div class="profil-ligne">
+                <span class="profil-cle">Adresse</span>
+                <span class="profil-val">Lubumbashi, RDC</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="dash-card">
+            <h3>Informations académiques</h3>
+            <div class="profil-details">
+              <div class="profil-ligne">
+                <span class="profil-cle">Numéro étudiant</span>
+                <span class="profil-val">UML-2024-0012</span>
+              </div>
+              <div class="profil-ligne">
+                <span class="profil-cle">Faculté</span>
+                <span class="profil-val">Sciences Informatiques</span>
+              </div>
+              <div class="profil-ligne">
+                <span class="profil-cle">Filière</span>
+                <span class="profil-val">Génie Logicielle</span>
+              </div>
+              <div class="profil-ligne">
+                <span class="profil-cle">Niveau</span>
+                <span class="profil-val">Licence 2 (L2)</span>
+              </div>
+              <div class="profil-ligne">
+                <span class="profil-cle">Année académique</span>
+                <span class="profil-val">2025 - 2026</span>
+              </div>
+              <div class="profil-ligne">
+                <span class="profil-cle">Statut</span>
+                <span class="profil-val"><span class="badge reussi">Inscrit</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-card" style="margin-top:20px">
+          <h3>Modifier le mot de passe</h3>
+          <div class="mdp-form">
+            <div class="form-group-dash">
+              <label>Mot de passe actuel</label>
+              <input type="password" placeholder="••••••••">
+            </div>
+            <div class="form-group-dash">
+              <label>Nouveau mot de passe</label>
+              <input type="password" placeholder="••••••••">
+            </div>
+            <div class="form-group-dash">
+              <label>Confirmer le nouveau mot de passe</label>
+              <input type="password" placeholder="••••••••">
+            </div>
+            <button class="btn-dash-submit">Mettre à jour</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

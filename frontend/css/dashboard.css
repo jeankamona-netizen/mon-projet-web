@@ -1,0 +1,543 @@
+/* =====================
+   DASHBOARD
+   ===================== */
+.dashboard-body {
+  background: var(--gris);
+  min-height: 100vh;
+}
+
+/* HEADER */
+.dash-header {
+  background: var(--bleu);
+  border-bottom: 3px solid var(--jaune);
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.dash-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dash-logo {
+  height: 44px;
+  width: auto;
+  border-radius: 4px;
+}
+
+.dash-brand {
+  display: block;
+  color: var(--blanc);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dash-brand-sub {
+  display: block;
+  color: var(--jaune);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.dash-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.dash-notif {
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.dash-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--jaune);
+  color: var(--bleu);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dash-deconnexion {
+  color: #ccd9f0;
+  text-decoration: none;
+  font-size: 13px;
+  transition: color 0.2s;
+}
+
+.dash-deconnexion:hover {
+  color: var(--jaune);
+}
+
+/* LAYOUT */
+.dash-layout {
+  display: flex;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+/* SIDEBAR */
+.dash-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--blanc);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  position: sticky;
+  top: 84px;
+}
+
+.sidebar-profil {
+  background: var(--bleu);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.profil-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--jaune);
+  color: var(--bleu);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.profil-nom {
+  display: block;
+  color: var(--blanc);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.profil-promo {
+  display: block;
+  color: #ccd9f0;
+  font-size: 12px;
+}
+
+.profil-annee {
+  display: block;
+  color: var(--jaune);
+  font-size: 11px;
+}
+
+.sidebar-nav {
+  padding: 8px 0;
+}
+
+.nav-item {
+  display: block;
+  padding: 11px 18px;
+  font-size: 13px;
+  color: #555;
+  text-decoration: none;
+  transition: all 0.2s;
+  border-left: 3px solid transparent;
+}
+
+.nav-item:hover {
+  background: var(--gris);
+  color: var(--bleu);
+}
+
+.nav-item.active {
+  background: #eef2ff;
+  color: var(--bleu);
+  border-left-color: var(--bleu);
+  font-weight: 600;
+}
+
+/* MAIN */
+.dash-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* SECTIONS */
+.dash-section {
+  display: none;
+}
+
+.dash-section.active {
+  display: block;
+}
+
+.dash-section h2 {
+  font-size: 22px;
+  color: var(--bleu);
+  text-align: left;
+  margin-bottom: 4px;
+}
+
+.dash-sous-titre {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 24px;
+}
+
+/* STATS */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--blanc);
+  border-radius: 10px;
+  padding: 18px 14px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-icon {
+  font-size: 24px;
+}
+
+.stat-valeur {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--bleu);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #888;
+}
+
+/* CARDS */
+.dash-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.dash-card {
+  background: var(--blanc);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.dash-card h3 {
+  font-size: 15px;
+  color: var(--bleu);
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--gris);
+}
+
+/* TABLE */
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.dash-table th {
+  text-align: left;
+  padding: 8px 10px;
+  color: #888;
+  font-weight: 600;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 12px;
+}
+
+.dash-table td {
+  padding: 10px 10px;
+  color: #333;
+  border-bottom: 1px solid #f8f8f8;
+}
+
+.dash-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* BADGES */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.badge.reussi {
+  background: #e8f5e8;
+  color: var(--vert);
+}
+
+.badge.echec {
+  background: #fde8e8;
+  color: var(--rouge);
+}
+
+.badge.attente {
+  background: #fef8e0;
+  color: #8a6d00;
+}
+
+/* COURS DU JOUR */
+.cours-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cours-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 10px;
+  background: var(--gris);
+  border-radius: 8px;
+  border-left: 3px solid var(--bleu);
+}
+
+.cours-heure {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: #888;
+  min-width: 42px;
+  text-align: center;
+}
+
+.cours-detail {
+  display: flex;
+  flex-direction: column;
+}
+
+.cours-nom {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bleu);
+}
+
+.cours-info {
+  font-size: 12px;
+  color: #888;
+}
+
+/* FILTRES SESSION */
+.filtre-session {
+  display: flex;
+  gap: 8px;
+}
+
+.filtre-btn {
+  padding: 7px 18px;
+  border: 1.5px solid #ddd;
+  border-radius: 6px;
+  background: var(--blanc);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #555;
+}
+
+.filtre-btn.active {
+  background: var(--bleu);
+  color: var(--blanc);
+  border-color: var(--bleu);
+}
+
+/* NOTES RESUME */
+.notes-resume {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.resume-item {
+  background: var(--blanc);
+  border-radius: 8px;
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+.resume-label {
+  font-size: 12px;
+  color: #888;
+}
+
+.resume-valeur {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bleu);
+}
+
+/* HORAIRE TABLE */
+.horaire-table td:first-child {
+  white-space: nowrap;
+}
+
+.jour-badge {
+  background: var(--bleu);
+  color: var(--blanc);
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* PROGRAMME */
+.prog-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prog-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--gris);
+  border-radius: 7px;
+}
+
+.prog-code {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--blanc);
+  background: var(--bleu);
+  padding: 2px 8px;
+  border-radius: 4px;
+  min-width: 56px;
+  text-align: center;
+}
+
+.prog-nom {
+  flex: 1;
+  font-size: 13px;
+  color: #333;
+}
+
+.prog-credits {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+}
+
+.prog-total {
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bleu);
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+  margin-top: 4px;
+}
+
+/* PROFIL DETAILS */
+.profil-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.profil-ligne {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f5f5f5;
+  font-size: 13px;
+}
+
+.profil-ligne:last-child {
+  border-bottom: none;
+}
+
+.profil-cle {
+  color: #888;
+  font-weight: 500;
+}
+
+.profil-val {
+  color: #333;
+  font-weight: 500;
+  text-align: right;
+}
+
+/* FORMULAIRE MOT DE PASSE */
+.mdp-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  align-items: end;
+}
+
+.form-group-dash {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-group-dash label {
+  font-size: 12px;
+  color: #555;
+  font-weight: 600;
+}
+
+.form-group-dash input {
+  padding: 9px 12px;
+  border: 1.5px solid #ddd;
+  border-radius: 7px;
+  font-size: 13px;
+  transition: border-color 0.2s;
+}
+
+.form-group-dash input:focus {
+  outline: none;
+  border-color: var(--bleu);
+}
+
+.btn-dash-submit {
+  background: var(--bleu);
+  color: var(--blanc);
+  border: none;
+  border-radius: 7px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+  height: fit-content;
+}
+
+.btn-dash-submit:hover {
+  background: #122d57;
+}
