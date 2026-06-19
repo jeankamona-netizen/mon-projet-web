@@ -415,95 +415,145 @@
         </div>
       </section>
 
-      <!-- ===== PROFIL ===== -->
-      <section id="profil" class="dash-section">
-        <h2>Mon profil</h2>
-        <p class="dash-sous-titre">Vos informations personnelles et académiques</p>
 
-        <div class="dash-row">
-          <div class="dash-card">
-            <h3>Informations personnelles</h3>
-            <div class="profil-details">
-              <div class="profil-ligne">
-                <span class="profil-cle">Nom complet</span>
-                <span class="profil-val">Jean Kamona Netizen</span>
-              </div>
-              <div class="profil-ligne">
-                <span class="profil-cle">Date de naissance</span>
-                <span class="profil-val">01/01/2000</span>
-              </div>
-              <div class="profil-ligne">
-                <span class="profil-cle">Nationalité</span>
-                <span class="profil-val">Congolaise</span>
-              </div>
-              <div class="profil-ligne">
-                <span class="profil-cle">Téléphone</span>
-                <span class="profil-val">+243 000 000 000</span>
-              </div>
-              <div class="profil-ligne">
-                <span class="profil-cle">Email</span>
-                <span class="profil-val">jean.kamona@ism.edu.sn</span>
-              </div>
-              <div class="profil-ligne">
-                <span class="profil-cle">Adresse</span>
-                <span class="profil-val">Lubumbashi, RDC</span>
-              </div>
-            </div>
-          </div>
+<!-- ===== PROFIL ===== -->
+<section id="profil" class="dash-section">
+  <h2>Mon profil</h2>
+  <p class="dash-sous-titre">Vos informations personnelles et académiques</p>
 
-          <div class="dash-card">
-            <h3>Informations académiques</h3>
-            <div class="profil-details">
-              <div class="profil-ligne">
-                <span class="profil-cle">Numéro étudiant</span>
-                <span class="profil-val">UML-2024-0012</span>
-              </div>
-              <div class="profil-ligne">
-                <span class="profil-cle">Faculté</span>
-                <span class="profil-val">Sciences Informatiques</span>
-              </div>
-              <div class="profil-ligne">
-                <span class="profil-cle">Filière</span>
-                <span class="profil-val">Génie Logicielle</span>
-              </div>
-              <div class="profil-ligne">
-                <span class="profil-cle">Niveau</span>
-                <span class="profil-val">Licence 2 (L2)</span>
-              </div>
-              <div class="profil-ligne">
-                <span class="profil-cle">Année académique</span>
-                <span class="profil-val">2025 - 2026</span>
-              </div>
-              <div class="profil-ligne">
-                <span class="profil-cle">Statut</span>
-                <span class="profil-val"><span class="badge reussi">Inscrit</span></span>
-              </div>
-            </div>
-          </div>
+  <div class="dash-row">
+
+    <!-- INFOS PERSONNELLES -->
+    <div class="dash-card">
+      <div class="card-header-action">
+        <h3>Informations personnelles</h3>
+        <button class="btn-edit" id="btn-edit-perso" onclick="toggleEdit('perso')">
+          ✏️ Modifier
+        </button>
+      </div>
+
+      <div class="profil-details" id="view-perso">
+        <div class="profil-ligne">
+          <span class="profil-cle">Nom complet</span>
+          <span class="profil-val" id="v-nom">Jean Kamona Netizen</span>
         </div>
-
-        <div class="dash-card" style="margin-top:20px">
-          <h3>Modifier le mot de passe</h3>
-          <div class="mdp-form">
-            <div class="form-group-dash">
-              <label>Mot de passe actuel</label>
-              <input type="password" placeholder="••••••••">
-            </div>
-            <div class="form-group-dash">
-              <label>Nouveau mot de passe</label>
-              <input type="password" placeholder="••••••••">
-            </div>
-            <div class="form-group-dash">
-              <label>Confirmer le nouveau mot de passe</label>
-              <input type="password" placeholder="••••••••">
-            </div>
-            <button class="btn-dash-submit">Mettre à jour</button>
-          </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Date de naissance</span>
+          <span class="profil-val" id="v-ddn">01/01/2000</span>
         </div>
-      </section>
+        <div class="profil-ligne">
+          <span class="profil-cle">Nationalité</span>
+          <span class="profil-val" id="v-nationalite">Congolaise</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Téléphone</span>
+          <span class="profil-val" id="v-tel">+243 000 000 000</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Email</span>
+          <span class="profil-val" id="v-email">jean.kamona@ism.edu.sn</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Adresse</span>
+          <span class="profil-val" id="v-adresse">Lubumbashi, RDC</span>
+        </div>
+      </div>
 
-    </main>
+      <!-- FORMULAIRE EDITION -->
+      <div class="profil-edit-form" id="edit-perso" style="display:none">
+        <div class="form-group-dash">
+          <label>Nom complet</label>
+          <input type="text" id="e-nom" value="Jean Kamona Netizen">
+        </div>
+        <div class="form-group-dash">
+          <label>Date de naissance</label>
+          <input type="date" id="e-ddn" value="2000-01-01">
+        </div>
+        <div class="form-group-dash">
+          <label>Nationalité</label>
+          <input type="text" id="e-nationalite" value="Congolaise">
+        </div>
+        <div class="form-group-dash">
+          <label>Téléphone</label>
+          <input type="tel" id="e-tel" value="+243 000 000 000">
+        </div>
+        <div class="form-group-dash">
+          <label>Email</label>
+          <input type="email" id="e-email" value="jean.kamona@ism.edu.sn">
+        </div>
+        <div class="form-group-dash">
+          <label>Adresse</label>
+          <input type="text" id="e-adresse" value="Lubumbashi, RDC">
+        </div>
+        <div class="edit-actions">
+          <button class="btn-annuler" onclick="annulerEdit('perso')">Annuler</button>
+          <button class="btn-sauvegarder" onclick="sauvegarder('perso')">✅ Sauvegarder</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INFOS ACADEMIQUES -->
+    <div class="dash-card">
+      <div class="card-header-action">
+        <h3>Informations académiques</h3>
+        <span class="badge attente" style="font-size:11px">Non modifiable</span>
+      </div>
+      <div class="profil-details">
+        <div class="profil-ligne">
+          <span class="profil-cle">Numéro étudiant</span>
+          <span class="profil-val">UML-2024-0012</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Faculté</span>
+          <span class="profil-val">Sciences Informatiques</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Filière</span>
+          <span class="profil-val">Génie Logicielle</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Niveau</span>
+          <span class="profil-val">Licence 2 (L2)</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Année académique</span>
+          <span class="profil-val">2025 - 2026</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Statut</span>
+          <span class="profil-val"><span class="badge reussi">Inscrit</span></span>
+        </div>
+      </div>
+    </div>
   </div>
+
+  <!-- MOT DE PASSE -->
+  <div class="dash-card" style="margin-top:20px">
+    <div class="card-header-action">
+      <h3>Modifier le mot de passe</h3>
+    </div>
+    <div class="mdp-form">
+      <div class="form-group-dash">
+        <label>Mot de passe actuel</label>
+        <input type="password" id="mdp-actuel" placeholder="••••••••">
+      </div>
+      <div class="form-group-dash">
+        <label>Nouveau mot de passe</label>
+        <input type="password" id="mdp-nouveau" placeholder="••••••••">
+      </div>
+      <div class="form-group-dash">
+        <label>Confirmer le mot de passe</label>
+        <input type="password" id="mdp-confirm" placeholder="••••••••">
+      </div>
+      <button class="btn-dash-submit" onclick="changerMotDePasse()">
+        Mettre à jour
+      </button>
+    </div>
+    <p id="mdp-message" style="margin-top:10px;font-size:13px;display:none"></p>
+  </div>
+
+</section>
+
 
   <script src="js/dashboard.js"></script>
 </body>
