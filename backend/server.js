@@ -1,19 +1,26 @@
-// ===== IMPORTATION D'EXPRESS =====
 const express = require('express');
 const app = express();
-
-// ===== PORT D'ÉCOUTE =====
 const PORT = 3000;
 
-// ===== MIDDLEWARE — permet de lire le JSON envoyé par le frontend =====
+// ===== MIDDLEWARE =====
 app.use(express.json());
 
-// ===== ROUTE DE TEST =====
+// ===== IMPORTATION DES ROUTES =====
+const facultesRoutes      = require('./routes/facultes');
+const preinscriptionRoutes = require('./routes/preinscription');
+const authRoutes          = require('./routes/auth');
+
+// ===== BRANCHEMENT DES ROUTES =====
+app.use('/api/facultes', facultesRoutes);
+app.use('/api/preinscription', preinscriptionRoutes);
+app.use('/api/auth', authRoutes);
+
+// ===== ROUTE D'ACCUEIL =====
 app.get('/', (req, res) => {
-  res.send('🎓 Bienvenue sur l\'API de l\'Université Méthodiste de Lubumbashi !');
+  res.send('🎓 API Université Méthodiste de Lubumbashi — opérationnelle');
 });
 
-// ===== DÉMARRAGE DU SERVEUR =====
+// ===== DÉMARRAGE =====
 app.listen(PORT, () => {
   console.log(`✅ Serveur démarré sur http://localhost:${PORT}`);
 });
