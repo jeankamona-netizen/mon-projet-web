@@ -238,3 +238,30 @@
   padding: 3px 9px;
   border-radius: 5px;
 }
+
+.badge.actif {
+  background: #e8f5e8;
+  color: var(--vert);
+}
+
+.badge.inactif {
+  background: #f0f0f0;
+  color: #888;
+}
+
+.type-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 5px;
+}
+
+.type-badge.annonce {
+  background: #e8eef8;
+  color: var(--bleu);
+}
+
+.type-badge.evenement {
+  background: #fef8e0;
+  color: #8a6d00;
+}

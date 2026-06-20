@@ -317,11 +317,109 @@
   </div>
 </div>
 
-      <!-- ANNONCES (squelette) -->
-      <section id="admin-annonces" class="dash-section">
-        <h2>Annonces & événements</h2>
-        <p class="dash-sous-titre">À construire à l'étape suivante</p>
-      </section>
+<!-- ANNONCES & EVENEMENTS -->
+<section id="admin-annonces" class="dash-section">
+  <h2>Annonces & événements</h2>
+  <p class="dash-sous-titre">Ce contenu alimente le bandeau d'actualités et la galerie du site public</p>
+
+  <div class="admin-toolbar">
+    <select class="admin-recherche" id="filtre-type-annonce" style="flex:0 0 180px">
+      <option value="">Tous les types</option>
+      <option value="annonce">Annonce</option>
+      <option value="evenement">Événement</option>
+    </select>
+    <button class="btn-ajouter" onclick="ouvrirModalAnnonce()">+ Nouvelle annonce</button>
+  </div>
+
+  <div class="dash-card">
+    <table class="dash-table" id="table-admin-annonces">
+      <thead>
+        <tr>
+          <th>Titre</th>
+          <th>Type</th>
+          <th>Date</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="admin-annonces-body">
+        <!-- Généré dynamiquement par JS -->
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- MODAL AJOUT/MODIFICATION ANNONCE -->
+<div class="admin-modal-overlay" id="modal-annonce">
+  <div class="admin-modal">
+    <div class="admin-modal-header">
+      <h3 id="modal-annonce-titre">Nouvelle annonce</h3>
+      <button class="admin-modal-close" onclick="fermerModalAnnonce()">✕</button>
+    </div>
+
+    <input type="hidden" id="annonce-id-edit">
+
+    <div class="form-group-dash">
+      <label>Type de contenu</label>
+      <select id="annonce-type">
+        <option value="annonce">Annonce (apparaît dans le bandeau défilant)</option>
+        <option value="evenement">Événement (apparaît dans la galerie)</option>
+      </select>
+    </div>
+
+    <div class="form-group-dash">
+      <label>Titre</label>
+      <input type="text" id="annonce-titre-input" placeholder="ex: Ouverture des inscriptions">
+    </div>
+
+    <div class="form-group-dash">
+      <label>Description courte</label>
+      <input type="text" id="annonce-description" placeholder="ex: Inscriptions ouvertes du 01/08 au 09/09/2026">
+    </div>
+
+    <div class="form-row-admin">
+      <div class="form-group-dash">
+        <label>Date</label>
+        <input type="date" id="annonce-date">
+      </div>
+      <div class="form-group-dash">
+        <label>Icône</label>
+        <select id="annonce-icone">
+          <option value="📅">📅 Calendrier</option>
+          <option value="🎓">🎓 Diplôme</option>
+          <option value="📋">📋 Document</option>
+          <option value="📍">📍 Lieu</option>
+          <option value="🏆">🏆 Trophée</option>
+          <option value="📢">📢 Annonce</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group-dash" id="champ-image-evenement" style="display:none">
+      <label>Photo associée (depuis frontend/img)</label>
+      <select id="annonce-image">
+        <option value="collation.jpg">collation.jpg</option>
+        <option value="collation2.jpg">collation2.jpg</option>
+        <option value="corps.jpg">corps.jpg</option>
+        <option value="cours.jpg">cours.jpg</option>
+        <option value="grade.jpg">grade.jpg</option>
+        <option value="salle.jpg">salle.jpg</option>
+        <option value="acquisition.jpg">acquisition.jpg</option>
+      </select>
+    </div>
+
+    <div class="form-group-dash">
+      <label class="checkbox-label">
+        <input type="checkbox" id="annonce-actif" checked> Visible sur le site (actif)
+      </label>
+    </div>
+
+    <div class="admin-modal-actions">
+      <button class="btn-annuler" onclick="fermerModalAnnonce()">Annuler</button>
+      <button class="btn-sauvegarder" onclick="sauvegarderAnnonce()">✅ Publier</button>
+    </div>
+  </div>
+</div>
 
       <!-- PROGRAMME (squelette) -->
       <section id="admin-programme" class="dash-section">

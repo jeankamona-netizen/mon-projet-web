@@ -396,3 +396,160 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el) el.addEventListener('change', appliquerFiltresHoraires);
   });
 });
+
+// =====================
+// GESTION DES ANNONCES & ÉVÉNEMENTS (admin)
+// =====================
+
+let annoncesAdmin = [
+  { id: 1, type: "annonce", titre: "Début des inscriptions", description: "Du 01/08 au 09/09/2026", date: "2026-08-01", icone: "📅", image: "", actif: true },
+  { id: 2, type: "annonce", titre: "Rentrée académique 2025-2026", description: "Début des cours en présentiel", date: "2026-09-10", icone: "🎓", image: "", actif: true },
+  { id: 3, type: "evenement", titre: "Collation des grades", description: "Cérémonie de remise des diplômes — promotion 2025", date: "2025-12-15", icone: "🏆", image: "collation.jpg", actif: true },
+  { id: 4, type: "evenement", titre: "Modernisation informatique", description: "Acquisition de nouvelles machines pour la salle informatique", date: "2026-06-18", icone: "📋", image: "acquisition.jpg", actif: true },
+];
+let prochainIdAnnonce = 5;
+
+function formatDateAffichage(dateStr) {
+  const [annee, mois, jour] = dateStr.split('-');
+  const mois_noms = ["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Août","Sep","Oct","Nov","Déc"];
+  return `${jour} ${mois_noms[parseInt(mois) - 1]} ${annee}`;
+}
+
+function afficherTableauAnnonces(liste = annoncesAdmin) {
+  const tbody = document.getElementById('admin-annonces-body');
+  if (!tbody) return;
+
+  const triee = [...liste].sort((a, b) => b.date.localeCompare(a.date));
+
+  if (triee.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Aucune annonce pour ces critères.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = triee.map(a => `
+    <tr>
+      <td>${a.icone} ${a.titre}</td>
+      <td><span class="type-badge ${a.type}">${a.type === 'annonce' ? 'Annonce' : 'Événement'}</span></td>
+      <td>${formatDateAffichage(a.date)}</td>
+      <td><span class="badge ${a.actif ? 'actif' : 'inactif'}">${a.actif ? 'Actif' : 'Masqué'}</span></td>
+      <td class="admin-actions-cell">
+        <button class="btn-icone" title="${a.actif ? 'Masquer' : 'Activer'}" onclick="toggleActifAnnonce(${a.id})">${a.actif ? '👁️' : '🚫'}</button>
+        <button class="btn-icone" title="Modifier" onclick="modifierAnnonce(${a.id})">✏️</button>
+        <button class="btn-icone danger" title="Supprimer" onclick="supprimerAnnonce(${a.id})">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ===== AFFICHER/CACHER LE CHAMP IMAGE SELON LE TYPE =====
+function gererAffichageChampImage() {
+  const type = document.getElementById('annonce-type').value;
+  document.getElementById('champ-image-evenement').style.display = type === 'evenement' ? 'block' : 'none';
+}
+
+// ===== OUVRIR LE MODAL (ajout) =====
+function ouvrirModalAnnonce() {
+  document.getElementById('modal-annonce-titre').textContent = 'Nouvelle annonce';
+  document.getElementById('annonce-id-edit').value = '';
+  document.getElementById('annonce-type').value = 'annonce';
+  document.getElementById('annonce-titre-input').value = '';
+  document.getElementById('annonce-description').value = '';
+  document.getElementById('annonce-date').value = '';
+  document.getElementById('annonce-icone').value = '📅';
+  document.getElementById('annonce-image').selectedIndex = 0;
+  document.getElementById('annonce-actif').checked = true;
+  gererAffichageChampImage();
+  document.getElementById('modal-annonce').classList.add('active');
+}
+
+// ===== OUVRIR LE MODAL (modification) =====
+function modifierAnnonce(id) {
+  const a = annoncesAdmin.find(x => x.id === id);
+  if (!a) return;
+
+  document.getElementById('modal-annonce-titre').textContent = 'Modifier l\'annonce';
+  document.getElementById('annonce-id-edit').value = a.id;
+  document.getElementById('annonce-type').value = a.type;
+  document.getElementById('annonce-titre-input').value = a.titre;
+  document.getElementById('annonce-description').value = a.description;
+  document.getElementById('annonce-date').value = a.date;
+  document.getElementById('annonce-icone').value = a.icone;
+  if (a.image) document.getElementById('annonce-image').value = a.image;
+  document.getElementById('annonce-actif').checked = a.actif;
+  gererAffichageChampImage();
+  document.getElementById('modal-annonce').classList.add('active');
+}
+
+// ===== FERMER LE MODAL =====
+function fermerModalAnnonce() {
+  document.getElementById('modal-annonce').classList.remove('active');
+}
+
+// ===== ENREGISTRER (ajout ou modification) =====
+function sauvegarderAnnonce() {
+  const idEdit = document.getElementById('annonce-id-edit').value;
+  const type = document.getElementById('annonce-type').value;
+  const titre = document.getElementById('annonce-titre-input').value.trim();
+  const description = document.getElementById('annonce-description').value.trim();
+  const date = document.getElementById('annonce-date').value;
+  const icone = document.getElementById('annonce-icone').value;
+  const image = type === 'evenement' ? document.getElementById('annonce-image').value : '';
+  const actif = document.getElementById('annonce-actif').checked;
+
+  if (!titre || !description || !date) {
+    alert('⚠️ Veuillez remplir tous les champs obligatoires.');
+    return;
+  }
+
+  if (idEdit) {
+    const a = annoncesAdmin.find(x => x.id === parseInt(idEdit));
+    Object.assign(a, { type, titre, description, date, icone, image, actif });
+    afficherToast('✅ Annonce modifiée avec succès !');
+  } else {
+    annoncesAdmin.push({
+      id: prochainIdAnnonce++,
+      type, titre, description, date, icone, image, actif
+    });
+    afficherToast('✅ Annonce publiée avec succès !');
+  }
+
+  fermerModalAnnonce();
+  appliquerFiltreAnnonces();
+}
+
+// ===== ACTIVER/DESACTIVER =====
+function toggleActifAnnonce(id) {
+  const a = annoncesAdmin.find(x => x.id === id);
+  if (!a) return;
+
+  a.actif = !a.actif;
+  appliquerFiltreAnnonces();
+  afficherToast(a.actif ? '👁️ Annonce activée sur le site' : '🚫 Annonce masquée du site');
+}
+
+// ===== SUPPRIMER =====
+function supprimerAnnonce(id) {
+  if (!confirm('Voulez-vous vraiment supprimer cette annonce définitivement ?')) return;
+
+  annoncesAdmin = annoncesAdmin.filter(a => a.id !== id);
+  appliquerFiltreAnnonces();
+  afficherToast('🗑️ Annonce supprimée.');
+}
+
+// ===== FILTRE PAR TYPE =====
+function appliquerFiltreAnnonces() {
+  const type = document.getElementById('filtre-type-annonce').value;
+  const resultat = type ? annoncesAdmin.filter(a => a.type === type) : annoncesAdmin;
+  afficherTableauAnnonces(resultat);
+}
+
+// ===== INITIALISATION =====
+document.addEventListener('DOMContentLoaded', () => {
+  afficherTableauAnnonces();
+
+  const typeSelect = document.getElementById('annonce-type');
+  if (typeSelect) typeSelect.addEventListener('change', gererAffichageChampImage);
+
+  const filtreType = document.getElementById('filtre-type-annonce');
+  if (filtreType) filtreType.addEventListener('change', appliquerFiltreAnnonces);
+});
