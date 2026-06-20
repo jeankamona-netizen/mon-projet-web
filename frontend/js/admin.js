@@ -553,3 +553,157 @@ document.addEventListener('DOMContentLoaded', () => {
   const filtreType = document.getElementById('filtre-type-annonce');
   if (filtreType) filtreType.addEventListener('change', appliquerFiltreAnnonces);
 });
+
+// =====================
+// GESTION DU PROGRAMME ANNUEL (admin)
+// =====================
+
+let programmeAdmin = [
+  { id: 1, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S1", code: "INF201", nom: "Algorithmique avancée", credits: 4 },
+  { id: 2, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S1", code: "INF202", nom: "Base de données", credits: 4 },
+  { id: 3, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S1", code: "INF203", nom: "Réseaux & Télécom", credits: 3 },
+  { id: 4, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S1", code: "INF204", nom: "Programmation Web", credits: 4 },
+  { id: 5, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S1", code: "INF205", nom: "Système d'exploitation", credits: 3 },
+  { id: 6, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S2", code: "INF206", nom: "Intelligence artificielle", credits: 4 },
+  { id: 7, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S2", code: "INF207", nom: "Génie logiciel", credits: 4 },
+  { id: 8, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S2", code: "INF208", nom: "Sécurité informatique", credits: 3 },
+  { id: 9, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S2", code: "INF209", nom: "Projet de fin d'année", credits: 6 },
+  { id: 10, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S2", code: "INF210", nom: "Stage professionnel", credits: 3 },
+];
+let prochainIdProgramme = 11;
+
+function afficherProgramme() {
+  const annee = document.getElementById('filtre-annee-prog').value || '2025-2026';
+  const promotion = document.getElementById('filtre-promotion-prog').value || 'L2 Informatique';
+
+  const filtres = programmeAdmin.filter(p =>
+    (!document.getElementById('filtre-annee-prog').value || p.annee === annee) &&
+    (!document.getElementById('filtre-promotion-prog').value || p.promotion === promotion)
+  );
+
+  remplirTableProgramme('S1', filtres.filter(p => p.semestre === 'S1'));
+  remplirTableProgramme('S2', filtres.filter(p => p.semestre === 'S2'));
+}
+
+function remplirTableProgramme(semestre, liste) {
+  const tbody = document.getElementById(`prog-${semestre.toLowerCase()}-body`);
+  const totalEl = document.getElementById(`prog-${semestre.toLowerCase()}-total`);
+
+  if (liste.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">Aucun cours pour ces critères.</td></tr>`;
+    totalEl.textContent = '0';
+    return;
+  }
+
+  tbody.innerHTML = liste.map(p => `
+    <tr>
+      <td><span class="annee-badge">${p.code}</span></td>
+      <td>${p.nom}</td>
+      <td>${p.credits}</td>
+      <td class="admin-actions-cell">
+        <button class="btn-icone" title="Modifier" onclick="modifierProgramme(${p.id})">✏️</button>
+        <button class="btn-icone danger" title="Supprimer" onclick="supprimerProgramme(${p.id})">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+
+  const total = liste.reduce((somme, p) => somme + p.credits, 0);
+  totalEl.textContent = total;
+}
+
+// ===== OUVRIR LE MODAL (ajout) =====
+function ouvrirModalProgramme() {
+  document.getElementById('modal-programme-titre').textContent = 'Ajouter un cours au programme';
+  document.getElementById('prog-id-edit').value = '';
+  document.getElementById('prog-promotion').selectedIndex = 0;
+  document.getElementById('prog-annee').value = '2025-2026';
+  document.getElementById('prog-semestre').value = 'S1';
+  document.getElementById('prog-code').value = '';
+  document.getElementById('prog-credits').value = '';
+  document.getElementById('prog-nom').value = '';
+  document.getElementById('modal-programme').classList.add('active');
+}
+
+// ===== OUVRIR LE MODAL (modification) =====
+function modifierProgramme(id) {
+  const p = programmeAdmin.find(x => x.id === id);
+  if (!p) return;
+
+  document.getElementById('modal-programme-titre').textContent = 'Modifier le cours';
+  document.getElementById('prog-id-edit').value = p.id;
+  document.getElementById('prog-promotion').value = p.promotion;
+  document.getElementById('prog-annee').value = p.annee;
+  document.getElementById('prog-semestre').value = p.semestre;
+  document.getElementById('prog-code').value = p.code;
+  document.getElementById('prog-credits').value = p.credits;
+  document.getElementById('prog-nom').value = p.nom;
+  document.getElementById('modal-programme').classList.add('active');
+}
+
+// ===== FERMER LE MODAL =====
+function fermerModalProgramme() {
+  document.getElementById('modal-programme').classList.remove('active');
+}
+
+// ===== ENREGISTRER =====
+function sauvegarderProgramme() {
+  const idEdit = document.getElementById('prog-id-edit').value;
+  const promotion = document.getElementById('prog-promotion').value;
+  const annee = document.getElementById('prog-annee').value;
+  const semestre = document.getElementById('prog-semestre').value;
+  const code = document.getElementById('prog-code').value.trim();
+  const credits = parseInt(document.getElementById('prog-credits').value);
+  const nom = document.getElementById('prog-nom').value.trim();
+
+  if (!code || !nom || !credits || credits < 1) {
+    alert('⚠️ Veuillez remplir tous les champs avec des valeurs valides.');
+    return;
+  }
+
+  // Empêche le doublon de code pour la même promotion/année
+  const doublon = programmeAdmin.find(p =>
+    p.id !== parseInt(idEdit || -1) &&
+    p.code === code &&
+    p.promotion === promotion &&
+    p.annee === annee
+  );
+
+  if (doublon) {
+    alert(`⚠️ Le code ${code} existe déjà dans le programme de ${promotion} (${annee}).`);
+    return;
+  }
+
+  if (idEdit) {
+    const p = programmeAdmin.find(x => x.id === parseInt(idEdit));
+    Object.assign(p, { promotion, annee, semestre, code, nom, credits });
+    afficherToast('✅ Cours du programme modifié !');
+  } else {
+    programmeAdmin.push({
+      id: prochainIdProgramme++,
+      promotion, annee, semestre, code, nom, credits
+    });
+    afficherToast('✅ Cours ajouté au programme !');
+  }
+
+  fermerModalProgramme();
+  afficherProgramme();
+}
+
+// ===== SUPPRIMER =====
+function supprimerProgramme(id) {
+  if (!confirm('Voulez-vous vraiment retirer ce cours du programme ?')) return;
+
+  programmeAdmin = programmeAdmin.filter(p => p.id !== id);
+  afficherProgramme();
+  afficherToast('🗑️ Cours retiré du programme.');
+}
+
+// ===== INITIALISATION =====
+document.addEventListener('DOMContentLoaded', () => {
+  afficherProgramme();
+
+  ['filtre-annee-prog', 'filtre-promotion-prog'].forEach(idFiltre => {
+    const el = document.getElementById(idFiltre);
+    if (el) el.addEventListener('change', afficherProgramme);
+  });
+});
