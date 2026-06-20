@@ -113,3 +113,97 @@ function afficherToast(message, erreur = false) {
   setTimeout(() => toast.classList.add('visible'), 10);
   setTimeout(() => toast.classList.remove('visible'), 3500);
 }
+// =====================
+// IA — ANALYSE DU SEMESTRE (basée sur les données réelles)
+// =====================
+
+// Mêmes données que celles affichées dans le tableau "Mes notes"
+const notesEtudiant = [
+  { matiere: "Algorithmique avancée",   note: 15, precedente: 11 },
+  { matiere: "Base de données",          note: 12, precedente: 12 },
+  { matiere: "Réseaux & Télécom",        note: 8,  precedente: 9  },
+  { matiere: "Programmation Web",        note: 16, precedente: 12 },
+  { matiere: "Système d'exploitation",   note: 11, precedente: 11 }
+];
+
+// Cours du jeudi (exemple basé sur vos horaires)
+const chargeJeudi = [
+  { matiere: "Base de données", heure: "10h00" },
+  { matiere: "Intelligence artificielle", heure: "10h00" }
+];
+
+const SEUIL_REUSSITE = 10;
+const SEUIL_PROGRES = 3; // points de progression jugés significatifs
+
+function genererAnalyseIA() {
+  const conteneur = document.getElementById('ia-alertes');
+  const alertes = [];
+
+  // 1. Détection des matières en échec
+  const matieresFaibles = notesEtudiant.filter(n => n.note < SEUIL_REUSSITE);
+  matieresFaibles.forEach(m => {
+    alertes.push({
+      type: 'danger',
+      icone: '⚠️',
+      texte: `<b>${m.matiere}</b> — ${m.note}/20, en dessous du seuil de réussite (10/20).`
+    });
+  });
+
+  // 2. Détection de charge de travail élevée (2+ évaluations le même jour)
+  if (chargeJeudi.length >= 2) {
+    const liste = chargeJeudi.map(c => c.matiere).join(' et ');
+    alertes.push({
+      type: 'warn',
+      icone: '⏰',
+      texte: `Charge de travail élevée <b>jeudi</b> : ${chargeJeudi.length} évaluations le même jour (${liste}).`
+    });
+  }
+
+  // 3. Détection de progression positive
+  notesEtudiant.forEach(m => {
+    const progres = m.note - m.precedente;
+    if (progres >= SEUIL_PROGRES) {
+      alertes.push({
+        type: 'ok',
+        icone: '📈',
+        texte: `Progression constante en <b>${m.matiere}</b> : +${progres} points depuis le dernier contrôle.`
+      });
+    }
+  });
+
+  // Affichage
+  if (alertes.length === 0) {
+    conteneur.innerHTML = '<p class="ia-vide">Aucune alerte particulière — tout va bien ce semestre ! ✅</p>';
+    return;
+  }
+
+  conteneur.innerHTML = alertes.map(a => `
+    <div class="ia-alerte ${a.type === 'danger' ? '' : a.type}">
+      <span class="ia-alerte-icon">${a.icone}</span>
+      <span class="ia-alerte-texte">${a.texte}</span>
+    </div>
+  `).join('') + `
+    <div class="ia-actions">
+      <button class="ia-action-btn" onclick="afficherSection('horaires', document.querySelectorAll('.nav-item')[2])">
+        📅 Voir mes horaires
+      </button>
+      <button class="ia-action-btn" onclick="afficherSection('mes-notes', document.querySelectorAll('.nav-item')[1])">
+        📝 Voir mes notes
+      </button>
+    </div>
+  `;
+}
+
+// Heure de mise à jour affichée
+function afficherHeureIA() {
+  const maintenant = new Date();
+  const heures = String(maintenant.getHours()).padStart(2, '0');
+  const minutes = String(maintenant.getMinutes()).padStart(2, '0');
+  document.getElementById('ia-heure').textContent = `Mise à jour ${heures}h${minutes}`;
+}
+
+// Lancement au chargement de la page
+document.addEventListener('DOMContentLoaded', () => {
+  genererAnalyseIA();
+  afficherHeureIA();
+});
