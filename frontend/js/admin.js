@@ -201,3 +201,198 @@ if (typeof afficherToast === 'undefined') {
     setTimeout(() => toast.classList.remove('visible'), 3000);
   }
 }
+// =====================
+// GESTION DES HORAIRES (admin) — avec promotion + année académique
+// =====================
+
+const ORDRE_JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
+
+let horairesAdmin = [
+  { id: 1, promotion: "L2 Informatique", annee: "2025-2026", jour: "Lundi", debut: "07:30", fin: "09:30", cours: "Algorithmique avancée", prof: "Prof. Mutombo", salle: "Salle A12" },
+  { id: 2, promotion: "L2 Informatique", annee: "2025-2026", jour: "Lundi", debut: "10:00", fin: "12:00", cours: "Base de données", prof: "Prof. Kabwe", salle: "Info 1" },
+  { id: 3, promotion: "L2 Informatique", annee: "2025-2026", jour: "Mardi", debut: "07:30", fin: "09:30", cours: "Réseaux & Télécom", prof: "Prof. Ilunga", salle: "Salle B04" },
+  { id: 4, promotion: "L2 Informatique", annee: "2025-2026", jour: "Mardi", debut: "14:00", fin: "16:00", cours: "Programmation Web", prof: "Prof. Kasongo", salle: "Info 2" },
+  { id: 5, promotion: "L2 Informatique", annee: "2025-2026", jour: "Mercredi", debut: "07:30", fin: "09:30", cours: "Système d'exploitation", prof: "Prof. Mbuyi", salle: "Salle A08" },
+  { id: 6, promotion: "L2 Informatique", annee: "2025-2026", jour: "Jeudi", debut: "10:00", fin: "12:00", cours: "Intelligence artificielle", prof: "Prof. Tshimanga", salle: "Info 1" },
+  { id: 7, promotion: "L2 Informatique", annee: "2025-2026", jour: "Vendredi", debut: "07:30", fin: "09:30", cours: "Génie logiciel", prof: "Prof. Luboya", salle: "Salle A12" },
+  { id: 8, promotion: "L2 Informatique", annee: "2025-2026", jour: "Vendredi", debut: "10:00", fin: "12:00", cours: "Sécurité informatique", prof: "Prof. Kabamba", salle: "Info 2" },
+  { id: 9, promotion: "L1 Informatique", annee: "2024-2025", jour: "Lundi", debut: "07:30", fin: "09:30", cours: "Algorithmique avancée", prof: "Prof. Mutombo", salle: "Salle A12" },
+];
+let prochainIdHoraire = 10;
+
+function trierHoraires(liste) {
+  return [...liste].sort((a, b) => {
+    if (a.annee !== b.annee) return b.annee.localeCompare(a.annee); // années récentes en premier
+    if (a.promotion !== b.promotion) return a.promotion.localeCompare(b.promotion);
+    const diffJour = ORDRE_JOURS.indexOf(a.jour) - ORDRE_JOURS.indexOf(b.jour);
+    if (diffJour !== 0) return diffJour;
+    return a.debut.localeCompare(b.debut);
+  });
+}
+
+function afficherTableauHoraires(liste = horairesAdmin) {
+  const tbody = document.getElementById('admin-horaires-body');
+  if (!tbody) return;
+
+  const triee = trierHoraires(liste);
+
+  if (triee.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Aucun cours programmé pour ces critères.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = triee.map(h => `
+    <tr>
+      <td><strong>${h.promotion}</strong></td>
+      <td><span class="annee-badge">${h.annee}</span></td>
+      <td><span class="jour-badge">${h.jour}</span></td>
+      <td>${h.debut} – ${h.fin}</td>
+      <td>${h.cours}</td>
+      <td>${h.prof}</td>
+      <td>${h.salle}</td>
+      <td class="admin-actions-cell">
+        <button class="btn-icone" title="Modifier" onclick="modifierHoraire(${h.id})">✏️</button>
+        <button class="btn-icone danger" title="Supprimer" onclick="supprimerHoraire(${h.id})">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ===== FILTRAGE COMBINÉ (année + promotion + jour) =====
+function appliquerFiltresHoraires() {
+  const annee = document.getElementById('filtre-annee').value;
+  const promotion = document.getElementById('filtre-promotion').value;
+  const jour = document.getElementById('filtre-jour').value;
+
+  let resultat = horairesAdmin;
+  if (annee) resultat = resultat.filter(h => h.annee === annee);
+  if (promotion) resultat = resultat.filter(h => h.promotion === promotion);
+  if (jour) resultat = resultat.filter(h => h.jour === jour);
+
+  afficherTableauHoraires(resultat);
+}
+
+// ===== OUVRIR LE MODAL (ajout) =====
+function ouvrirModalHoraire() {
+  document.getElementById('modal-horaire-titre').textContent = 'Ajouter un cours à l\'horaire';
+  document.getElementById('horaire-id-edit').value = '';
+  document.getElementById('horaire-promotion').selectedIndex = 0;
+  document.getElementById('horaire-annee').value = '2025-2026';
+  document.getElementById('horaire-jour').selectedIndex = 0;
+  document.getElementById('horaire-debut').value = '07:30';
+  document.getElementById('horaire-fin').value = '09:30';
+  document.getElementById('horaire-cours').selectedIndex = 0;
+  document.getElementById('horaire-prof').value = '';
+  document.getElementById('horaire-salle').value = '';
+  document.getElementById('modal-horaire').classList.add('active');
+}
+
+// ===== OUVRIR LE MODAL (modification) =====
+function modifierHoraire(id) {
+  const h = horairesAdmin.find(x => x.id === id);
+  if (!h) return;
+
+  document.getElementById('modal-horaire-titre').textContent = 'Modifier le cours';
+  document.getElementById('horaire-id-edit').value = h.id;
+  document.getElementById('horaire-promotion').value = h.promotion;
+  document.getElementById('horaire-annee').value = h.annee;
+  document.getElementById('horaire-jour').value = h.jour;
+  document.getElementById('horaire-debut').value = h.debut;
+  document.getElementById('horaire-fin').value = h.fin;
+  document.getElementById('horaire-cours').value = h.cours;
+  document.getElementById('horaire-prof').value = h.prof;
+  document.getElementById('horaire-salle').value = h.salle;
+  document.getElementById('modal-horaire').classList.add('active');
+}
+
+// ===== FERMER LE MODAL =====
+function fermerModalHoraire() {
+  document.getElementById('modal-horaire').classList.remove('active');
+}
+
+// ===== ENREGISTRER (ajout ou modification) =====
+function sauvegarderHoraire() {
+  const idEdit = document.getElementById('horaire-id-edit').value;
+  const promotion = document.getElementById('horaire-promotion').value;
+  const annee = document.getElementById('horaire-annee').value;
+  const jour = document.getElementById('horaire-jour').value;
+  const debut = document.getElementById('horaire-debut').value;
+  const fin = document.getElementById('horaire-fin').value;
+  const cours = document.getElementById('horaire-cours').value;
+  const prof = document.getElementById('horaire-prof').value.trim();
+  const salle = document.getElementById('horaire-salle').value.trim();
+
+  if (!debut || !fin || !prof || !salle) {
+    alert('⚠️ Veuillez remplir tous les champs.');
+    return;
+  }
+
+  if (fin <= debut) {
+    alert('⚠️ L\'heure de fin doit être après l\'heure de début.');
+    return;
+  }
+
+  // Conflit de salle : même ANNÉE, même JOUR, même SALLE, créneaux qui se chevauchent
+  // → deux promotions différentes la même année ne peuvent pas partager la salle au même moment
+  // → mais la même salle/jour/heure sur une AUTRE année n'est pas un conflit (historique)
+  const conflitSalle = horairesAdmin.find(h =>
+    h.id !== parseInt(idEdit || -1) &&
+    h.annee === annee &&
+    h.jour === jour &&
+    h.salle === salle &&
+    debut < h.fin && fin > h.debut
+  );
+
+  if (conflitSalle) {
+    alert(`⚠️ Conflit de salle : ${salle} est déjà occupée le ${jour} de ${conflitSalle.debut} à ${conflitSalle.fin} (${conflitSalle.promotion}, ${conflitSalle.annee}).`);
+    return;
+  }
+
+  // Conflit de promotion : la même promotion ne peut pas avoir 2 cours en même temps la même année
+  const conflitPromotion = horairesAdmin.find(h =>
+    h.id !== parseInt(idEdit || -1) &&
+    h.annee === annee &&
+    h.promotion === promotion &&
+    h.jour === jour &&
+    debut < h.fin && fin > h.debut
+  );
+
+  if (conflitPromotion) {
+    alert(`⚠️ Conflit d'horaire : ${promotion} a déjà cours de ${conflitPromotion.debut} à ${conflitPromotion.fin} le ${jour} (${conflitPromotion.cours}).`);
+    return;
+  }
+
+  if (idEdit) {
+    const h = horairesAdmin.find(x => x.id === parseInt(idEdit));
+    Object.assign(h, { promotion, annee, jour, debut, fin, cours, prof, salle });
+    afficherToast('✅ Cours modifié avec succès !');
+  } else {
+    horairesAdmin.push({
+      id: prochainIdHoraire++,
+      promotion, annee, jour, debut, fin, cours, prof, salle
+    });
+    afficherToast('✅ Cours ajouté à l\'horaire !');
+  }
+
+  fermerModalHoraire();
+  appliquerFiltresHoraires();
+}
+
+// ===== SUPPRIMER =====
+function supprimerHoraire(id) {
+  if (!confirm('Voulez-vous vraiment supprimer ce cours de l\'horaire ?')) return;
+
+  horairesAdmin = horairesAdmin.filter(h => h.id !== id);
+  appliquerFiltresHoraires();
+  afficherToast('🗑️ Cours supprimé de l\'horaire.');
+}
+
+// ===== INITIALISATION DES FILTRES =====
+document.addEventListener('DOMContentLoaded', () => {
+  afficherTableauHoraires();
+
+  ['filtre-annee', 'filtre-promotion', 'filtre-jour'].forEach(idFiltre => {
+    const el = document.getElementById(idFiltre);
+    if (el) el.addEventListener('change', appliquerFiltresHoraires);
+  });
+});

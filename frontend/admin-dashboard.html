@@ -181,11 +181,141 @@
   </div>
 </div>
 
-      <!-- GERER LES HORAIRES (squelette) -->
-      <section id="admin-horaires" class="dash-section">
-        <h2>Gérer les horaires</h2>
-        <p class="dash-sous-titre">À construire à l'étape suivante</p>
-      </section>
+<!-- GERER LES HORAIRES -->
+<section id="admin-horaires" class="dash-section">
+  <h2>Gérer les horaires</h2>
+  <p class="dash-sous-titre">Organisez les cours par promotion et année académique</p>
+
+  <div class="admin-toolbar">
+    <select class="admin-recherche" id="filtre-annee" style="flex:0 0 160px">
+      <option value="">Toutes les années</option>
+      <option value="2025-2026">2025-2026</option>
+      <option value="2024-2025">2024-2025</option>
+    </select>
+    <select class="admin-recherche" id="filtre-promotion" style="flex:0 0 180px">
+      <option value="">Toutes les promotions</option>
+      <option value="L1 Informatique">L1 Informatique</option>
+      <option value="L2 Informatique">L2 Informatique</option>
+      <option value="L3 Informatique">L3 Informatique</option>
+      <option value="L1 Théologie">L1 Théologie</option>
+      <option value="L2 Théologie">L2 Théologie</option>
+    </select>
+    <select class="admin-recherche" id="filtre-jour" style="flex:0 0 160px">
+      <option value="">Tous les jours</option>
+      <option value="Lundi">Lundi</option>
+      <option value="Mardi">Mardi</option>
+      <option value="Mercredi">Mercredi</option>
+      <option value="Jeudi">Jeudi</option>
+      <option value="Vendredi">Vendredi</option>
+    </select>
+    <button class="btn-ajouter" onclick="ouvrirModalHoraire()">+ Ajouter un cours</button>
+  </div>
+
+  <div class="dash-card">
+    <table class="dash-table" id="table-admin-horaires">
+      <thead>
+        <tr>
+          <th>Promotion</th>
+          <th>Année</th>
+          <th>Jour</th>
+          <th>Heure</th>
+          <th>Cours</th>
+          <th>Professeur</th>
+          <th>Salle</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="admin-horaires-body">
+        <!-- Généré dynamiquement par JS -->
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- MODAL AJOUT/MODIFICATION HORAIRE -->
+<div class="admin-modal-overlay" id="modal-horaire">
+  <div class="admin-modal">
+    <div class="admin-modal-header">
+      <h3 id="modal-horaire-titre">Ajouter un cours à l'horaire</h3>
+      <button class="admin-modal-close" onclick="fermerModalHoraire()">✕</button>
+    </div>
+
+    <input type="hidden" id="horaire-id-edit">
+
+    <div class="form-row-admin">
+      <div class="form-group-dash">
+        <label>Promotion / Filière</label>
+        <select id="horaire-promotion">
+          <option>L1 Informatique</option>
+          <option>L2 Informatique</option>
+          <option>L3 Informatique</option>
+          <option>L1 Théologie</option>
+          <option>L2 Théologie</option>
+        </select>
+      </div>
+      <div class="form-group-dash">
+        <label>Année académique</label>
+        <select id="horaire-annee">
+          <option>2025-2026</option>
+          <option>2026-2027</option>
+          <option>2024-2025</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group-dash">
+      <label>Jour</label>
+      <select id="horaire-jour">
+        <option>Lundi</option>
+        <option>Mardi</option>
+        <option>Mercredi</option>
+        <option>Jeudi</option>
+        <option>Vendredi</option>
+      </select>
+    </div>
+
+    <div class="form-row-admin">
+      <div class="form-group-dash">
+        <label>Heure de début</label>
+        <input type="time" id="horaire-debut" value="07:30">
+      </div>
+      <div class="form-group-dash">
+        <label>Heure de fin</label>
+        <input type="time" id="horaire-fin" value="09:30">
+      </div>
+    </div>
+
+    <div class="form-group-dash">
+      <label>Cours</label>
+      <select id="horaire-cours">
+        <option>Algorithmique avancée</option>
+        <option>Base de données</option>
+        <option>Réseaux & Télécom</option>
+        <option>Programmation Web</option>
+        <option>Système d'exploitation</option>
+        <option>Intelligence artificielle</option>
+        <option>Génie logiciel</option>
+        <option>Sécurité informatique</option>
+      </select>
+    </div>
+
+    <div class="form-row-admin">
+      <div class="form-group-dash">
+        <label>Professeur</label>
+        <input type="text" id="horaire-prof" placeholder="ex: Prof. Mutombo">
+      </div>
+      <div class="form-group-dash">
+        <label>Salle</label>
+        <input type="text" id="horaire-salle" placeholder="ex: Salle A12">
+      </div>
+    </div>
+
+    <div class="admin-modal-actions">
+      <button class="btn-annuler" onclick="fermerModalHoraire()">Annuler</button>
+      <button class="btn-sauvegarder" onclick="sauvegarderHoraire()">✅ Enregistrer</button>
+    </div>
+  </div>
+</div>
 
       <!-- ANNONCES (squelette) -->
       <section id="admin-annonces" class="dash-section">
