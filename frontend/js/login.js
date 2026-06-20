@@ -32,29 +32,105 @@ function togglePassword() {
   input.type = input.type === 'password' ? 'text' : 'password';
 }
 
-// ===== CONNEXION =====
-function seConnecter() {
-  const numero = document.getElementById('numero-etudiant').value.trim();
-  const mdp = document.getElementById('mot-de-passe').value.trim();
+// ===== CONNEXION (connectée au backend) =====
+async function seConnecter() {
+  const numeroEtudiant = document.getElementById('numero-etudiant').value.trim();
+  const motDePasse = document.getElementById('mot-de-passe').value.trim();
 
-  if (!numero || !mdp) {
+  if (!numeroEtudiant || !motDePasse) {
     alert('⚠️ Veuillez remplir tous les champs.');
     return;
   }
-  // Simulation — sera remplacé par une vraie requête API
-  alert('✅ Connexion en cours... (Backend à connecter)');
+
+  try {
+    const reponse = await fetch('http://localhost:3000/api/auth/connexion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ numeroEtudiant, motDePasse })
+    });
+
+    const donnees = await reponse.json();
+
+    if (!reponse.ok) {
+      alert('❌ ' + donnees.erreur);
+      return;
+    }
+
+    alert('✅ ' + donnees.message);
+    // Redirection vers le dashboard
+    window.location.href = 'dashboard.html';
+
+  } catch (erreur) {
+    alert('⚠️ Impossible de contacter le serveur. Vérifiez que le backend est démarré.');
+    console.error(erreur);
+  }
 }
 
-// ===== SOUMETTRE DOSSIER =====
-function soumettreDossier() {
+// ===== SOUMETTRE DOSSIER (connecté au backend) =====
+async function soumettreDossier() {
   const nom = document.getElementById('nom').value.trim();
+  const postnom = document.getElementById('postnom').value.trim();
   const prenom = document.getElementById('prenom').value.trim();
+  const dateNaissance = document.getElementById('date-naissance').value;
+  const lieuNaissance = document.getElementById('lieu-naissance').value.trim();
+  const nationalite = document.getElementById('nationalite').value.trim();
+  const sexe = document.getElementById('sexe').value;
+  const etatCivil = document.getElementById('etat-civil').value;
+  const adresse1 = document.getElementById('adresse1').value.trim();
+  const telephone = document.getElementById('telephone').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const ecole = document.getElementById('ecole').value.trim();
+  const villeEcole = document.getElementById('ville-ecole').value.trim();
+  const pourcentage = document.getElementById('pourcentage').value.trim();
+  const sectionSecondaire = document.getElementById('section-secondaire').value.trim();
   const specialite = document.getElementById('specialite').value;
+  const specialite2 = document.getElementById('specialite2').value;
+  const niveau = document.getElementById('niveau').value;
+  const refNom = document.getElementById('ref-nom').value.trim();
+  const refPrenom = document.getElementById('ref-prenom').value.trim();
+  const refTelephone = document.getElementById('ref-telephone').value.trim();
+  const canalDecouverte = document.getElementById('canal-decouverte').value;
 
-  if (!nom || !prenom || !specialite) {
+  if (!nom || !prenom || !specialite || !pourcentage || !sectionSecondaire) {
     alert('⚠️ Veuillez compléter tous les champs obligatoires.');
     return;
   }
 
-  alert('🎉 Votre dossier a été soumis avec succès !\nVous serez contacté par l\'administration de l\'UML.');
+  // Désactiver le bouton pour éviter un double-clic pendant l'envoi
+  const btnSoumettre = document.querySelector('#form-etape-4 .btn-submit');
+  btnSoumettre.disabled = true;
+  btnSoumettre.textContent = '⏳ Envoi en cours...';
+
+  try {
+    const reponse = await fetch('http://localhost:3000/api/preinscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nom, postnom, prenom, dateNaissance, lieuNaissance, nationalite, sexe, etatCivil,
+        adresse1, telephone, email, ecole, villeEcole, pourcentage, sectionSecondaire,
+        specialite, specialite2, niveau, refNom, refPrenom, refTelephone, canalDecouverte
+      })
+    });
+
+    const donnees = await reponse.json();
+
+    if (!reponse.ok) {
+      alert('❌ ' + donnees.erreur);
+      btnSoumettre.disabled = false;
+      btnSoumettre.textContent = '✅ Soumettre ma candidature';
+      return;
+    }
+
+    
+    alert('🎉 ' + donnees.message + '\nVous allez être redirigé vers la page d\'accueil.');
+    
+    // Redirection vers la page d'accueil pour éviter une double soumission
+    window.location.href = 'index.html';
+
+  } catch (erreur) {
+    alert('⚠️ Impossible de contacter le serveur. Vérifiez que le backend est démarré.');
+    console.error(erreur);
+    btnSoumettre.disabled = false;
+    btnSoumettre.textContent = '✅ Soumettre ma candidature';
+  }
 }
