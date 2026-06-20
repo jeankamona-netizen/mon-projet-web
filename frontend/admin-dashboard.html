@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration — Tableau de bord</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="dashboard-body">
+
+  <!-- HEADER -->
+  <header class="dash-header admin-header">
+    <div class="dash-header-left">
+      <img src="img/logo.png" alt="Logo UML" class="dash-logo">
+      <div>
+        <span class="dash-brand">Université Méthodiste de Lubumbashi</span>
+        <span class="dash-brand-sub admin-badge-header">Administration</span>
+      </div>
+    </div>
+    <div class="dash-header-right">
+      <div class="dash-avatar admin-avatar">AD</div>
+      <a href="admin.html" class="dash-deconnexion">Déconnexion</a>
+    </div>
+  </header>
+
+  <!-- LAYOUT -->
+  <div class="dash-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="dash-sidebar">
+      <div class="sidebar-profil admin-sidebar-profil">
+        <div class="profil-avatar admin-avatar">AD</div>
+        <div class="profil-info">
+          <span class="profil-nom">Administrateur</span>
+          <span class="profil-promo">UML — Gestion</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" onclick="afficherSection('admin-accueil', this)">
+          📊 Vue d'ensemble
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSection('admin-notes', this)">
+          📝 Gérer les notes
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSection('admin-horaires', this)">
+          🕐 Gérer les horaires
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSection('admin-annonces', this)">
+          📢 Annonces & événements
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSection('admin-programme', this)">
+          📚 Programme annuel
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSection('admin-preinscriptions', this)">
+          🧾 Pré-inscriptions
+        </a>
+      </nav>
+    </aside>
+
+    <!-- CONTENU -->
+    <main class="dash-main">
+
+      <!-- VUE D'ENSEMBLE -->
+      <section id="admin-accueil" class="dash-section active">
+        <h2>Vue d'ensemble</h2>
+        <p class="dash-sous-titre">Résumé de l'activité de la plateforme UML</p>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-icon">👨‍🎓</span>
+            <span class="stat-valeur" id="cpt-etudiants">—</span>
+            <span class="stat-label">Étudiants inscrits</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">🧾</span>
+            <span class="stat-valeur" id="cpt-preinscriptions">—</span>
+            <span class="stat-label">Pré-inscriptions en attente</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">📚</span>
+            <span class="stat-valeur" id="cpt-cours">—</span>
+            <span class="stat-label">Cours programmés</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon">📢</span>
+            <span class="stat-valeur" id="cpt-annonces">—</span>
+            <span class="stat-label">Annonces actives</span>
+          </div>
+        </div>
+
+        <div class="dash-card">
+          <h3>Bienvenue dans l'espace administration</h3>
+          <p style="font-size:13px;color:#666;line-height:1.7">
+            Depuis ce panneau, vous pouvez gérer les notes des étudiants, les horaires de cours,
+            publier des annonces visibles sur le site public, organiser le programme annuel
+            et traiter les demandes de pré-inscription. Utilisez le menu à gauche pour naviguer.
+          </p>
+        </div>
+      </section>
+
+      <!-- GERER LES NOTES (squelette, contenu à l'étape 2) -->
+      <section id="admin-notes" class="dash-section">
+        <h2>Gérer les notes</h2>
+        <p class="dash-sous-titre">À construire à l'étape suivante</p>
+      </section>
+
+      <!-- GERER LES HORAIRES (squelette) -->
+      <section id="admin-horaires" class="dash-section">
+        <h2>Gérer les horaires</h2>
+        <p class="dash-sous-titre">À construire à l'étape suivante</p>
+      </section>
+
+      <!-- ANNONCES (squelette) -->
+      <section id="admin-annonces" class="dash-section">
+        <h2>Annonces & événements</h2>
+        <p class="dash-sous-titre">À construire à l'étape suivante</p>
+      </section>
+
+      <!-- PROGRAMME (squelette) -->
+      <section id="admin-programme" class="dash-section">
+        <h2>Programme annuel</h2>
+        <p class="dash-sous-titre">À construire à l'étape suivante</p>
+      </section>
+
+      <!-- PRE-INSCRIPTIONS (squelette) -->
+      <section id="admin-preinscriptions" class="dash-section">
+        <h2>Pré-inscriptions reçues</h2>
+        <p class="dash-sous-titre">À construire à l'étape suivante</p>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="js/dashboard.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

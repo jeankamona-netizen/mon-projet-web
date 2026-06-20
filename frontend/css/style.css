@@ -766,3 +766,17 @@ h2 {
   line-height: 1.8;
 }
 
+.footer-admin-link {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 11px;
+  color: #6a87b8;
+  text-decoration: none;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.footer-admin-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}

@@ -1,0 +1,114 @@
+/* =====================
+   PAGE CONNEXION ADMIN — variante de login.css
+   ===================== */
+.admin-login-main {
+  background: linear-gradient(135deg, #0c2347 0%, #14305C 100%);
+}
+
+.admin-box {
+  max-width: 420px;
+}
+
+.admin-box-header {
+  text-align: center;
+  padding: 8px 0 4px;
+}
+
+.admin-box-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--gris);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin: 0 auto 14px;
+}
+
+.admin-box-header h2 {
+  font-size: 20px;
+  color: var(--bleu);
+  margin-bottom: 4px;
+}
+
+.admin-erreur {
+  background: #fde8e8;
+  color: var(--rouge);
+  font-size: 12px;
+  padding: 9px 12px;
+  border-radius: 7px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.admin-footer-note {
+  color: #999;
+  font-size: 11px;
+}
+
+/* =====================
+   HEADER & SIDEBAR ADMIN-DASHBOARD (variante couleur)
+   ===================== */
+.admin-header {
+  border-bottom-color: #F0B429;
+}
+
+.admin-badge-header {
+  color: #F0B429 !important;
+}
+
+.admin-avatar {
+  background: #2D6FE0 !important;
+  color: var(--blanc) !important;
+}
+
+.admin-sidebar-profil {
+  background: #14305C !important;
+}
+
+/* =====================
+   TABLEAUX D'ADMINISTRATION (réutilisés aux étapes suivantes)
+   ===================== */
+.admin-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-ajouter {
+  background: var(--vert);
+  color: var(--blanc);
+  border: none;
+  border-radius: 7px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-ajouter:hover {
+  background: #1d5c1d;
+}
+
+.btn-icone {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  transition: background 0.2s;
+}
+
+.btn-icone:hover {
+  background: var(--gris);
+}
+
+.btn-icone.danger:hover {
+  background: #fde8e8;
+}

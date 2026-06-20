@@ -1,0 +1,74 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration — UML</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/login.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="nav-brand">
+        <img src="img/logo.png" alt="Logo UML" class="nav-logo">
+        <div>
+          <span class="brand-name">Université Méthodiste de Lubumbashi</span>
+          <span class="brand-devise">Scientia, Sanctitas et Veritas</span>
+        </div>
+      </a>
+      <a href="index.html" class="btn-retour">← Retour au site</a>
+    </div>
+  </nav>
+
+  <!-- CONTENU PRINCIPAL -->
+  <main class="login-main admin-login-main">
+
+    <div class="login-box admin-box">
+
+      <div class="admin-box-header">
+        <img src="img/logo.png" alt="Logo UML" class="admin-login-logo">
+        <h2>Espace Administration</h2>
+        <p class="form-sous-titre">Réservé au personnel autorisé de l'UML</p>
+      </div>
+
+      <div class="tab-content active" style="padding-top:0">
+        <div class="form-group">
+          <label>Identifiant administrateur</label>
+          <input type="text" placeholder="ex: admin.uml" id="admin-user">
+        </div>
+
+        <div class="form-group">
+          <label>Mot de passe</label>
+          <div class="input-password">
+            <input type="password" placeholder="••••••••" id="admin-pass">
+            <span class="toggle-pwd" onclick="toggleAdminPassword()">👁️</span>
+          </div>
+        </div>
+
+        <div class="form-options">
+          <label class="checkbox-label">
+            <input type="checkbox"> Se souvenir de moi
+          </label>
+          <a href="#" class="lien-oubli">Mot de passe oublié ?</a>
+        </div>
+
+        <button class="btn-submit" onclick="connexionAdmin()">Se connecter</button>
+
+        <p id="admin-erreur" class="admin-erreur" style="display:none"></p>
+
+        <p class="form-footer admin-footer-note">
+          🔒 Accès réservé — toute tentative non autorisée est enregistrée
+        </p>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="js/admin.js"></script>
+</body>
+</html>
