@@ -100,12 +100,86 @@
           </p>
         </div>
       </section>
+<!-- GERER LES NOTES -->
+<section id="admin-notes" class="dash-section">
+  <h2>Gérer les notes</h2>
+  <p class="dash-sous-titre">Ajoutez, modifiez ou supprimez les notes des étudiants</p>
 
-      <!-- GERER LES NOTES (squelette, contenu à l'étape 2) -->
-      <section id="admin-notes" class="dash-section">
-        <h2>Gérer les notes</h2>
-        <p class="dash-sous-titre">À construire à l'étape suivante</p>
-      </section>
+  <div class="admin-toolbar">
+    <input type="text" class="admin-recherche" id="recherche-notes" placeholder="🔎 Rechercher un étudiant ou une matière...">
+    <button class="btn-ajouter" onclick="ouvrirModalNote()">+ Ajouter une note</button>
+  </div>
+
+  <div class="dash-card">
+    <table class="dash-table" id="table-admin-notes">
+      <thead>
+        <tr>
+          <th>Étudiant</th>
+          <th>Matière</th>
+          <th>Note /20</th>
+          <th>Session</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="admin-notes-body">
+        <!-- Généré dynamiquement par JS -->
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- MODAL AJOUT/MODIFICATION NOTE -->
+<div class="admin-modal-overlay" id="modal-note">
+  <div class="admin-modal">
+    <div class="admin-modal-header">
+      <h3 id="modal-note-titre">Ajouter une note</h3>
+      <button class="admin-modal-close" onclick="fermerModalNote()">✕</button>
+    </div>
+
+    <input type="hidden" id="note-id-edit">
+
+    <div class="form-group-dash">
+      <label>Numéro étudiant</label>
+      <select id="note-etudiant">
+        <option value="UML-2024-0012">UML-2024-0012 — Jean Kamona Netizen</option>
+      </select>
+    </div>
+
+    <div class="form-group-dash">
+      <label>Matière</label>
+      <select id="note-matiere">
+        <option>Algorithmique avancée</option>
+        <option>Base de données</option>
+        <option>Réseaux & Télécom</option>
+        <option>Programmation Web</option>
+        <option>Système d'exploitation</option>
+        <option>Intelligence artificielle</option>
+        <option>Génie logiciel</option>
+        <option>Sécurité informatique</option>
+      </select>
+    </div>
+
+    <div class="form-row-admin">
+      <div class="form-group-dash">
+        <label>Note (/20)</label>
+        <input type="number" id="note-valeur" min="0" max="20" step="0.5" placeholder="ex: 14.5">
+      </div>
+      <div class="form-group-dash">
+        <label>Session</label>
+        <select id="note-session">
+          <option value="S1">Semestre 1</option>
+          <option value="S2">Semestre 2</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="admin-modal-actions">
+      <button class="btn-annuler" onclick="fermerModalNote()">Annuler</button>
+      <button class="btn-sauvegarder" onclick="sauvegarderNote()">✅ Enregistrer</button>
+    </div>
+  </div>
+</div>
 
       <!-- GERER LES HORAIRES (squelette) -->
       <section id="admin-horaires" class="dash-section">
