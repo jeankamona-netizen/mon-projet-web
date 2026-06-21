@@ -1,48 +1,54 @@
 const express = require('express');
 const router = express.Router();
+const pool = require('../database');
 
-// ===== DONNÉES TEMPORAIRES (en attendant la base de données) =====
-const facultes = [
-  {
-    id: 1,
-    nom: "Faculté de Théologie",
-    filieres: ["Missiologie", "Théologie Pratique", "Théologie Systématique", "Théologie Biblique AT & NT"],
-    masterDisponible: true
-  },
-  {
-    id: 2,
-    nom: "Sciences Informatiques",
-    filieres: ["Gestion Informatique", "Réseau & Télécom", "Génie Logicielle", "Design"],
-    masterDisponible: true
-  },
-  {
-    id: 3,
-    nom: "Sciences Économiques",
-    filieres: ["Gestion des Ressources Humaines", "Finances Banque & Comptabilité", "Gestion Marketing", "Entrepreneuriat", "Douane"],
-    masterDisponible: false
-  },
-  {
-    id: 4,
-    nom: "Sciences de l'Éducation & Psychologie",
-    filieres: ["Sciences de l'Éducation", "Psychologie"],
-    masterDisponible: false
+// ===== GET /api/facultes — liste toutes les facultés avec leurs filières =====
+router.get('/', async (req, res) => {
+  try {
+    const [facultes] = await pool.query('SELECT * FROM faculte');
+
+    // Pour chaque faculté, on récupère ses filières
+    for (const faculte of facultes) {
+      const [filieres] = await pool.query(
+        'SELECT nom FROM filiere WHERE faculte_id = ?',
+        [faculte.id]
+      );
+      faculte.filieres = filieres.map(f => f.nom);
+    }
+
+    res.json(facultes);
+
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: "Erreur lors de la récupération des facultés." });
   }
-];
-
-// ===== GET /api/facultes — liste toutes les facultés =====
-router.get('/', (req, res) => {
-  res.json(facultes);
 });
 
 // ===== GET /api/facultes/:id — une faculté précise =====
-router.get('/:id', (req, res) => {
-  const faculte = facultes.find(f => f.id === parseInt(req.params.id));
+router.get('/:id', async (req, res) => {
+  try {
+    const [facultes] = await pool.query(
+      'SELECT * FROM faculte WHERE id = ?',
+      [req.params.id]
+    );
 
-  if (!faculte) {
-    return res.status(404).json({ erreur: "Faculté non trouvée" });
+    if (facultes.length === 0) {
+      return res.status(404).json({ erreur: "Faculté non trouvée" });
+    }
+
+    const faculte = facultes[0];
+    const [filieres] = await pool.query(
+      'SELECT nom FROM filiere WHERE faculte_id = ?',
+      [faculte.id]
+    );
+    faculte.filieres = filieres.map(f => f.nom);
+
+    res.json(faculte);
+
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: "Erreur lors de la récupération de la faculté." });
   }
-
-  res.json(faculte);
 });
 
 module.exports = router;
