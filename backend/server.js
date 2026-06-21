@@ -4,6 +4,7 @@ const cors = require('cors');
 const app = express();
 const PORT = 3000;
 
+
 // ===== MIDDLEWARE =====
 app.use(cors());
 app.use(express.json());
@@ -12,10 +13,12 @@ app.use(express.json());
 const facultesRoutes      = require('./routes/facultes');
 const preinscriptionRoutes = require('./routes/preinscription');
 const authRoutes          = require('./routes/auth');
-
-
 const pool = require('./database');
 
+const notesRoutes = require('./routes/notes');
+const horairesRoutes = require('./routes/horaires');
+const programmeRoutes = require('./routes/programme');
+const annoncesRoutes = require('./routes/annonces');
 // ===== TEST DE CONNEXION MYSQL =====
 pool.getConnection()
   .then(connection => {
@@ -31,6 +34,10 @@ pool.getConnection()
 app.use('/api/facultes', facultesRoutes);
 app.use('/api/preinscription', preinscriptionRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/notes', notesRoutes);
+app.use('/api/horaires', horairesRoutes);
+app.use('/api/programme', programmeRoutes);
+app.use('/api/annonces', annoncesRoutes);
 
 // ===== ROUTE D'ACCUEIL =====
 app.get('/', (req, res) => {
