@@ -312,3 +312,9 @@ input[type="file"] {
   background: #fafafa;
   box-sizing: border-box;
 }
+
+.documents-choisis {
+  font-size: 11px;
+  color: var(--bleu);
+  margin-top: 6px;
+}

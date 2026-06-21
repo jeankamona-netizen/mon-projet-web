@@ -553,11 +553,58 @@
   </div>
 </div>
 
-      <!-- PRE-INSCRIPTIONS (squelette) -->
-      <section id="admin-preinscriptions" class="dash-section">
-        <h2>Pré-inscriptions reçues</h2>
-        <p class="dash-sous-titre">À construire à l'étape suivante</p>
-      </section>
+      <!-- PRE-INSCRIPTIONS -->
+<section id="admin-preinscriptions" class="dash-section">
+  <h2>Pré-inscriptions reçues</h2>
+  <p class="dash-sous-titre">Dossiers soumis par les candidats depuis le site public</p>
+
+  <div class="admin-toolbar">
+    <input type="text" class="admin-recherche" id="recherche-preinscriptions" placeholder="🔎 Rechercher un candidat...">
+    <select class="admin-recherche" id="filtre-statut-preinscription" style="flex:0 0 180px">
+      <option value="">Tous les statuts</option>
+      <option value="en_attente">En attente</option>
+      <option value="accepte">Accepté</option>
+      <option value="rejete">Rejeté</option>
+    </select>
+    <button class="btn-ajouter" onclick="chargerPreinscriptions()" style="background:var(--bleu)">🔄 Actualiser</button>
+  </div>
+
+  <div class="dash-card">
+    <table class="dash-table" id="table-admin-preinscriptions">
+      <thead>
+        <tr>
+          <th>Candidat</th>
+          <th>Spécialité</th>
+          <th>Contact</th>
+          <th>Date</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="admin-preinscriptions-body">
+        <tr><td colspan="6" class="admin-vide">Chargement des données...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- MODAL DETAIL PRE-INSCRIPTION -->
+<div class="admin-modal-overlay" id="modal-preinscription">
+  <div class="admin-modal" style="max-width:560px; max-height:85vh; overflow-y:auto">
+    <div class="admin-modal-header">
+      <h3>Détail du dossier</h3>
+      <button class="admin-modal-close" onclick="fermerModalPreinscription()">✕</button>
+    </div>
+
+    <div class="profil-details" id="detail-preinscription-contenu">
+      <!-- Généré dynamiquement -->
+    </div>
+
+    <div class="admin-modal-actions" id="actions-preinscription">
+      <!-- Boutons générés dynamiquement -->
+    </div>
+  </div>
+</div>
 
     </main>
   </div>

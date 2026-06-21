@@ -265,3 +265,54 @@
   background: #fef8e0;
   color: #8a6d00;
 }
+
+.prog-code-admin {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--blanc);
+  background: var(--bleu);
+  padding: 3px 9px;
+  border-radius: 5px;
+}
+/* =====================
+   FICHE DETAIL PRE-INSCRIPTION
+   ===================== */
+.fiche-entete {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 3px solid var(--jaune);
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+}
+
+.fiche-logo {
+  height: 48px;
+}
+
+.fiche-titre-uni {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bleu);
+  margin: 0;
+}
+
+.fiche-sous-titre {
+  font-size: 12px;
+  color: #888;
+  margin: 2px 0 0;
+}
+
+.fiche-section-titre {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bleu);
+  margin: 16px 0 6px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.fiche-section-titre:first-of-type {
+  border-top: none;
+  margin-top: 0;
+}

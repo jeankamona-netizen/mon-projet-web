@@ -42,11 +42,30 @@ async function seConnecter() {
     return;
   }
 
-  try {
-    const reponse = await fetch('http://localhost:3000/api/auth/connexion', {
+  try {const reponse = await fetch('http://localhost:3000/api/preinscription', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numeroEtudiant, motDePasse })
+      body: JSON.stringify({
+        nom, postnom, prenom, dateNaissance, lieuNaissance, nationalite, sexe, etatCivil,
+        adresse1, telephone, email, ecole, villeEcole, pourcentage, sectionSecondaire,
+        specialite, specialite2, niveau, refNom, refPrenom, refTelephone, canalDecouverte,
+        nomPere: document.getElementById('nom-pere')?.value.trim() || '',
+        telPere: document.getElementById('tel-pere')?.value.trim() || '',
+        nomMere: document.getElementById('nom-mere')?.value.trim() || '',
+        telMere: document.getElementById('tel-mere')?.value.trim() || '',
+        nomTuteur: document.getElementById('nom-tuteur')?.value.trim() || '',
+        telTuteur: document.getElementById('tel-tuteur')?.value.trim() || '',
+        adresseUrgence: document.getElementById('adresse-urgence')?.value.trim() || '',
+        numDiplome: document.getElementById('num-diplome')?.value.trim() || '',
+        anneeDiplome: document.getElementById('annee-diplome')?.value || '',
+        redoublant: document.getElementById('redoublant')?.checked || false,
+        professionnel: document.getElementById('professionnel')?.checked || false,
+        refPostnom: document.getElementById('ref-postnom')?.value.trim() || '',
+        refEmail: document.getElementById('ref-email')?.value.trim() || '',
+        typeIdentite: document.getElementById('type-identite')?.value || '',
+        numIdentite: document.getElementById('num-identite')?.value.trim() || '',
+        adresse2: document.getElementById('adresse2')?.value.trim() || ''
+      })
     });
 
     const donnees = await reponse.json();
@@ -133,4 +152,17 @@ async function soumettreDossier() {
     btnSoumettre.disabled = false;
     btnSoumettre.textContent = '✅ Soumettre ma candidature';
   }
+}
+
+function afficherNomsFichiers() {
+  const input = document.getElementById('documents');
+  const zone = document.getElementById('liste-fichiers-choisis');
+
+  if (input.files.length === 0) {
+    zone.textContent = '';
+    return;
+  }
+
+  const noms = Array.from(input.files).map(f => f.name);
+  zone.textContent = '📎 ' + noms.join(', ');
 }

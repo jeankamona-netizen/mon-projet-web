@@ -707,3 +707,305 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el) el.addEventListener('change', afficherProgramme);
   });
 });
+
+// =====================
+// PRE-INSCRIPTIONS — connecté au VRAI backend Express
+// =====================
+
+let preinscriptionsCache = [];
+
+async function chargerPreinscriptions() {
+  const tbody = document.getElementById('admin-preinscriptions-body');
+  tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement des données...</td></tr>`;
+
+  try {
+    const reponse = await fetch('http://localhost:3000/api/preinscription');
+
+    if (!reponse.ok) {
+      throw new Error('Erreur serveur');
+    }
+
+    const donnees = await reponse.json();
+
+    // On ajoute un statut par défaut si l'API n'en fournit pas encore
+    preinscriptionsCache = donnees.map(d => ({
+      ...d,
+      statut: d.statut || 'en_attente'
+    }));
+
+    appliquerFiltresPreinscriptions();
+
+  } catch (erreur) {
+    console.error(erreur);
+    tbody.innerHTML = `
+      <tr><td colspan="6" class="admin-vide">
+        ⚠️ Impossible de contacter le serveur backend.<br>
+        Vérifiez que <code>node server.js</code> est bien lancé dans le dossier backend.
+      </td></tr>
+    `;
+  }
+}
+
+function libelleStatut(statut) {
+  const libelles = {
+    en_attente: '<span class="badge attente">En attente</span>',
+    accepte: '<span class="badge actif">Accepté</span>',
+    rejete: '<span class="badge inactif" style="background:#fde8e8;color:var(--rouge)">Rejeté</span>'
+  };
+  return libelles[statut] || libelles.en_attente;
+}
+
+function afficherTableauPreinscriptions(liste) {
+  const tbody = document.getElementById('admin-preinscriptions-body');
+
+  if (liste.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Aucune pré-inscription pour ces critères.</td></tr>`;
+    return;
+  }
+
+  // Tri du plus récent au plus ancien
+  const triee = [...liste].sort((a, b) =>
+    new Date(b.dateSoumission || 0) - new Date(a.dateSoumission || 0)
+  );
+
+  tbody.innerHTML = triee.map(p => {
+    const nomComplet = `${p.nom || ''} ${p.postnom || ''} ${p.prenom || ''}`.trim();
+    const dateAffichee = p.dateSoumission
+      ? new Date(p.dateSoumission).toLocaleDateString('fr-FR')
+      : '—';
+
+    return `
+      <tr>
+        <td>${nomComplet || '—'}</td>
+        <td>${p.specialite || '—'}</td>
+        <td style="font-size:12px">${p.telephone || ''}<br>${p.email || ''}</td>
+        <td>${dateAffichee}</td>
+        <td>${libelleStatut(p.statut)}</td>
+        <td class="admin-actions-cell">
+          <button class="btn-icone" title="Voir le dossier" onclick="voirDetailPreinscription(${p.id})">👁️</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ===== VOIR LE DETAIL COMPLET D'UN DOSSIER =====
+function voirDetailPreinscription(id) {
+  const p = preinscriptionsCache.find(x => x.id === id);
+  if (!p) return;
+
+  const contenu = document.getElementById('detail-preinscription-contenu');
+
+  contenu.innerHTML = `
+    <div id="zone-impression">
+
+      <div class="fiche-entete">
+        <img src="img/logo.png" alt="Logo UML" class="fiche-logo">
+        <div>
+          <p class="fiche-titre-uni">Université Méthodiste de Lubumbashi</p>
+          <p class="fiche-sous-titre">Fiche de pré-inscription — Dossier n°${p.id}</p>
+        </div>
+      </div>
+
+      <p class="fiche-section-titre">Identité</p>
+      <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${p.nom || ''} ${p.postnom || ''} ${p.prenom || ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Date de naissance</span><span class="profil-val">${p.dateNaissance || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Lieu de naissance</span><span class="profil-val">${p.lieuNaissance || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Nationalité</span><span class="profil-val">${p.nationalite || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Sexe</span><span class="profil-val">${p.sexe === 'M' ? 'Masculin' : p.sexe === 'F' ? 'Féminin' : '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">État civil</span><span class="profil-val">${p.etatCivil || '—'}</span></div>
+
+      <p class="fiche-section-titre">Contact</p>
+      <div class="profil-ligne"><span class="profil-cle">Adresse</span><span class="profil-val">${p.adresse1 || '—'} ${p.adresse2 ? '— ' + p.adresse2 : ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Téléphone</span><span class="profil-val">${p.telephone || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${p.email || '—'}</span></div>
+
+      <p class="fiche-section-titre">Responsables / Tuteurs</p>
+      <div class="profil-ligne"><span class="profil-cle">Père</span><span class="profil-val">${p.nomPere || '—'} ${p.telPere ? '— ' + p.telPere : ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Mère</span><span class="profil-val">${p.nomMere || '—'} ${p.telMere ? '— ' + p.telMere : ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Tuteur</span><span class="profil-val">${p.nomTuteur || '—'} ${p.telTuteur ? '— ' + p.telTuteur : ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Adresse d'urgence</span><span class="profil-val">${p.adresseUrgence || '—'}</span></div>
+
+      <p class="fiche-section-titre">Études secondaires</p>
+      <div class="profil-ligne"><span class="profil-cle">École fréquentée</span><span class="profil-val">${p.ecole || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Ville de l'école</span><span class="profil-val">${p.villeEcole || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">N° du diplôme</span><span class="profil-val">${p.numDiplome || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Pourcentage obtenu</span><span class="profil-val">${p.pourcentage || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Année d'obtention</span><span class="profil-val">${p.anneeDiplome || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Section suivie</span><span class="profil-val">${p.sectionSecondaire || '—'}</span></div>
+
+      <p class="fiche-section-titre">Choix du programme</p>
+      <div class="profil-ligne"><span class="profil-cle">1er choix</span><span class="profil-val">${p.specialite || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">2e choix</span><span class="profil-val">${p.specialite2 || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Niveau souhaité</span><span class="profil-val">${p.niveau || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Redoublant</span><span class="profil-val">${p.redoublant ? 'Oui' : 'Non'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">En activité professionnelle</span><span class="profil-val">${p.professionnel ? 'Oui' : 'Non'}</span></div>
+
+      <p class="fiche-section-titre">Personne de référence</p>
+      <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${p.refNom || ''} ${p.refPostnom || ''} ${p.refPrenom || ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Téléphone</span><span class="profil-val">${p.refTelephone || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${p.refEmail || '—'}</span></div>
+
+      <p class="fiche-section-titre">Informations complémentaires</p>
+      <div class="profil-ligne"><span class="profil-cle">Canal de découverte</span><span class="profil-val">${p.canalDecouverte || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Date de soumission</span><span class="profil-val">${p.dateSoumission ? new Date(p.dateSoumission).toLocaleString('fr-FR') : '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Statut actuel</span><span class="profil-val">${libelleStatut(p.statut)}</span></div>
+
+    </div>
+  `;
+
+  const actions = document.getElementById('actions-preinscription');
+  actions.innerHTML = `
+    <button class="btn-annuler" onclick="imprimerDossier()">🖨️ Imprimer</button>
+    <button class="btn-annuler" onclick="changerStatutPreinscription(${p.id}, 'rejete')">❌ Rejeter</button>
+    <button class="btn-sauvegarder" onclick="changerStatutPreinscription(${p.id}, 'accepte')">✅ Accepter</button>
+  `;
+
+  document.getElementById('modal-preinscription').classList.add('active');
+}
+
+// ===== IMPRESSION DU DOSSIER =====
+function imprimerDossier() {
+  const contenu = document.getElementById('zone-impression').innerHTML;
+  const fenetreImpression = window.open('', '_blank', 'width=800,height=900');
+
+  fenetreImpression.document.write(`
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+      <meta charset="UTF-8">
+      <title>Fiche de pré-inscription — UML</title>
+      <style>
+        @page {
+          size: A4;
+          margin: 18mm 16mm;
+        }
+        * { box-sizing: border-box; }
+        body {
+          font-family: 'Segoe UI', Arial, sans-serif;
+          color: #222;
+          font-size: 11px;
+          line-height: 1.4;
+        }
+        .fiche-entete {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          border-bottom: 2.5px solid #f0c020;
+          padding-bottom: 10px;
+          margin-bottom: 12px;
+        }
+        .fiche-logo { height: 42px; }
+        .fiche-titre-uni { font-size: 14px; font-weight: 700; color: #1a3a6b; margin: 0; }
+        .fiche-sous-titre { font-size: 11px; color: #666; margin: 2px 0 0; }
+        .fiche-section-titre {
+          font-size: 11.5px;
+          font-weight: 700;
+          color: #1a3a6b;
+          margin: 10px 0 4px;
+          padding-top: 6px;
+          border-top: 1px solid #ddd;
+          break-inside: avoid;
+        }
+        .fiche-section-titre:first-of-type { border-top: none; margin-top: 0; }
+        .profil-ligne {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          padding: 3px 0;
+          border-bottom: 0.5px dotted #ccc;
+          break-inside: avoid;
+        }
+        .profil-cle { color: #666; font-size: 10.5px; flex: 0 0 42%; }
+        .profil-val { color: #111; font-weight: 600; text-align: right; flex: 1; font-size: 10.5px; }
+      </style>
+    </head>
+    <body>
+      ${contenu}
+    </body>
+    </html>
+  `);
+
+  fenetreImpression.document.close();
+  fenetreImpression.focus();
+
+  setTimeout(() => {
+    fenetreImpression.print();
+  }, 400);
+}
+async function changerStatutPreinscription(id, nouveauStatut) {
+  try {
+    const reponse = await fetch(`http://localhost:3000/api/preinscription/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statut: nouveauStatut })
+    });
+
+    let donnees = null;
+    try {
+      donnees = await reponse.json();
+    } catch (e) {
+      donnees = null;
+    }
+
+    if (!reponse.ok) {
+      const messageErreur = donnees?.erreur || `Erreur ${reponse.status}`;
+      throw new Error(messageErreur);
+    }
+
+    // Mise à jour du cache local
+    const p = preinscriptionsCache.find(x => x.id === id);
+    if (p) p.statut = (donnees && donnees.dossier) ? donnees.dossier.statut : nouveauStatut;
+
+    fermerModalPreinscription();
+    appliquerFiltresPreinscriptions();
+
+    const messages = {
+      accepte: '✅ Candidature acceptée et enregistrée !',
+      rejete: '❌ Candidature rejetée et enregistrée.'
+    };
+    afficherToast(messages[nouveauStatut]);
+
+  } catch (erreur) {
+    console.error('Erreur changerStatutPreinscription:', erreur);
+    alert('⚠️ ' + erreur.message + '\n\nSi le statut a bien changé malgré ce message, actualisez la liste pour vérifier.');
+  }
+}
+
+// ===== FILTRES (recherche + statut) =====
+function appliquerFiltresPreinscriptions() {
+  const terme = document.getElementById('recherche-preinscriptions').value.toLowerCase();
+  const statut = document.getElementById('filtre-statut-preinscription').value;
+
+  let resultat = preinscriptionsCache;
+
+  if (terme) {
+    resultat = resultat.filter(p => {
+      const nomComplet = `${p.nom || ''} ${p.postnom || ''} ${p.prenom || ''}`.toLowerCase();
+      return nomComplet.includes(terme) || (p.specialite || '').toLowerCase().includes(terme);
+    });
+  }
+
+  if (statut) {
+    resultat = resultat.filter(p => p.statut === statut);
+  }
+
+  afficherTableauPreinscriptions(resultat);
+}
+
+// ===== INITIALISATION =====
+document.addEventListener('DOMContentLoaded', () => {
+  const sectionPreinscriptions = document.getElementById('admin-preinscriptions');
+  if (sectionPreinscriptions) {
+    chargerPreinscriptions();
+
+    document.getElementById('recherche-preinscriptions')
+      .addEventListener('input', appliquerFiltresPreinscriptions);
+    document.getElementById('filtre-statut-preinscription')
+      .addEventListener('change', appliquerFiltresPreinscriptions);
+  }
+});
+
+function fermerModalPreinscription() {
+  document.getElementById('modal-preinscription').classList.remove('active');
+}

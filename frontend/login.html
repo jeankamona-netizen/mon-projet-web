@@ -354,9 +354,10 @@
       3. Certificat de naissance · 4. Certificat de résidence
     </p>
     <div class="form-group">
-      <label>Joindre vos documents (PDF ou images)</label>
-      <input type="file" id="documents" multiple accept=".pdf,.jpg,.jpeg,.png">
-    </div>
+  <label>Joindre vos documents (PDF ou images)</label>
+  <input type="file" id="documents" multiple accept=".pdf,.jpg,.jpeg,.png" onchange="afficherNomsFichiers()">
+  <p id="liste-fichiers-choisis" class="documents-choisis"></p>
+</div>
   </div>
 
   <p class="form-sous-section">Personne de référence</p>
