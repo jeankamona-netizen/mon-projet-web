@@ -1,5 +1,5 @@
 // =====================
-// CONNEXION ADMINISTRATEUR (vérification simple en attendant MySQL)
+// CONNEXION ADMINISTRATEUR
 // =====================
 
 const ADMIN_USER = "admin.uml";
@@ -31,36 +31,57 @@ function toggleAdminPassword() {
   input.type = input.type === 'password' ? 'text' : 'password';
 }
 
-// Validation avec la touche Entrée
-document.addEventListener('DOMContentLoaded', () => {
-  const champPass = document.getElementById('admin-pass');
-  if (champPass) {
-    champPass.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') connexionAdmin();
-    });
-  }
-
-  // Compteurs de la vue d'ensemble (dashboard admin)
-  const cptEtudiants = document.getElementById('cpt-etudiants');
-  if (cptEtudiants) {
-    cptEtudiants.textContent = '1';
-    document.getElementById('cpt-preinscriptions').textContent = '0';
-    document.getElementById('cpt-cours').textContent = '8';
-    document.getElementById('cpt-annonces').textContent = '5';
-  }
-});
-
 // =====================
-// GESTION DES NOTES (admin) — stockage en mémoire (en attendant MySQL)
+// NAVIGATION ENTRE SECTIONS (tableau de bord admin)
 // =====================
 
-let notesAdmin = [
-  { id: 1, etudiant: "UML-2024-0012", nomEtudiant: "Jean Kamona Netizen", matiere: "Algorithmique avancée", note: 15, session: "S1" },
-  { id: 2, etudiant: "UML-2024-0012", nomEtudiant: "Jean Kamona Netizen", matiere: "Base de données", note: 12, session: "S1" },
-  { id: 3, etudiant: "UML-2024-0012", nomEtudiant: "Jean Kamona Netizen", matiere: "Réseaux & Télécom", note: 8, session: "S1" },
-  { id: 4, etudiant: "UML-2024-0012", nomEtudiant: "Jean Kamona Netizen", matiere: "Programmation Web", note: 16, session: "S1" },
-];
-let prochainIdNote = 5;
+function afficherSection(id, lien) {
+  document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  lien.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// =====================
+// TOAST NOTIFICATION (partagée par tous les modules)
+// =====================
+
+function afficherToast(message) {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.className = 'toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = 'toast';
+  setTimeout(() => toast.classList.add('visible'), 10);
+  setTimeout(() => toast.classList.remove('visible'), 3000);
+}
+
+// =====================
+// GESTION DES NOTES — connecté à MySQL
+// =====================
+
+let notesAdmin = [];
+
+async function chargerNotes() {
+  const tbody = document.getElementById('admin-notes-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
+
+  try {
+    const reponse = await fetch('http://localhost:3000/api/notes');
+    if (!reponse.ok) throw new Error('Erreur serveur');
+    notesAdmin = await reponse.json();
+    afficherTableauNotes();
+  } catch (erreur) {
+    console.error(erreur);
+    tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Impossible de charger les notes. Vérifiez le backend.</td></tr>`;
+  }
+}
 
 function afficherTableauNotes(liste = notesAdmin) {
   const tbody = document.getElementById('admin-notes-body');
@@ -78,7 +99,7 @@ function afficherTableauNotes(liste = notesAdmin) {
 
     return `
       <tr>
-        <td>${n.nomEtudiant}<br><span style="font-size:11px;color:#999">${n.etudiant}</span></td>
+        <td>${n.nom_etudiant} ${n.prenom_etudiant}<br><span style="font-size:11px;color:#999">${n.etudiant_id}</span></td>
         <td>${n.matiere}</td>
         <td>${n.note}/20</td>
         <td>${n.session === 'S1' ? 'Semestre 1' : 'Semestre 2'}</td>
@@ -92,7 +113,6 @@ function afficherTableauNotes(liste = notesAdmin) {
   }).join('');
 }
 
-// ===== OUVRIR LE MODAL (ajout) =====
 function ouvrirModalNote() {
   document.getElementById('modal-note-titre').textContent = 'Ajouter une note';
   document.getElementById('note-id-edit').value = '';
@@ -103,152 +123,143 @@ function ouvrirModalNote() {
   document.getElementById('modal-note').classList.add('active');
 }
 
-// ===== OUVRIR LE MODAL (modification) =====
 function modifierNote(id) {
   const note = notesAdmin.find(n => n.id === id);
   if (!note) return;
 
   document.getElementById('modal-note-titre').textContent = 'Modifier la note';
   document.getElementById('note-id-edit').value = note.id;
-  document.getElementById('note-etudiant').value = note.etudiant;
+  document.getElementById('note-etudiant').value = note.etudiant_id;
   document.getElementById('note-matiere').value = note.matiere;
   document.getElementById('note-valeur').value = note.note;
   document.getElementById('note-session').value = note.session;
   document.getElementById('modal-note').classList.add('active');
 }
 
-// ===== FERMER LE MODAL =====
 function fermerModalNote() {
   document.getElementById('modal-note').classList.remove('active');
 }
 
-// ===== ENREGISTRER (ajout ou modification) =====
-function sauvegarderNote() {
+async function trouverCoursIdParNom(nomCours) {
+  const reponse = await fetch('http://localhost:3000/api/programme');
+  const cours = await reponse.json();
+  const trouve = cours.find(c => c.nom === nomCours);
+  return trouve ? trouve.id : null;
+}
+
+async function sauvegarderNote() {
   const idEdit = document.getElementById('note-id-edit').value;
-  const etudiant = document.getElementById('note-etudiant').value;
-  const matiere = document.getElementById('note-matiere').value;
-  const valeur = parseFloat(document.getElementById('note-valeur').value);
+  const etudiant_id = document.getElementById('note-etudiant').value;
+  const matiereNom = document.getElementById('note-matiere').value;
+  const note = parseFloat(document.getElementById('note-valeur').value);
   const session = document.getElementById('note-session').value;
 
-  if (isNaN(valeur) || valeur < 0 || valeur > 20) {
+  if (isNaN(note) || note < 0 || note > 20) {
     alert('⚠️ Veuillez saisir une note valide entre 0 et 20.');
     return;
   }
 
-  const nomEtudiant = "Jean Kamona Netizen"; // en attendant une vraie liste d'étudiants (MySQL)
-
-  if (idEdit) {
-    // Modification
-    const note = notesAdmin.find(n => n.id === parseInt(idEdit));
-    note.etudiant = etudiant;
-    note.matiere = matiere;
-    note.note = valeur;
-    note.session = session;
-    afficherToast('✅ Note modifiée avec succès !');
-  } else {
-    // Ajout
-    notesAdmin.push({
-      id: prochainIdNote++,
-      etudiant, nomEtudiant, matiere, note: valeur, session
-    });
-    afficherToast('✅ Note ajoutée avec succès !');
+  const cours_id = await trouverCoursIdParNom(matiereNom);
+  if (!cours_id) {
+    alert('⚠️ Ce cours n\'existe pas dans le programme. Ajoutez-le d\'abord dans "Programme annuel".');
+    return;
   }
 
-  fermerModalNote();
-  afficherTableauNotes();
+  const annee_academique = '2025-2026';
+
+  try {
+    let reponse;
+    if (idEdit) {
+      reponse = await fetch(`http://localhost:3000/api/notes/${idEdit}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note, session, annee_academique })
+      });
+    } else {
+      reponse = await fetch('http://localhost:3000/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ etudiant_id, cours_id, note, session, annee_academique })
+      });
+    }
+
+    const donnees = await reponse.json();
+    if (!reponse.ok) {
+      alert('❌ ' + donnees.erreur);
+      return;
+    }
+
+    afficherToast(idEdit ? '✅ Note modifiée avec succès !' : '✅ Note ajoutée avec succès !');
+    fermerModalNote();
+    chargerNotes();
+
+  } catch (erreur) {
+    console.error(erreur);
+    alert('⚠️ Impossible de contacter le serveur.');
+  }
 }
 
-// ===== SUPPRIMER =====
-function supprimerNote(id) {
+async function supprimerNote(id) {
   if (!confirm('Voulez-vous vraiment supprimer cette note ?')) return;
 
-  notesAdmin = notesAdmin.filter(n => n.id !== id);
-  afficherTableauNotes();
-  afficherToast('🗑️ Note supprimée.');
-}
-
-// ===== RECHERCHE =====
-document.addEventListener('DOMContentLoaded', () => {
-  afficherTableauNotes();
-
-  const champRecherche = document.getElementById('recherche-notes');
-  if (champRecherche) {
-    champRecherche.addEventListener('input', (e) => {
-      const terme = e.target.value.toLowerCase();
-      const filtres = notesAdmin.filter(n =>
-        n.nomEtudiant.toLowerCase().includes(terme) ||
-        n.matiere.toLowerCase().includes(terme) ||
-        n.etudiant.toLowerCase().includes(terme)
-      );
-      afficherTableauNotes(filtres);
-    });
-  }
-});
-
-// ===== TOAST (réutilise la fonction si déjà définie dans dashboard.js) =====
-if (typeof afficherToast === 'undefined') {
-  function afficherToast(message) {
-    let toast = document.getElementById('toast');
-    if (!toast) {
-      toast = document.createElement('div');
-      toast.id = 'toast';
-      toast.className = 'toast';
-      document.body.appendChild(toast);
-    }
-    toast.textContent = message;
-    toast.className = 'toast';
-    setTimeout(() => toast.classList.add('visible'), 10);
-    setTimeout(() => toast.classList.remove('visible'), 3000);
+  try {
+    await fetch(`http://localhost:3000/api/notes/${id}`, { method: 'DELETE' });
+    afficherToast('🗑️ Note supprimée.');
+    chargerNotes();
+  } catch (erreur) {
+    console.error(erreur);
+    alert('⚠️ Impossible de supprimer la note.');
   }
 }
+
 // =====================
-// GESTION DES HORAIRES (admin) — avec promotion + année académique
+// GESTION DES HORAIRES — connecté à MySQL
 // =====================
 
-const ORDRE_JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"];
+let horairesAdmin = [];
 
-let horairesAdmin = [
-  { id: 1, promotion: "L2 Informatique", annee: "2025-2026", jour: "Lundi", debut: "07:30", fin: "09:30", cours: "Algorithmique avancée", prof: "Prof. Mutombo", salle: "Salle A12" },
-  { id: 2, promotion: "L2 Informatique", annee: "2025-2026", jour: "Lundi", debut: "10:00", fin: "12:00", cours: "Base de données", prof: "Prof. Kabwe", salle: "Info 1" },
-  { id: 3, promotion: "L2 Informatique", annee: "2025-2026", jour: "Mardi", debut: "07:30", fin: "09:30", cours: "Réseaux & Télécom", prof: "Prof. Ilunga", salle: "Salle B04" },
-  { id: 4, promotion: "L2 Informatique", annee: "2025-2026", jour: "Mardi", debut: "14:00", fin: "16:00", cours: "Programmation Web", prof: "Prof. Kasongo", salle: "Info 2" },
-  { id: 5, promotion: "L2 Informatique", annee: "2025-2026", jour: "Mercredi", debut: "07:30", fin: "09:30", cours: "Système d'exploitation", prof: "Prof. Mbuyi", salle: "Salle A08" },
-  { id: 6, promotion: "L2 Informatique", annee: "2025-2026", jour: "Jeudi", debut: "10:00", fin: "12:00", cours: "Intelligence artificielle", prof: "Prof. Tshimanga", salle: "Info 1" },
-  { id: 7, promotion: "L2 Informatique", annee: "2025-2026", jour: "Vendredi", debut: "07:30", fin: "09:30", cours: "Génie logiciel", prof: "Prof. Luboya", salle: "Salle A12" },
-  { id: 8, promotion: "L2 Informatique", annee: "2025-2026", jour: "Vendredi", debut: "10:00", fin: "12:00", cours: "Sécurité informatique", prof: "Prof. Kabamba", salle: "Info 2" },
-  { id: 9, promotion: "L1 Informatique", annee: "2024-2025", jour: "Lundi", debut: "07:30", fin: "09:30", cours: "Algorithmique avancée", prof: "Prof. Mutombo", salle: "Salle A12" },
-];
-let prochainIdHoraire = 10;
+async function chargerHoraires() {
+  const tbody = document.getElementById('admin-horaires-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Chargement...</td></tr>`;
 
-function trierHoraires(liste) {
-  return [...liste].sort((a, b) => {
-    if (a.annee !== b.annee) return b.annee.localeCompare(a.annee); // années récentes en premier
-    if (a.promotion !== b.promotion) return a.promotion.localeCompare(b.promotion);
-    const diffJour = ORDRE_JOURS.indexOf(a.jour) - ORDRE_JOURS.indexOf(b.jour);
-    if (diffJour !== 0) return diffJour;
-    return a.debut.localeCompare(b.debut);
-  });
+  try {
+    const annee = document.getElementById('filtre-annee')?.value || '';
+    const promotion = document.getElementById('filtre-promotion')?.value || '';
+    const jour = document.getElementById('filtre-jour')?.value || '';
+
+    const params = new URLSearchParams();
+    if (annee) params.append('annee', annee);
+    if (promotion) params.append('promotion', promotion);
+    if (jour) params.append('jour', jour);
+
+    const reponse = await fetch(`http://localhost:3000/api/horaires?${params}`);
+    if (!reponse.ok) throw new Error('Erreur serveur');
+    horairesAdmin = await reponse.json();
+    afficherTableauHoraires();
+  } catch (erreur) {
+    console.error(erreur);
+    tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">⚠️ Impossible de charger les horaires.</td></tr>`;
+  }
 }
 
 function afficherTableauHoraires(liste = horairesAdmin) {
   const tbody = document.getElementById('admin-horaires-body');
   if (!tbody) return;
 
-  const triee = trierHoraires(liste);
-
-  if (triee.length === 0) {
+  if (liste.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Aucun cours programmé pour ces critères.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = triee.map(h => `
+  tbody.innerHTML = liste.map(h => `
     <tr>
       <td><strong>${h.promotion}</strong></td>
-      <td><span class="annee-badge">${h.annee}</span></td>
+      <td><span class="annee-badge">${h.annee_academique}</span></td>
       <td><span class="jour-badge">${h.jour}</span></td>
-      <td>${h.debut} – ${h.fin}</td>
+      <td>${h.heure_debut} – ${h.heure_fin}</td>
       <td>${h.cours}</td>
-      <td>${h.prof}</td>
+      <td>${h.professeur || '—'}</td>
       <td>${h.salle}</td>
       <td class="admin-actions-cell">
         <button class="btn-icone" title="Modifier" onclick="modifierHoraire(${h.id})">✏️</button>
@@ -258,21 +269,6 @@ function afficherTableauHoraires(liste = horairesAdmin) {
   `).join('');
 }
 
-// ===== FILTRAGE COMBINÉ (année + promotion + jour) =====
-function appliquerFiltresHoraires() {
-  const annee = document.getElementById('filtre-annee').value;
-  const promotion = document.getElementById('filtre-promotion').value;
-  const jour = document.getElementById('filtre-jour').value;
-
-  let resultat = horairesAdmin;
-  if (annee) resultat = resultat.filter(h => h.annee === annee);
-  if (promotion) resultat = resultat.filter(h => h.promotion === promotion);
-  if (jour) resultat = resultat.filter(h => h.jour === jour);
-
-  afficherTableauHoraires(resultat);
-}
-
-// ===== OUVRIR LE MODAL (ajout) =====
 function ouvrirModalHoraire() {
   document.getElementById('modal-horaire-titre').textContent = 'Ajouter un cours à l\'horaire';
   document.getElementById('horaire-id-edit').value = '';
@@ -287,7 +283,6 @@ function ouvrirModalHoraire() {
   document.getElementById('modal-horaire').classList.add('active');
 }
 
-// ===== OUVRIR LE MODAL (modification) =====
 function modifierHoraire(id) {
   const h = horairesAdmin.find(x => x.id === id);
   if (!h) return;
@@ -295,142 +290,313 @@ function modifierHoraire(id) {
   document.getElementById('modal-horaire-titre').textContent = 'Modifier le cours';
   document.getElementById('horaire-id-edit').value = h.id;
   document.getElementById('horaire-promotion').value = h.promotion;
-  document.getElementById('horaire-annee').value = h.annee;
+  document.getElementById('horaire-annee').value = h.annee_academique;
   document.getElementById('horaire-jour').value = h.jour;
-  document.getElementById('horaire-debut').value = h.debut;
-  document.getElementById('horaire-fin').value = h.fin;
+  document.getElementById('horaire-debut').value = h.heure_debut;
+  document.getElementById('horaire-fin').value = h.heure_fin;
   document.getElementById('horaire-cours').value = h.cours;
-  document.getElementById('horaire-prof').value = h.prof;
+  document.getElementById('horaire-prof').value = h.professeur || '';
   document.getElementById('horaire-salle').value = h.salle;
   document.getElementById('modal-horaire').classList.add('active');
 }
 
-// ===== FERMER LE MODAL =====
 function fermerModalHoraire() {
   document.getElementById('modal-horaire').classList.remove('active');
 }
 
-// ===== ENREGISTRER (ajout ou modification) =====
-function sauvegarderHoraire() {
+async function sauvegarderHoraire() {
   const idEdit = document.getElementById('horaire-id-edit').value;
   const promotion = document.getElementById('horaire-promotion').value;
-  const annee = document.getElementById('horaire-annee').value;
+  const annee_academique = document.getElementById('horaire-annee').value;
   const jour = document.getElementById('horaire-jour').value;
-  const debut = document.getElementById('horaire-debut').value;
-  const fin = document.getElementById('horaire-fin').value;
-  const cours = document.getElementById('horaire-cours').value;
-  const prof = document.getElementById('horaire-prof').value.trim();
+  const heure_debut = document.getElementById('horaire-debut').value;
+  const heure_fin = document.getElementById('horaire-fin').value;
+  const coursNom = document.getElementById('horaire-cours').value;
   const salle = document.getElementById('horaire-salle').value.trim();
 
-  if (!debut || !fin || !prof || !salle) {
+  if (!heure_debut || !heure_fin || !salle) {
     alert('⚠️ Veuillez remplir tous les champs.');
     return;
   }
 
-  if (fin <= debut) {
+  if (heure_fin <= heure_debut) {
     alert('⚠️ L\'heure de fin doit être après l\'heure de début.');
     return;
   }
 
-  // Conflit de salle : même ANNÉE, même JOUR, même SALLE, créneaux qui se chevauchent
-  // → deux promotions différentes la même année ne peuvent pas partager la salle au même moment
-  // → mais la même salle/jour/heure sur une AUTRE année n'est pas un conflit (historique)
-  const conflitSalle = horairesAdmin.find(h =>
-    h.id !== parseInt(idEdit || -1) &&
-    h.annee === annee &&
-    h.jour === jour &&
-    h.salle === salle &&
-    debut < h.fin && fin > h.debut
-  );
-
-  if (conflitSalle) {
-    alert(`⚠️ Conflit de salle : ${salle} est déjà occupée le ${jour} de ${conflitSalle.debut} à ${conflitSalle.fin} (${conflitSalle.promotion}, ${conflitSalle.annee}).`);
+  const cours_id = await trouverCoursIdParNom(coursNom);
+  if (!cours_id) {
+    alert('⚠️ Ce cours n\'existe pas dans le programme annuel. Ajoutez-le d\'abord.');
     return;
   }
 
-  // Conflit de promotion : la même promotion ne peut pas avoir 2 cours en même temps la même année
-  const conflitPromotion = horairesAdmin.find(h =>
-    h.id !== parseInt(idEdit || -1) &&
-    h.annee === annee &&
-    h.promotion === promotion &&
-    h.jour === jour &&
-    debut < h.fin && fin > h.debut
-  );
+  const corps = { promotion, annee_academique, jour, heure_debut, heure_fin, cours_id, professeur_id: null, salle };
 
-  if (conflitPromotion) {
-    alert(`⚠️ Conflit d'horaire : ${promotion} a déjà cours de ${conflitPromotion.debut} à ${conflitPromotion.fin} le ${jour} (${conflitPromotion.cours}).`);
-    return;
+  try {
+    let reponse;
+    if (idEdit) {
+      reponse = await fetch(`http://localhost:3000/api/horaires/${idEdit}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(corps)
+      });
+    } else {
+      reponse = await fetch('http://localhost:3000/api/horaires', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(corps)
+      });
+    }
+
+    const donnees = await reponse.json();
+    if (!reponse.ok) {
+      alert('⚠️ ' + donnees.erreur);
+      return;
+    }
+
+    afficherToast(idEdit ? '✅ Cours modifié avec succès !' : '✅ Cours ajouté à l\'horaire !');
+    fermerModalHoraire();
+    chargerHoraires();
+
+  } catch (erreur) {
+    console.error(erreur);
+    alert('⚠️ Impossible de contacter le serveur.');
   }
-
-  if (idEdit) {
-    const h = horairesAdmin.find(x => x.id === parseInt(idEdit));
-    Object.assign(h, { promotion, annee, jour, debut, fin, cours, prof, salle });
-    afficherToast('✅ Cours modifié avec succès !');
-  } else {
-    horairesAdmin.push({
-      id: prochainIdHoraire++,
-      promotion, annee, jour, debut, fin, cours, prof, salle
-    });
-    afficherToast('✅ Cours ajouté à l\'horaire !');
-  }
-
-  fermerModalHoraire();
-  appliquerFiltresHoraires();
 }
 
-// ===== SUPPRIMER =====
-function supprimerHoraire(id) {
+async function supprimerHoraire(id) {
   if (!confirm('Voulez-vous vraiment supprimer ce cours de l\'horaire ?')) return;
 
-  horairesAdmin = horairesAdmin.filter(h => h.id !== id);
-  appliquerFiltresHoraires();
-  afficherToast('🗑️ Cours supprimé de l\'horaire.');
+  try {
+    await fetch(`http://localhost:3000/api/horaires/${id}`, { method: 'DELETE' });
+    afficherToast('🗑️ Cours supprimé de l\'horaire.');
+    chargerHoraires();
+  } catch (erreur) {
+    console.error(erreur);
+    alert('⚠️ Impossible de supprimer.');
+  }
 }
 
-// ===== INITIALISATION DES FILTRES =====
-document.addEventListener('DOMContentLoaded', () => {
-  afficherTableauHoraires();
-
-  ['filtre-annee', 'filtre-promotion', 'filtre-jour'].forEach(idFiltre => {
-    const el = document.getElementById(idFiltre);
-    if (el) el.addEventListener('change', appliquerFiltresHoraires);
-  });
-});
-
 // =====================
-// GESTION DES ANNONCES & ÉVÉNEMENTS (admin)
+// GESTION DU PROGRAMME ANNUEL — connecté à MySQL
 // =====================
 
-let annoncesAdmin = [
-  { id: 1, type: "annonce", titre: "Début des inscriptions", description: "Du 01/08 au 09/09/2026", date: "2026-08-01", icone: "📅", image: "", actif: true },
-  { id: 2, type: "annonce", titre: "Rentrée académique 2025-2026", description: "Début des cours en présentiel", date: "2026-09-10", icone: "🎓", image: "", actif: true },
-  { id: 3, type: "evenement", titre: "Collation des grades", description: "Cérémonie de remise des diplômes — promotion 2025", date: "2025-12-15", icone: "🏆", image: "collation.jpg", actif: true },
-  { id: 4, type: "evenement", titre: "Modernisation informatique", description: "Acquisition de nouvelles machines pour la salle informatique", date: "2026-06-18", icone: "📋", image: "acquisition.jpg", actif: true },
-];
-let prochainIdAnnonce = 5;
+let programmeAdmin = [];
+
+async function chargerProgramme() {
+  const tbody = document.getElementById('admin-programme-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
+
+  try {
+    const annee = document.getElementById('filtre-prog-annee')?.value || '';
+    const promotion = document.getElementById('filtre-prog-promotion')?.value || '';
+    const semestre = document.getElementById('filtre-prog-semestre')?.value || '';
+
+    const params = new URLSearchParams();
+    if (annee) params.append('annee', annee);
+    if (promotion) params.append('promotion', promotion);
+    if (semestre) params.append('semestre', semestre);
+
+    const reponse = await fetch(`http://localhost:3000/api/programme?${params}`);
+    if (!reponse.ok) throw new Error('Erreur serveur');
+    programmeAdmin = await reponse.json();
+    afficherTableauProgramme();
+  } catch (erreur) {
+    console.error(erreur);
+    tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Impossible de charger le programme.</td></tr>`;
+  }
+}
+
+function afficherTableauProgramme(liste = programmeAdmin) {
+  const tbody = document.getElementById('admin-programme-body');
+  if (!tbody) return;
+
+  if (liste.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Aucun cours pour ces critères.</td></tr>`;
+    calculerResumeProgramme([]);
+    return;
+  }
+
+  tbody.innerHTML = liste.map(p => `
+    <tr>
+      <td><span class="prog-code-admin">${p.code}</span></td>
+      <td>${p.nom}</td>
+      <td>${p.promotion}</td>
+      <td><span class="annee-badge">${p.annee_academique}</span></td>
+      <td>${p.semestre === 'S1' ? 'Semestre 1' : 'Semestre 2'}</td>
+      <td>${p.credits} crédits</td>
+      <td class="admin-actions-cell">
+        <button class="btn-icone" title="Modifier" onclick="modifierProgramme(${p.id})">✏️</button>
+        <button class="btn-icone danger" title="Supprimer" onclick="supprimerProgramme(${p.id})">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+
+  calculerResumeProgramme(liste);
+}
+
+function calculerResumeProgramme(liste) {
+  const resumeBox = document.getElementById('programme-resume');
+  if (!resumeBox) return;
+
+  const totalS1 = liste.filter(p => p.semestre === 'S1').reduce((s, p) => s + p.credits, 0);
+  const totalS2 = liste.filter(p => p.semestre === 'S2').reduce((s, p) => s + p.credits, 0);
+
+  resumeBox.innerHTML = `
+    <div class="resume-item">
+      <span class="resume-label">Total cours affichés</span>
+      <span class="resume-valeur">${liste.length}</span>
+    </div>
+    <div class="resume-item">
+      <span class="resume-label">Crédits Semestre 1</span>
+      <span class="resume-valeur">${totalS1}</span>
+    </div>
+    <div class="resume-item">
+      <span class="resume-label">Crédits Semestre 2</span>
+      <span class="resume-valeur">${totalS2}</span>
+    </div>
+  `;
+}
+
+function ouvrirModalProgramme() {
+  document.getElementById('modal-programme-titre').textContent = 'Ajouter un cours au programme';
+  document.getElementById('programme-id-edit').value = '';
+  document.getElementById('programme-code').value = '';
+  document.getElementById('programme-credits').value = '';
+  document.getElementById('programme-nom').value = '';
+  document.getElementById('programme-promotion').selectedIndex = 0;
+  document.getElementById('programme-annee').value = '2025-2026';
+  document.getElementById('programme-semestre').value = 'S1';
+  document.getElementById('modal-programme').classList.add('active');
+}
+
+function modifierProgramme(id) {
+  const p = programmeAdmin.find(x => x.id === id);
+  if (!p) return;
+
+  document.getElementById('modal-programme-titre').textContent = 'Modifier le cours';
+  document.getElementById('programme-id-edit').value = p.id;
+  document.getElementById('programme-code').value = p.code;
+  document.getElementById('programme-credits').value = p.credits;
+  document.getElementById('programme-nom').value = p.nom;
+  document.getElementById('programme-promotion').value = p.promotion;
+  document.getElementById('programme-annee').value = p.annee_academique;
+  document.getElementById('programme-semestre').value = p.semestre;
+  document.getElementById('modal-programme').classList.add('active');
+}
+
+function fermerModalProgramme() {
+  document.getElementById('modal-programme').classList.remove('active');
+}
+
+async function sauvegarderProgramme() {
+  const idEdit = document.getElementById('programme-id-edit').value;
+  const code = document.getElementById('programme-code').value.trim();
+  const credits = parseInt(document.getElementById('programme-credits').value);
+  const nom = document.getElementById('programme-nom').value.trim();
+  const promotion = document.getElementById('programme-promotion').value;
+  const annee_academique = document.getElementById('programme-annee').value;
+  const semestre = document.getElementById('programme-semestre').value;
+
+  if (!code || !nom || isNaN(credits) || credits < 1) {
+    alert('⚠️ Veuillez remplir tous les champs correctement (crédits ≥ 1).');
+    return;
+  }
+
+  const corps = { code, nom, promotion, annee_academique, semestre, credits };
+
+  try {
+    let reponse;
+    if (idEdit) {
+      reponse = await fetch(`http://localhost:3000/api/programme/${idEdit}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(corps)
+      });
+    } else {
+      reponse = await fetch('http://localhost:3000/api/programme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(corps)
+      });
+    }
+
+    const donnees = await reponse.json();
+    if (!reponse.ok) {
+      alert('⚠️ ' + donnees.erreur);
+      return;
+    }
+
+    afficherToast(idEdit ? '✅ Cours du programme modifié !' : '✅ Cours ajouté au programme !');
+    fermerModalProgramme();
+    chargerProgramme();
+
+  } catch (erreur) {
+    console.error(erreur);
+    alert('⚠️ Impossible de contacter le serveur.');
+  }
+}
+
+async function supprimerProgramme(id) {
+  if (!confirm('Voulez-vous vraiment supprimer ce cours du programme ?')) return;
+
+  try {
+    await fetch(`http://localhost:3000/api/programme/${id}`, { method: 'DELETE' });
+    afficherToast('🗑️ Cours retiré du programme.');
+    chargerProgramme();
+  } catch (erreur) {
+    console.error(erreur);
+    alert('⚠️ Impossible de supprimer.');
+  }
+}
+
+// =====================
+// GESTION DES ANNONCES & ÉVÉNEMENTS — connecté à MySQL
+// =====================
+
+let annoncesAdmin = [];
 
 function formatDateAffichage(dateStr) {
-  const [annee, mois, jour] = dateStr.split('-');
+  const d = new Date(dateStr);
   const mois_noms = ["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Août","Sep","Oct","Nov","Déc"];
-  return `${jour} ${mois_noms[parseInt(mois) - 1]} ${annee}`;
+  return `${String(d.getDate()).padStart(2,'0')} ${mois_noms[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+async function chargerAnnonces() {
+  const tbody = document.getElementById('admin-annonces-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Chargement...</td></tr>`;
+
+  try {
+    const type = document.getElementById('filtre-type-annonce')?.value || '';
+    const params = new URLSearchParams();
+    if (type) params.append('type', type);
+
+    const reponse = await fetch(`http://localhost:3000/api/annonces?${params}`);
+    if (!reponse.ok) throw new Error('Erreur serveur');
+    annoncesAdmin = await reponse.json();
+    afficherTableauAnnonces();
+  } catch (erreur) {
+    console.error(erreur);
+    tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">⚠️ Impossible de charger les annonces.</td></tr>`;
+  }
 }
 
 function afficherTableauAnnonces(liste = annoncesAdmin) {
   const tbody = document.getElementById('admin-annonces-body');
   if (!tbody) return;
 
-  const triee = [...liste].sort((a, b) => b.date.localeCompare(a.date));
-
-  if (triee.length === 0) {
+  if (liste.length === 0) {
     tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Aucune annonce pour ces critères.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = triee.map(a => `
+  tbody.innerHTML = liste.map(a => `
     <tr>
       <td>${a.icone} ${a.titre}</td>
       <td><span class="type-badge ${a.type}">${a.type === 'annonce' ? 'Annonce' : 'Événement'}</span></td>
-      <td>${formatDateAffichage(a.date)}</td>
+      <td>${formatDateAffichage(a.date_annonce)}</td>
       <td><span class="badge ${a.actif ? 'actif' : 'inactif'}">${a.actif ? 'Actif' : 'Masqué'}</span></td>
       <td class="admin-actions-cell">
         <button class="btn-icone" title="${a.actif ? 'Masquer' : 'Activer'}" onclick="toggleActifAnnonce(${a.id})">${a.actif ? '👁️' : '🚫'}</button>
@@ -441,13 +607,11 @@ function afficherTableauAnnonces(liste = annoncesAdmin) {
   `).join('');
 }
 
-// ===== AFFICHER/CACHER LE CHAMP IMAGE SELON LE TYPE =====
 function gererAffichageChampImage() {
   const type = document.getElementById('annonce-type').value;
   document.getElementById('champ-image-evenement').style.display = type === 'evenement' ? 'block' : 'none';
 }
 
-// ===== OUVRIR LE MODAL (ajout) =====
 function ouvrirModalAnnonce() {
   document.getElementById('modal-annonce-titre').textContent = 'Nouvelle annonce';
   document.getElementById('annonce-id-edit').value = '';
@@ -462,7 +626,6 @@ function ouvrirModalAnnonce() {
   document.getElementById('modal-annonce').classList.add('active');
 }
 
-// ===== OUVRIR LE MODAL (modification) =====
 function modifierAnnonce(id) {
   const a = annoncesAdmin.find(x => x.id === id);
   if (!a) return;
@@ -472,267 +635,110 @@ function modifierAnnonce(id) {
   document.getElementById('annonce-type').value = a.type;
   document.getElementById('annonce-titre-input').value = a.titre;
   document.getElementById('annonce-description').value = a.description;
-  document.getElementById('annonce-date').value = a.date;
+  document.getElementById('annonce-date').value = a.date_annonce.split('T')[0];
   document.getElementById('annonce-icone').value = a.icone;
   if (a.image) document.getElementById('annonce-image').value = a.image;
-  document.getElementById('annonce-actif').checked = a.actif;
+  document.getElementById('annonce-actif').checked = !!a.actif;
   gererAffichageChampImage();
   document.getElementById('modal-annonce').classList.add('active');
 }
 
-// ===== FERMER LE MODAL =====
 function fermerModalAnnonce() {
   document.getElementById('modal-annonce').classList.remove('active');
 }
 
-// ===== ENREGISTRER (ajout ou modification) =====
-function sauvegarderAnnonce() {
+async function sauvegarderAnnonce() {
   const idEdit = document.getElementById('annonce-id-edit').value;
   const type = document.getElementById('annonce-type').value;
   const titre = document.getElementById('annonce-titre-input').value.trim();
   const description = document.getElementById('annonce-description').value.trim();
-  const date = document.getElementById('annonce-date').value;
+  const date_annonce = document.getElementById('annonce-date').value;
   const icone = document.getElementById('annonce-icone').value;
   const image = type === 'evenement' ? document.getElementById('annonce-image').value : '';
   const actif = document.getElementById('annonce-actif').checked;
 
-  if (!titre || !description || !date) {
+  if (!titre || !description || !date_annonce) {
     alert('⚠️ Veuillez remplir tous les champs obligatoires.');
     return;
   }
 
-  if (idEdit) {
-    const a = annoncesAdmin.find(x => x.id === parseInt(idEdit));
-    Object.assign(a, { type, titre, description, date, icone, image, actif });
-    afficherToast('✅ Annonce modifiée avec succès !');
-  } else {
-    annoncesAdmin.push({
-      id: prochainIdAnnonce++,
-      type, titre, description, date, icone, image, actif
-    });
-    afficherToast('✅ Annonce publiée avec succès !');
+  const corps = { type, titre, description, date_annonce, icone, image, actif };
+
+  try {
+    let reponse;
+    if (idEdit) {
+      reponse = await fetch(`http://localhost:3000/api/annonces/${idEdit}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(corps)
+      });
+    } else {
+      reponse = await fetch('http://localhost:3000/api/annonces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(corps)
+      });
+    }
+
+    const donnees = await reponse.json();
+    if (!reponse.ok) {
+      alert('⚠️ ' + donnees.erreur);
+      return;
+    }
+
+    afficherToast(idEdit ? '✅ Annonce modifiée avec succès !' : '✅ Annonce publiée avec succès !');
+    fermerModalAnnonce();
+    chargerAnnonces();
+
+  } catch (erreur) {
+    console.error(erreur);
+    alert('⚠️ Impossible de contacter le serveur.');
   }
-
-  fermerModalAnnonce();
-  appliquerFiltreAnnonces();
 }
 
-// ===== ACTIVER/DESACTIVER =====
-function toggleActifAnnonce(id) {
-  const a = annoncesAdmin.find(x => x.id === id);
-  if (!a) return;
+async function toggleActifAnnonce(id) {
+  try {
+    const reponse = await fetch(`http://localhost:3000/api/annonces/${id}/toggle`, { method: 'PATCH' });
+    const donnees = await reponse.json();
 
-  a.actif = !a.actif;
-  appliquerFiltreAnnonces();
-  afficherToast(a.actif ? '👁️ Annonce activée sur le site' : '🚫 Annonce masquée du site');
+    afficherToast(donnees.actif ? '👁️ Annonce activée sur le site' : '🚫 Annonce masquée du site');
+    chargerAnnonces();
+  } catch (erreur) {
+    console.error(erreur);
+    alert('⚠️ Impossible de changer le statut.');
+  }
 }
 
-// ===== SUPPRIMER =====
-function supprimerAnnonce(id) {
+async function supprimerAnnonce(id) {
   if (!confirm('Voulez-vous vraiment supprimer cette annonce définitivement ?')) return;
 
-  annoncesAdmin = annoncesAdmin.filter(a => a.id !== id);
-  appliquerFiltreAnnonces();
-  afficherToast('🗑️ Annonce supprimée.');
+  try {
+    await fetch(`http://localhost:3000/api/annonces/${id}`, { method: 'DELETE' });
+    afficherToast('🗑️ Annonce supprimée.');
+    chargerAnnonces();
+  } catch (erreur) {
+    console.error(erreur);
+    alert('⚠️ Impossible de supprimer.');
+  }
 }
-
-// ===== FILTRE PAR TYPE =====
-function appliquerFiltreAnnonces() {
-  const type = document.getElementById('filtre-type-annonce').value;
-  const resultat = type ? annoncesAdmin.filter(a => a.type === type) : annoncesAdmin;
-  afficherTableauAnnonces(resultat);
-}
-
-// ===== INITIALISATION =====
-document.addEventListener('DOMContentLoaded', () => {
-  afficherTableauAnnonces();
-
-  const typeSelect = document.getElementById('annonce-type');
-  if (typeSelect) typeSelect.addEventListener('change', gererAffichageChampImage);
-
-  const filtreType = document.getElementById('filtre-type-annonce');
-  if (filtreType) filtreType.addEventListener('change', appliquerFiltreAnnonces);
-});
 
 // =====================
-// GESTION DU PROGRAMME ANNUEL (admin)
-// =====================
-
-let programmeAdmin = [
-  { id: 1, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S1", code: "INF201", nom: "Algorithmique avancée", credits: 4 },
-  { id: 2, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S1", code: "INF202", nom: "Base de données", credits: 4 },
-  { id: 3, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S1", code: "INF203", nom: "Réseaux & Télécom", credits: 3 },
-  { id: 4, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S1", code: "INF204", nom: "Programmation Web", credits: 4 },
-  { id: 5, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S1", code: "INF205", nom: "Système d'exploitation", credits: 3 },
-  { id: 6, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S2", code: "INF206", nom: "Intelligence artificielle", credits: 4 },
-  { id: 7, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S2", code: "INF207", nom: "Génie logiciel", credits: 4 },
-  { id: 8, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S2", code: "INF208", nom: "Sécurité informatique", credits: 3 },
-  { id: 9, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S2", code: "INF209", nom: "Projet de fin d'année", credits: 6 },
-  { id: 10, promotion: "L2 Informatique", annee: "2025-2026", semestre: "S2", code: "INF210", nom: "Stage professionnel", credits: 3 },
-];
-let prochainIdProgramme = 11;
-
-function afficherProgramme() {
-  const annee = document.getElementById('filtre-annee-prog').value || '2025-2026';
-  const promotion = document.getElementById('filtre-promotion-prog').value || 'L2 Informatique';
-
-  const filtres = programmeAdmin.filter(p =>
-    (!document.getElementById('filtre-annee-prog').value || p.annee === annee) &&
-    (!document.getElementById('filtre-promotion-prog').value || p.promotion === promotion)
-  );
-
-  remplirTableProgramme('S1', filtres.filter(p => p.semestre === 'S1'));
-  remplirTableProgramme('S2', filtres.filter(p => p.semestre === 'S2'));
-}
-
-function remplirTableProgramme(semestre, liste) {
-  const tbody = document.getElementById(`prog-${semestre.toLowerCase()}-body`);
-  const totalEl = document.getElementById(`prog-${semestre.toLowerCase()}-total`);
-
-  if (liste.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">Aucun cours pour ces critères.</td></tr>`;
-    totalEl.textContent = '0';
-    return;
-  }
-
-  tbody.innerHTML = liste.map(p => `
-    <tr>
-      <td><span class="annee-badge">${p.code}</span></td>
-      <td>${p.nom}</td>
-      <td>${p.credits}</td>
-      <td class="admin-actions-cell">
-        <button class="btn-icone" title="Modifier" onclick="modifierProgramme(${p.id})">✏️</button>
-        <button class="btn-icone danger" title="Supprimer" onclick="supprimerProgramme(${p.id})">🗑️</button>
-      </td>
-    </tr>
-  `).join('');
-
-  const total = liste.reduce((somme, p) => somme + p.credits, 0);
-  totalEl.textContent = total;
-}
-
-// ===== OUVRIR LE MODAL (ajout) =====
-function ouvrirModalProgramme() {
-  document.getElementById('modal-programme-titre').textContent = 'Ajouter un cours au programme';
-  document.getElementById('prog-id-edit').value = '';
-  document.getElementById('prog-promotion').selectedIndex = 0;
-  document.getElementById('prog-annee').value = '2025-2026';
-  document.getElementById('prog-semestre').value = 'S1';
-  document.getElementById('prog-code').value = '';
-  document.getElementById('prog-credits').value = '';
-  document.getElementById('prog-nom').value = '';
-  document.getElementById('modal-programme').classList.add('active');
-}
-
-// ===== OUVRIR LE MODAL (modification) =====
-function modifierProgramme(id) {
-  const p = programmeAdmin.find(x => x.id === id);
-  if (!p) return;
-
-  document.getElementById('modal-programme-titre').textContent = 'Modifier le cours';
-  document.getElementById('prog-id-edit').value = p.id;
-  document.getElementById('prog-promotion').value = p.promotion;
-  document.getElementById('prog-annee').value = p.annee;
-  document.getElementById('prog-semestre').value = p.semestre;
-  document.getElementById('prog-code').value = p.code;
-  document.getElementById('prog-credits').value = p.credits;
-  document.getElementById('prog-nom').value = p.nom;
-  document.getElementById('modal-programme').classList.add('active');
-}
-
-// ===== FERMER LE MODAL =====
-function fermerModalProgramme() {
-  document.getElementById('modal-programme').classList.remove('active');
-}
-
-// ===== ENREGISTRER =====
-function sauvegarderProgramme() {
-  const idEdit = document.getElementById('prog-id-edit').value;
-  const promotion = document.getElementById('prog-promotion').value;
-  const annee = document.getElementById('prog-annee').value;
-  const semestre = document.getElementById('prog-semestre').value;
-  const code = document.getElementById('prog-code').value.trim();
-  const credits = parseInt(document.getElementById('prog-credits').value);
-  const nom = document.getElementById('prog-nom').value.trim();
-
-  if (!code || !nom || !credits || credits < 1) {
-    alert('⚠️ Veuillez remplir tous les champs avec des valeurs valides.');
-    return;
-  }
-
-  // Empêche le doublon de code pour la même promotion/année
-  const doublon = programmeAdmin.find(p =>
-    p.id !== parseInt(idEdit || -1) &&
-    p.code === code &&
-    p.promotion === promotion &&
-    p.annee === annee
-  );
-
-  if (doublon) {
-    alert(`⚠️ Le code ${code} existe déjà dans le programme de ${promotion} (${annee}).`);
-    return;
-  }
-
-  if (idEdit) {
-    const p = programmeAdmin.find(x => x.id === parseInt(idEdit));
-    Object.assign(p, { promotion, annee, semestre, code, nom, credits });
-    afficherToast('✅ Cours du programme modifié !');
-  } else {
-    programmeAdmin.push({
-      id: prochainIdProgramme++,
-      promotion, annee, semestre, code, nom, credits
-    });
-    afficherToast('✅ Cours ajouté au programme !');
-  }
-
-  fermerModalProgramme();
-  afficherProgramme();
-}
-
-// ===== SUPPRIMER =====
-function supprimerProgramme(id) {
-  if (!confirm('Voulez-vous vraiment retirer ce cours du programme ?')) return;
-
-  programmeAdmin = programmeAdmin.filter(p => p.id !== id);
-  afficherProgramme();
-  afficherToast('🗑️ Cours retiré du programme.');
-}
-
-// ===== INITIALISATION =====
-document.addEventListener('DOMContentLoaded', () => {
-  afficherProgramme();
-
-  ['filtre-annee-prog', 'filtre-promotion-prog'].forEach(idFiltre => {
-    const el = document.getElementById(idFiltre);
-    if (el) el.addEventListener('change', afficherProgramme);
-  });
-});
-
-// =====================
-// PRE-INSCRIPTIONS — connecté au VRAI backend Express
+// PRE-INSCRIPTIONS — connecté à MySQL via le backend Express
 // =====================
 
 let preinscriptionsCache = [];
 
 async function chargerPreinscriptions() {
   const tbody = document.getElementById('admin-preinscriptions-body');
+  if (!tbody) return;
   tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement des données...</td></tr>`;
 
   try {
     const reponse = await fetch('http://localhost:3000/api/preinscription');
-
-    if (!reponse.ok) {
-      throw new Error('Erreur serveur');
-    }
+    if (!reponse.ok) throw new Error('Erreur serveur');
 
     const donnees = await reponse.json();
-
-    // On ajoute un statut par défaut si l'API n'en fournit pas encore
-    preinscriptionsCache = donnees.map(d => ({
-      ...d,
-      statut: d.statut || 'en_attente'
-    }));
-
+    preinscriptionsCache = donnees.map(d => ({ ...d, statut: d.statut || 'en_attente' }));
     appliquerFiltresPreinscriptions();
 
   } catch (erreur) {
@@ -740,7 +746,7 @@ async function chargerPreinscriptions() {
     tbody.innerHTML = `
       <tr><td colspan="6" class="admin-vide">
         ⚠️ Impossible de contacter le serveur backend.<br>
-        Vérifiez que <code>node server.js</code> est bien lancé dans le dossier backend.
+        Vérifiez que <code>node server.js</code> est bien lancé.
       </td></tr>
     `;
   }
@@ -757,22 +763,21 @@ function libelleStatut(statut) {
 
 function afficherTableauPreinscriptions(liste) {
   const tbody = document.getElementById('admin-preinscriptions-body');
+  if (!tbody) return;
 
   if (liste.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Aucune pré-inscription pour ces critères.</td></tr>`;
     return;
   }
 
-  // Tri du plus récent au plus ancien
   const triee = [...liste].sort((a, b) =>
-    new Date(b.dateSoumission || 0) - new Date(a.dateSoumission || 0)
+    new Date(b.dateSoumission || b.date_soumission || 0) - new Date(a.dateSoumission || a.date_soumission || 0)
   );
 
   tbody.innerHTML = triee.map(p => {
     const nomComplet = `${p.nom || ''} ${p.postnom || ''} ${p.prenom || ''}`.trim();
-    const dateAffichee = p.dateSoumission
-      ? new Date(p.dateSoumission).toLocaleDateString('fr-FR')
-      : '—';
+    const dateBrute = p.dateSoumission || p.date_soumission;
+    const dateAffichee = dateBrute ? new Date(dateBrute).toLocaleDateString('fr-FR') : '—';
 
     return `
       <tr>
@@ -789,7 +794,6 @@ function afficherTableauPreinscriptions(liste) {
   }).join('');
 }
 
-// ===== VOIR LE DETAIL COMPLET D'UN DOSSIER =====
 function voirDetailPreinscription(id) {
   const p = preinscriptionsCache.find(x => x.id === id);
   if (!p) return;
@@ -798,7 +802,6 @@ function voirDetailPreinscription(id) {
 
   contenu.innerHTML = `
     <div id="zone-impression">
-
       <div class="fiche-entete">
         <img src="img/logo.png" alt="Logo UML" class="fiche-logo">
         <div>
@@ -809,11 +812,11 @@ function voirDetailPreinscription(id) {
 
       <p class="fiche-section-titre">Identité</p>
       <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${p.nom || ''} ${p.postnom || ''} ${p.prenom || ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Date de naissance</span><span class="profil-val">${p.dateNaissance || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Lieu de naissance</span><span class="profil-val">${p.lieuNaissance || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Date de naissance</span><span class="profil-val">${p.dateNaissance || p.date_naissance || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Lieu de naissance</span><span class="profil-val">${p.lieuNaissance || p.lieu_naissance || '—'}</span></div>
       <div class="profil-ligne"><span class="profil-cle">Nationalité</span><span class="profil-val">${p.nationalite || '—'}</span></div>
       <div class="profil-ligne"><span class="profil-cle">Sexe</span><span class="profil-val">${p.sexe === 'M' ? 'Masculin' : p.sexe === 'F' ? 'Féminin' : '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">État civil</span><span class="profil-val">${p.etatCivil || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">État civil</span><span class="profil-val">${p.etatCivil || p.etat_civil || '—'}</span></div>
 
       <p class="fiche-section-titre">Contact</p>
       <div class="profil-ligne"><span class="profil-cle">Adresse</span><span class="profil-val">${p.adresse1 || '—'} ${p.adresse2 ? '— ' + p.adresse2 : ''}</span></div>
@@ -821,18 +824,18 @@ function voirDetailPreinscription(id) {
       <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${p.email || '—'}</span></div>
 
       <p class="fiche-section-titre">Responsables / Tuteurs</p>
-      <div class="profil-ligne"><span class="profil-cle">Père</span><span class="profil-val">${p.nomPere || '—'} ${p.telPere ? '— ' + p.telPere : ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Mère</span><span class="profil-val">${p.nomMere || '—'} ${p.telMere ? '— ' + p.telMere : ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Tuteur</span><span class="profil-val">${p.nomTuteur || '—'} ${p.telTuteur ? '— ' + p.telTuteur : ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Adresse d'urgence</span><span class="profil-val">${p.adresseUrgence || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Père</span><span class="profil-val">${p.nomPere || p.nom_pere || '—'} ${p.telPere || p.tel_pere ? '— ' + (p.telPere || p.tel_pere) : ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Mère</span><span class="profil-val">${p.nomMere || p.nom_mere || '—'} ${p.telMere || p.tel_mere ? '— ' + (p.telMere || p.tel_mere) : ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Tuteur</span><span class="profil-val">${p.nomTuteur || p.nom_tuteur || '—'} ${p.telTuteur || p.tel_tuteur ? '— ' + (p.telTuteur || p.tel_tuteur) : ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Adresse d'urgence</span><span class="profil-val">${p.adresseUrgence || p.adresse_urgence || '—'}</span></div>
 
       <p class="fiche-section-titre">Études secondaires</p>
       <div class="profil-ligne"><span class="profil-cle">École fréquentée</span><span class="profil-val">${p.ecole || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Ville de l'école</span><span class="profil-val">${p.villeEcole || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">N° du diplôme</span><span class="profil-val">${p.numDiplome || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Ville de l'école</span><span class="profil-val">${p.villeEcole || p.ville_ecole || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">N° du diplôme</span><span class="profil-val">${p.numDiplome || p.num_diplome || '—'}</span></div>
       <div class="profil-ligne"><span class="profil-cle">Pourcentage obtenu</span><span class="profil-val">${p.pourcentage || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Année d'obtention</span><span class="profil-val">${p.anneeDiplome || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Section suivie</span><span class="profil-val">${p.sectionSecondaire || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Année d'obtention</span><span class="profil-val">${p.anneeDiplome || p.annee_diplome || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Section suivie</span><span class="profil-val">${p.sectionSecondaire || p.section_secondaire || '—'}</span></div>
 
       <p class="fiche-section-titre">Choix du programme</p>
       <div class="profil-ligne"><span class="profil-cle">1er choix</span><span class="profil-val">${p.specialite || '—'}</span></div>
@@ -842,15 +845,14 @@ function voirDetailPreinscription(id) {
       <div class="profil-ligne"><span class="profil-cle">En activité professionnelle</span><span class="profil-val">${p.professionnel ? 'Oui' : 'Non'}</span></div>
 
       <p class="fiche-section-titre">Personne de référence</p>
-      <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${p.refNom || ''} ${p.refPostnom || ''} ${p.refPrenom || ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Téléphone</span><span class="profil-val">${p.refTelephone || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${p.refEmail || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${p.refNom || p.ref_nom || ''} ${p.refPostnom || p.ref_postnom || ''} ${p.refPrenom || p.ref_prenom || ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Téléphone</span><span class="profil-val">${p.refTelephone || p.ref_telephone || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${p.refEmail || p.ref_email || '—'}</span></div>
 
       <p class="fiche-section-titre">Informations complémentaires</p>
-      <div class="profil-ligne"><span class="profil-cle">Canal de découverte</span><span class="profil-val">${p.canalDecouverte || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Date de soumission</span><span class="profil-val">${p.dateSoumission ? new Date(p.dateSoumission).toLocaleString('fr-FR') : '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Canal de découverte</span><span class="profil-val">${p.canalDecouverte || p.canal_decouverte || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Date de soumission</span><span class="profil-val">${(p.dateSoumission || p.date_soumission) ? new Date(p.dateSoumission || p.date_soumission).toLocaleString('fr-FR') : '—'}</span></div>
       <div class="profil-ligne"><span class="profil-cle">Statut actuel</span><span class="profil-val">${libelleStatut(p.statut)}</span></div>
-
     </div>
   `;
 
@@ -864,7 +866,10 @@ function voirDetailPreinscription(id) {
   document.getElementById('modal-preinscription').classList.add('active');
 }
 
-// ===== IMPRESSION DU DOSSIER =====
+function fermerModalPreinscription() {
+  document.getElementById('modal-preinscription').classList.remove('active');
+}
+
 function imprimerDossier() {
   const contenu = document.getElementById('zone-impression').innerHTML;
   const fenetreImpression = window.open('', '_blank', 'width=800,height=900');
@@ -876,63 +881,29 @@ function imprimerDossier() {
       <meta charset="UTF-8">
       <title>Fiche de pré-inscription — UML</title>
       <style>
-        @page {
-          size: A4;
-          margin: 18mm 16mm;
-        }
+        @page { size: A4; margin: 18mm 16mm; }
         * { box-sizing: border-box; }
-        body {
-          font-family: 'Segoe UI', Arial, sans-serif;
-          color: #222;
-          font-size: 11px;
-          line-height: 1.4;
-        }
-        .fiche-entete {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          border-bottom: 2.5px solid #f0c020;
-          padding-bottom: 10px;
-          margin-bottom: 12px;
-        }
+        body { font-family: 'Segoe UI', Arial, sans-serif; color: #222; font-size: 11px; line-height: 1.4; }
+        .fiche-entete { display: flex; align-items: center; gap: 12px; border-bottom: 2.5px solid #f0c020; padding-bottom: 10px; margin-bottom: 12px; }
         .fiche-logo { height: 42px; }
         .fiche-titre-uni { font-size: 14px; font-weight: 700; color: #1a3a6b; margin: 0; }
         .fiche-sous-titre { font-size: 11px; color: #666; margin: 2px 0 0; }
-        .fiche-section-titre {
-          font-size: 11.5px;
-          font-weight: 700;
-          color: #1a3a6b;
-          margin: 10px 0 4px;
-          padding-top: 6px;
-          border-top: 1px solid #ddd;
-          break-inside: avoid;
-        }
+        .fiche-section-titre { font-size: 11.5px; font-weight: 700; color: #1a3a6b; margin: 10px 0 4px; padding-top: 6px; border-top: 1px solid #ddd; break-inside: avoid; }
         .fiche-section-titre:first-of-type { border-top: none; margin-top: 0; }
-        .profil-ligne {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          padding: 3px 0;
-          border-bottom: 0.5px dotted #ccc;
-          break-inside: avoid;
-        }
+        .profil-ligne { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; border-bottom: 0.5px dotted #ccc; break-inside: avoid; }
         .profil-cle { color: #666; font-size: 10.5px; flex: 0 0 42%; }
         .profil-val { color: #111; font-weight: 600; text-align: right; flex: 1; font-size: 10.5px; }
       </style>
     </head>
-    <body>
-      ${contenu}
-    </body>
+    <body>${contenu}</body>
     </html>
   `);
 
   fenetreImpression.document.close();
   fenetreImpression.focus();
-
-  setTimeout(() => {
-    fenetreImpression.print();
-  }, 400);
+  setTimeout(() => fenetreImpression.print(), 400);
 }
+
 async function changerStatutPreinscription(id, nouveauStatut) {
   try {
     const reponse = await fetch(`http://localhost:3000/api/preinscription/${id}`, {
@@ -942,18 +913,13 @@ async function changerStatutPreinscription(id, nouveauStatut) {
     });
 
     let donnees = null;
-    try {
-      donnees = await reponse.json();
-    } catch (e) {
-      donnees = null;
-    }
+    try { donnees = await reponse.json(); } catch (e) { donnees = null; }
 
     if (!reponse.ok) {
       const messageErreur = donnees?.erreur || `Erreur ${reponse.status}`;
       throw new Error(messageErreur);
     }
 
-    // Mise à jour du cache local
     const p = preinscriptionsCache.find(x => x.id === id);
     if (p) p.statut = (donnees && donnees.dossier) ? donnees.dossier.statut : nouveauStatut;
 
@@ -972,10 +938,11 @@ async function changerStatutPreinscription(id, nouveauStatut) {
   }
 }
 
-// ===== FILTRES (recherche + statut) =====
 function appliquerFiltresPreinscriptions() {
-  const terme = document.getElementById('recherche-preinscriptions').value.toLowerCase();
-  const statut = document.getElementById('filtre-statut-preinscription').value;
+  const termeEl = document.getElementById('recherche-preinscriptions');
+  const statutEl = document.getElementById('filtre-statut-preinscription');
+  const terme = termeEl ? termeEl.value.toLowerCase() : '';
+  const statut = statutEl ? statutEl.value : '';
 
   let resultat = preinscriptionsCache;
 
@@ -993,19 +960,78 @@ function appliquerFiltresPreinscriptions() {
   afficherTableauPreinscriptions(resultat);
 }
 
-// ===== INITIALISATION =====
-document.addEventListener('DOMContentLoaded', () => {
-  const sectionPreinscriptions = document.getElementById('admin-preinscriptions');
-  if (sectionPreinscriptions) {
-    chargerPreinscriptions();
+// =====================
+// INITIALISATION GLOBALE — un seul DOMContentLoaded pour tout
+// =====================
 
-    document.getElementById('recherche-preinscriptions')
-      .addEventListener('input', appliquerFiltresPreinscriptions);
-    document.getElementById('filtre-statut-preinscription')
-      .addEventListener('change', appliquerFiltresPreinscriptions);
+document.addEventListener('DOMContentLoaded', () => {
+  // Connexion (page admin.html)
+  const champPass = document.getElementById('admin-pass');
+  if (champPass) {
+    champPass.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') connexionAdmin();
+    });
+  }
+
+  // Compteurs vue d'ensemble
+  const cptEtudiants = document.getElementById('cpt-etudiants');
+  if (cptEtudiants) {
+    cptEtudiants.textContent = '1';
+    document.getElementById('cpt-preinscriptions').textContent = '0';
+    document.getElementById('cpt-cours').textContent = '8';
+    document.getElementById('cpt-annonces').textContent = '5';
+  }
+
+  // Notes
+  if (document.getElementById('admin-notes')) {
+    chargerNotes();
+    const champRecherche = document.getElementById('recherche-notes');
+    if (champRecherche) {
+      champRecherche.addEventListener('input', (e) => {
+        const terme = e.target.value.toLowerCase();
+        const filtres = notesAdmin.filter(n =>
+          `${n.nom_etudiant} ${n.prenom_etudiant}`.toLowerCase().includes(terme) ||
+          n.matiere.toLowerCase().includes(terme) ||
+          n.etudiant_id.toLowerCase().includes(terme)
+        );
+        afficherTableauNotes(filtres);
+      });
+    }
+  }
+
+  // Horaires
+  if (document.getElementById('admin-horaires')) {
+    chargerHoraires();
+    ['filtre-annee', 'filtre-promotion', 'filtre-jour'].forEach(idFiltre => {
+      const el = document.getElementById(idFiltre);
+      if (el) el.addEventListener('change', chargerHoraires);
+    });
+  }
+
+  // Programme
+  if (document.getElementById('admin-programme')) {
+    chargerProgramme();
+    ['filtre-prog-annee', 'filtre-prog-promotion', 'filtre-prog-semestre'].forEach(idFiltre => {
+      const el = document.getElementById(idFiltre);
+      if (el) el.addEventListener('change', chargerProgramme);
+    });
+  }
+
+  // Annonces
+  if (document.getElementById('admin-annonces')) {
+    chargerAnnonces();
+    const typeSelect = document.getElementById('annonce-type');
+    if (typeSelect) typeSelect.addEventListener('change', gererAffichageChampImage);
+    const filtreType = document.getElementById('filtre-type-annonce');
+    if (filtreType) filtreType.addEventListener('change', chargerAnnonces);
+  }
+
+  // Pré-inscriptions
+  if (document.getElementById('admin-preinscriptions')) {
+    chargerPreinscriptions();
+    const rechPre = document.getElementById('recherche-preinscriptions');
+    if (rechPre) rechPre.addEventListener('input', appliquerFiltresPreinscriptions);
+    const statutPre = document.getElementById('filtre-statut-preinscription');
+    if (statutPre) statutPre.addEventListener('change', appliquerFiltresPreinscriptions);
   }
 });
-
-function fermerModalPreinscription() {
-  document.getElementById('modal-preinscription').classList.remove('active');
-}
