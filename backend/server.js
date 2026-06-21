@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
@@ -11,6 +12,20 @@ app.use(express.json());
 const facultesRoutes      = require('./routes/facultes');
 const preinscriptionRoutes = require('./routes/preinscription');
 const authRoutes          = require('./routes/auth');
+
+
+const pool = require('./database');
+
+// ===== TEST DE CONNEXION MYSQL =====
+pool.getConnection()
+  .then(connection => {
+    console.log('✅ Connexion à MySQL réussie !');
+    connection.release();
+  })
+  .catch(err => {
+    console.error('❌ Erreur de connexion à MySQL :', err.message);
+  });
+
 
 // ===== BRANCHEMENT DES ROUTES =====
 app.use('/api/facultes', facultesRoutes);
@@ -26,3 +41,4 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Serveur démarré sur http://localhost:${PORT}`);
 });
+

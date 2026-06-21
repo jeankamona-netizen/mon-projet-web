@@ -85,8 +85,9 @@ async function seConnecter() {
   }
 }
 
-// ===== SOUMETTRE DOSSIER (connecté au backend) =====
+
 async function soumettreDossier() {
+  // Identité
   const nom = document.getElementById('nom').value.trim();
   const postnom = document.getElementById('postnom').value.trim();
   const prenom = document.getElementById('prenom').value.trim();
@@ -95,27 +96,60 @@ async function soumettreDossier() {
   const nationalite = document.getElementById('nationalite').value.trim();
   const sexe = document.getElementById('sexe').value;
   const etatCivil = document.getElementById('etat-civil').value;
+  const typeIdentite = document.getElementById('type-identite').value;
+  const numIdentite = document.getElementById('num-identite').value.trim();
+
+  // Contact
   const adresse1 = document.getElementById('adresse1').value.trim();
+  const adresse2 = document.getElementById('adresse2').value.trim();
   const telephone = document.getElementById('telephone').value.trim();
   const email = document.getElementById('email').value.trim();
+
+  // Responsables / tuteurs
+  const nomPere = document.getElementById('nom-pere').value.trim();
+  const telPere = document.getElementById('tel-pere').value.trim();
+  const nomMere = document.getElementById('nom-mere').value.trim();
+  const telMere = document.getElementById('tel-mere').value.trim();
+  const nomTuteur = document.getElementById('nom-tuteur').value.trim();
+  const telTuteur = document.getElementById('tel-tuteur').value.trim();
+  const adresseUrgence = document.getElementById('adresse-urgence').value.trim();
+
+  // Études secondaires
   const ecole = document.getElementById('ecole').value.trim();
   const villeEcole = document.getElementById('ville-ecole').value.trim();
+  const numDiplome = document.getElementById('num-diplome').value.trim();
   const pourcentage = document.getElementById('pourcentage').value.trim();
+  const anneeDiplome = document.getElementById('annee-diplome').value;
   const sectionSecondaire = document.getElementById('section-secondaire').value.trim();
+
+  // Choix du programme
   const specialite = document.getElementById('specialite').value;
   const specialite2 = document.getElementById('specialite2').value;
   const niveau = document.getElementById('niveau').value;
+  const redoublant = document.getElementById('redoublant').checked;
+  const professionnel = document.getElementById('professionnel').checked;
+
+  // Personne de référence
   const refNom = document.getElementById('ref-nom').value.trim();
+  const refPostnom = document.getElementById('ref-postnom').value.trim();
   const refPrenom = document.getElementById('ref-prenom').value.trim();
   const refTelephone = document.getElementById('ref-telephone').value.trim();
+  const refEmail = document.getElementById('ref-email').value.trim();
+
+  // Complémentaire
   const canalDecouverte = document.getElementById('canal-decouverte').value;
 
+  // Validation
   if (!nom || !prenom || !specialite || !pourcentage || !sectionSecondaire) {
     alert('⚠️ Veuillez compléter tous les champs obligatoires.');
     return;
   }
 
-  // Désactiver le bouton pour éviter un double-clic pendant l'envoi
+  // Vérification de debug : affiche dans la console ce qui va être envoyé
+  console.log('Données envoyées au serveur:', {
+    redoublant, professionnel, nomPere, nomMere, nomTuteur, adresseUrgence, numDiplome, anneeDiplome, refEmail
+  });
+
   const btnSoumettre = document.querySelector('#form-etape-4 .btn-submit');
   btnSoumettre.disabled = true;
   btnSoumettre.textContent = '⏳ Envoi en cours...';
@@ -126,8 +160,13 @@ async function soumettreDossier() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         nom, postnom, prenom, dateNaissance, lieuNaissance, nationalite, sexe, etatCivil,
-        adresse1, telephone, email, ecole, villeEcole, pourcentage, sectionSecondaire,
-        specialite, specialite2, niveau, refNom, refPrenom, refTelephone, canalDecouverte
+        typeIdentite, numIdentite,
+        adresse1, adresse2, telephone, email,
+        nomPere, telPere, nomMere, telMere, nomTuteur, telTuteur, adresseUrgence,
+        ecole, villeEcole, numDiplome, pourcentage, anneeDiplome, sectionSecondaire,
+        specialite, specialite2, niveau, redoublant, professionnel,
+        refNom, refPostnom, refPrenom, refTelephone, refEmail,
+        canalDecouverte
       })
     });
 
@@ -140,10 +179,9 @@ async function soumettreDossier() {
       return;
     }
 
-    
+    console.log('Dossier enregistré côté serveur:', donnees.dossier);
+
     alert('🎉 ' + donnees.message + '\nVous allez être redirigé vers la page d\'accueil.');
-    
-    // Redirection vers la page d'accueil pour éviter une double soumission
     window.location.href = 'index.html';
 
   } catch (erreur) {
