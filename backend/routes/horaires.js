@@ -9,8 +9,8 @@ router.get('/', async (req, res) => {
 
     let sql = `
       SELECT h.id, h.promotion, h.annee_academique, h.jour, 
-             h.heure_debut, h.heure_fin, h.salle,
-             c.nom AS cours, p.nom AS professeur
+       h.heure_debut, h.heure_fin, h.salle, h.professeur_id,
+       c.nom AS cours, p.nom AS professeur
       FROM horaire h
       JOIN cours c ON h.cours_id = c.id
       LEFT JOIN professeur p ON h.professeur_id = p.id

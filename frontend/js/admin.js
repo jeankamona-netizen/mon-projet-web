@@ -269,7 +269,8 @@ function afficherTableauHoraires(liste = horairesAdmin) {
   `).join('');
 }
 
-function ouvrirModalHoraire() {
+async function ouvrirModalHoraire() {
+  await remplirListeProfesseurs();
   document.getElementById('modal-horaire-titre').textContent = 'Ajouter un cours à l\'horaire';
   document.getElementById('horaire-id-edit').value = '';
   document.getElementById('horaire-promotion').selectedIndex = 0;
@@ -277,25 +278,27 @@ function ouvrirModalHoraire() {
   document.getElementById('horaire-jour').selectedIndex = 0;
   document.getElementById('horaire-debut').value = '07:30';
   document.getElementById('horaire-fin').value = '09:30';
-  document.getElementById('horaire-cours').selectedIndex = 0;
-  document.getElementById('horaire-prof').value = '';
   document.getElementById('horaire-salle').value = '';
   document.getElementById('modal-horaire').classList.add('active');
+  await rafraichirCoursParPromotion();
 }
 
-function modifierHoraire(id) {
+async function modifierHoraire(id) {
   const h = horairesAdmin.find(x => x.id === id);
   if (!h) return;
 
-  document.getElementById('modal-horaire-titre').textContent = 'Modifier le cours';
-  document.getElementById('horaire-id-edit').value = h.id;
   document.getElementById('horaire-promotion').value = h.promotion;
   document.getElementById('horaire-annee').value = h.annee_academique;
+  await rafraichirCoursParPromotion();
+  await remplirListeProfesseurs();
+
+  document.getElementById('modal-horaire-titre').textContent = 'Modifier le cours';
+  document.getElementById('horaire-id-edit').value = h.id;
   document.getElementById('horaire-jour').value = h.jour;
   document.getElementById('horaire-debut').value = h.heure_debut;
   document.getElementById('horaire-fin').value = h.heure_fin;
   document.getElementById('horaire-cours').value = h.cours;
-  document.getElementById('horaire-prof').value = h.professeur || '';
+  document.getElementById('horaire-prof').value = '';  // Toujours vide, à re-choisir explicitement
   document.getElementById('horaire-salle').value = h.salle;
   document.getElementById('modal-horaire').classList.add('active');
 }
@@ -312,6 +315,7 @@ async function sauvegarderHoraire() {
   const heure_debut = document.getElementById('horaire-debut').value;
   const heure_fin = document.getElementById('horaire-fin').value;
   const coursNom = document.getElementById('horaire-cours').value;
+  const professeur_id = document.getElementById('horaire-prof').value;
   const salle = document.getElementById('horaire-salle').value.trim();
 
   if (!heure_debut || !heure_fin || !salle) {
@@ -330,8 +334,9 @@ async function sauvegarderHoraire() {
     return;
   }
 
-  const corps = { promotion, annee_academique, jour, heure_debut, heure_fin, cours_id, professeur_id: null, salle };
+  const corps = { promotion, annee_academique, jour, heure_debut, heure_fin, cours_id, professeur_id, salle };
 
+  
   try {
     let reponse;
     if (idEdit) {
@@ -384,19 +389,20 @@ async function supprimerHoraire(id) {
 let programmeAdmin = [];
 
 async function chargerProgramme() {
-  const tbody = document.getElementById('admin-programme-body');
-  if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
+  const tbodyS1 = document.getElementById('prog-s1-body');
+  const tbodyS2 = document.getElementById('prog-s2-body');
+  if (!tbodyS1 || !tbodyS2) return;
+
+  tbodyS1.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
+  tbodyS2.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
 
   try {
-    const annee = document.getElementById('filtre-prog-annee')?.value || '';
-    const promotion = document.getElementById('filtre-prog-promotion')?.value || '';
-    const semestre = document.getElementById('filtre-prog-semestre')?.value || '';
+    const annee = document.getElementById('filtre-annee-prog')?.value || '';
+    const promotion = document.getElementById('filtre-promotion-prog')?.value || '';
 
     const params = new URLSearchParams();
     if (annee) params.append('annee', annee);
     if (promotion) params.append('promotion', promotion);
-    if (semestre) params.append('semestre', semestre);
 
     const reponse = await fetch(`http://localhost:3000/api/programme?${params}`);
     if (!reponse.ok) throw new Error('Erreur serveur');
@@ -404,70 +410,56 @@ async function chargerProgramme() {
     afficherTableauProgramme();
   } catch (erreur) {
     console.error(erreur);
-    tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Impossible de charger le programme.</td></tr>`;
+    tbodyS1.innerHTML = `<tr><td colspan="4" class="admin-vide">⚠️ Impossible de charger le programme.</td></tr>`;
+    tbodyS2.innerHTML = '';
   }
 }
 
 function afficherTableauProgramme(liste = programmeAdmin) {
-  const tbody = document.getElementById('admin-programme-body');
-  if (!tbody) return;
+  const tbodyS1 = document.getElementById('prog-s1-body');
+  const tbodyS2 = document.getElementById('prog-s2-body');
+  const totalS1El = document.getElementById('prog-s1-total');
+  const totalS2El = document.getElementById('prog-s2-total');
+  if (!tbodyS1 || !tbodyS2) return;
 
-  if (liste.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Aucun cours pour ces critères.</td></tr>`;
-    calculerResumeProgramme([]);
-    return;
-  }
+  const coursS1 = liste.filter(p => p.semestre === 'S1');
+  const coursS2 = liste.filter(p => p.semestre === 'S2');
 
-  tbody.innerHTML = liste.map(p => `
-    <tr>
-      <td><span class="prog-code-admin">${p.code}</span></td>
-      <td>${p.nom}</td>
-      <td>${p.promotion}</td>
-      <td><span class="annee-badge">${p.annee_academique}</span></td>
-      <td>${p.semestre === 'S1' ? 'Semestre 1' : 'Semestre 2'}</td>
-      <td>${p.credits} crédits</td>
-      <td class="admin-actions-cell">
-        <button class="btn-icone" title="Modifier" onclick="modifierProgramme(${p.id})">✏️</button>
-        <button class="btn-icone danger" title="Supprimer" onclick="supprimerProgramme(${p.id})">🗑️</button>
-      </td>
-    </tr>
-  `).join('');
+  const genererLignes = (cours) => {
+    if (cours.length === 0) {
+      return `<tr><td colspan="4" class="admin-vide">Aucun cours pour ce semestre.</td></tr>`;
+    }
+    return cours.map(p => `
+      <tr>
+        <td><span class="prog-code-admin">${p.code}</span></td>
+        <td>${p.nom}</td>
+        <td>${p.credits} cr.</td>
+        <td class="admin-actions-cell">
+          <button class="btn-icone" title="Modifier" onclick="modifierProgramme(${p.id})">✏️</button>
+          <button class="btn-icone danger" title="Supprimer" onclick="supprimerProgramme(${p.id})">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+  };
 
-  calculerResumeProgramme(liste);
-}
+  tbodyS1.innerHTML = genererLignes(coursS1);
+  tbodyS2.innerHTML = genererLignes(coursS2);
 
-function calculerResumeProgramme(liste) {
-  const resumeBox = document.getElementById('programme-resume');
-  if (!resumeBox) return;
-
-  const totalS1 = liste.filter(p => p.semestre === 'S1').reduce((s, p) => s + p.credits, 0);
-  const totalS2 = liste.filter(p => p.semestre === 'S2').reduce((s, p) => s + p.credits, 0);
-
-  resumeBox.innerHTML = `
-    <div class="resume-item">
-      <span class="resume-label">Total cours affichés</span>
-      <span class="resume-valeur">${liste.length}</span>
-    </div>
-    <div class="resume-item">
-      <span class="resume-label">Crédits Semestre 1</span>
-      <span class="resume-valeur">${totalS1}</span>
-    </div>
-    <div class="resume-item">
-      <span class="resume-label">Crédits Semestre 2</span>
-      <span class="resume-valeur">${totalS2}</span>
-    </div>
-  `;
+  const totalCreditsS1 = coursS1.reduce((s, p) => s + p.credits, 0);
+  const totalCreditsS2 = coursS2.reduce((s, p) => s + p.credits, 0);
+  if (totalS1El) totalS1El.textContent = totalCreditsS1;
+  if (totalS2El) totalS2El.textContent = totalCreditsS2;
 }
 
 function ouvrirModalProgramme() {
   document.getElementById('modal-programme-titre').textContent = 'Ajouter un cours au programme';
-  document.getElementById('programme-id-edit').value = '';
-  document.getElementById('programme-code').value = '';
-  document.getElementById('programme-credits').value = '';
-  document.getElementById('programme-nom').value = '';
-  document.getElementById('programme-promotion').selectedIndex = 0;
-  document.getElementById('programme-annee').value = '2025-2026';
-  document.getElementById('programme-semestre').value = 'S1';
+  document.getElementById('prog-id-edit').value = '';
+  document.getElementById('prog-code').value = '';
+  document.getElementById('prog-credits').value = '';
+  document.getElementById('prog-nom').value = '';
+  document.getElementById('prog-promotion').selectedIndex = 0;
+  document.getElementById('prog-annee').value = '2025-2026';
+  document.getElementById('prog-semestre').value = 'S1';
   document.getElementById('modal-programme').classList.add('active');
 }
 
@@ -476,13 +468,13 @@ function modifierProgramme(id) {
   if (!p) return;
 
   document.getElementById('modal-programme-titre').textContent = 'Modifier le cours';
-  document.getElementById('programme-id-edit').value = p.id;
-  document.getElementById('programme-code').value = p.code;
-  document.getElementById('programme-credits').value = p.credits;
-  document.getElementById('programme-nom').value = p.nom;
-  document.getElementById('programme-promotion').value = p.promotion;
-  document.getElementById('programme-annee').value = p.annee_academique;
-  document.getElementById('programme-semestre').value = p.semestre;
+  document.getElementById('prog-id-edit').value = p.id;
+  document.getElementById('prog-code').value = p.code;
+  document.getElementById('prog-credits').value = p.credits;
+  document.getElementById('prog-nom').value = p.nom;
+  document.getElementById('prog-promotion').value = p.promotion;
+  document.getElementById('prog-annee').value = p.annee_academique;
+  document.getElementById('prog-semestre').value = p.semestre;
   document.getElementById('modal-programme').classList.add('active');
 }
 
@@ -491,13 +483,13 @@ function fermerModalProgramme() {
 }
 
 async function sauvegarderProgramme() {
-  const idEdit = document.getElementById('programme-id-edit').value;
-  const code = document.getElementById('programme-code').value.trim();
-  const credits = parseInt(document.getElementById('programme-credits').value);
-  const nom = document.getElementById('programme-nom').value.trim();
-  const promotion = document.getElementById('programme-promotion').value;
-  const annee_academique = document.getElementById('programme-annee').value;
-  const semestre = document.getElementById('programme-semestre').value;
+  const idEdit = document.getElementById('prog-id-edit').value;
+  const code = document.getElementById('prog-code').value.trim();
+  const credits = parseInt(document.getElementById('prog-credits').value);
+  const nom = document.getElementById('prog-nom').value.trim();
+  const promotion = document.getElementById('prog-promotion').value;
+  const annee_academique = document.getElementById('prog-annee').value;
+  const semestre = document.getElementById('prog-semestre').value;
 
   if (!code || !nom || isNaN(credits) || credits < 1) {
     alert('⚠️ Veuillez remplir tous les champs correctement (crédits ≥ 1).');
@@ -528,7 +520,7 @@ async function sauvegarderProgramme() {
       return;
     }
 
-    afficherToast(idEdit ? '✅ Cours du programme modifié !' : '✅ Cours ajouté au programme !');
+    afficherToast(idEdit ? '✅ Cours modifié !' : '✅ Cours ajouté au programme !');
     fermerModalProgramme();
     chargerProgramme();
 
@@ -550,6 +542,7 @@ async function supprimerProgramme(id) {
     alert('⚠️ Impossible de supprimer.');
   }
 }
+
 
 // =====================
 // GESTION DES ANNONCES & ÉVÉNEMENTS — connecté à MySQL
@@ -798,8 +791,11 @@ function voirDetailPreinscription(id) {
   const p = preinscriptionsCache.find(x => x.id === id);
   if (!p) return;
 
-  const contenu = document.getElementById('detail-preinscription-contenu');
+  // Fonction utilitaire pour afficher une valeur ou un tiret
+  const val = (v) => v || '—';
+  const bool = (v) => v ? 'Oui' : 'Non';
 
+  const contenu = document.getElementById('detail-preinscription-contenu');
   contenu.innerHTML = `
     <div id="zone-impression">
       <div class="fiche-entete">
@@ -811,53 +807,54 @@ function voirDetailPreinscription(id) {
       </div>
 
       <p class="fiche-section-titre">Identité</p>
-      <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${p.nom || ''} ${p.postnom || ''} ${p.prenom || ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Date de naissance</span><span class="profil-val">${p.dateNaissance || p.date_naissance || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Lieu de naissance</span><span class="profil-val">${p.lieuNaissance || p.lieu_naissance || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Nationalité</span><span class="profil-val">${p.nationalite || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${val(p.nom)} ${val(p.postnom)} ${val(p.prenom)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Date de naissance</span><span class="profil-val">${val(p.date_naissance)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Lieu de naissance</span><span class="profil-val">${val(p.lieu_naissance)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Nationalité</span><span class="profil-val">${val(p.nationalite)}</span></div>
       <div class="profil-ligne"><span class="profil-cle">Sexe</span><span class="profil-val">${p.sexe === 'M' ? 'Masculin' : p.sexe === 'F' ? 'Féminin' : '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">État civil</span><span class="profil-val">${p.etatCivil || p.etat_civil || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">État civil</span><span class="profil-val">${val(p.etat_civil)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Type d'identité</span><span class="profil-val">${val(p.type_identite)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">N° identité</span><span class="profil-val">${val(p.num_identite)}</span></div>
 
       <p class="fiche-section-titre">Contact</p>
-      <div class="profil-ligne"><span class="profil-cle">Adresse</span><span class="profil-val">${p.adresse1 || '—'} ${p.adresse2 ? '— ' + p.adresse2 : ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Téléphone</span><span class="profil-val">${p.telephone || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${p.email || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Adresse</span><span class="profil-val">${val(p.adresse1)} ${p.adresse2 ? '— ' + p.adresse2 : ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Téléphone</span><span class="profil-val">${val(p.telephone)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${val(p.email)}</span></div>
 
       <p class="fiche-section-titre">Responsables / Tuteurs</p>
-      <div class="profil-ligne"><span class="profil-cle">Père</span><span class="profil-val">${p.nomPere || p.nom_pere || '—'} ${p.telPere || p.tel_pere ? '— ' + (p.telPere || p.tel_pere) : ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Mère</span><span class="profil-val">${p.nomMere || p.nom_mere || '—'} ${p.telMere || p.tel_mere ? '— ' + (p.telMere || p.tel_mere) : ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Tuteur</span><span class="profil-val">${p.nomTuteur || p.nom_tuteur || '—'} ${p.telTuteur || p.tel_tuteur ? '— ' + (p.telTuteur || p.tel_tuteur) : ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Adresse d'urgence</span><span class="profil-val">${p.adresseUrgence || p.adresse_urgence || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Père</span><span class="profil-val">${val(p.nom_pere)} ${p.tel_pere ? '— ' + p.tel_pere : ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Mère</span><span class="profil-val">${val(p.nom_mere)} ${p.tel_mere ? '— ' + p.tel_mere : ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Tuteur</span><span class="profil-val">${val(p.nom_tuteur)} ${p.tel_tuteur ? '— ' + p.tel_tuteur : ''}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Adresse d'urgence</span><span class="profil-val">${val(p.adresse_urgence)}</span></div>
 
       <p class="fiche-section-titre">Études secondaires</p>
-      <div class="profil-ligne"><span class="profil-cle">École fréquentée</span><span class="profil-val">${p.ecole || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Ville de l'école</span><span class="profil-val">${p.villeEcole || p.ville_ecole || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">N° du diplôme</span><span class="profil-val">${p.numDiplome || p.num_diplome || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Pourcentage obtenu</span><span class="profil-val">${p.pourcentage || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Année d'obtention</span><span class="profil-val">${p.anneeDiplome || p.annee_diplome || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Section suivie</span><span class="profil-val">${p.sectionSecondaire || p.section_secondaire || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">École fréquentée</span><span class="profil-val">${val(p.ecole)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Ville de l'école</span><span class="profil-val">${val(p.ville_ecole)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">N° du diplôme</span><span class="profil-val">${val(p.num_diplome)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Pourcentage obtenu</span><span class="profil-val">${val(p.pourcentage)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Année d'obtention</span><span class="profil-val">${val(p.annee_diplome)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Section suivie</span><span class="profil-val">${val(p.section_secondaire)}</span></div>
 
       <p class="fiche-section-titre">Choix du programme</p>
-      <div class="profil-ligne"><span class="profil-cle">1er choix</span><span class="profil-val">${p.specialite || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">2e choix</span><span class="profil-val">${p.specialite2 || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Niveau souhaité</span><span class="profil-val">${p.niveau || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Redoublant</span><span class="profil-val">${p.redoublant ? 'Oui' : 'Non'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">En activité professionnelle</span><span class="profil-val">${p.professionnel ? 'Oui' : 'Non'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">1er choix</span><span class="profil-val">${val(p.specialite)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">2e choix</span><span class="profil-val">${val(p.specialite2)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Niveau souhaité</span><span class="profil-val">${val(p.niveau)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Redoublant</span><span class="profil-val">${bool(p.redoublant)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">En activité professionnelle</span><span class="profil-val">${bool(p.professionnel)}</span></div>
 
       <p class="fiche-section-titre">Personne de référence</p>
-      <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${p.refNom || p.ref_nom || ''} ${p.refPostnom || p.ref_postnom || ''} ${p.refPrenom || p.ref_prenom || ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Téléphone</span><span class="profil-val">${p.refTelephone || p.ref_telephone || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${p.refEmail || p.ref_email || '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${val(p.ref_nom)} ${val(p.ref_postnom)} ${val(p.ref_prenom)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Téléphone</span><span class="profil-val">${val(p.ref_telephone)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${val(p.ref_email)}</span></div>
 
       <p class="fiche-section-titre">Informations complémentaires</p>
-      <div class="profil-ligne"><span class="profil-cle">Canal de découverte</span><span class="profil-val">${p.canalDecouverte || p.canal_decouverte || '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Date de soumission</span><span class="profil-val">${(p.dateSoumission || p.date_soumission) ? new Date(p.dateSoumission || p.date_soumission).toLocaleString('fr-FR') : '—'}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Canal de découverte</span><span class="profil-val">${val(p.canal_decouverte)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Date de soumission</span><span class="profil-val">${p.date_soumission ? new Date(p.date_soumission).toLocaleString('fr-FR') : '—'}</span></div>
       <div class="profil-ligne"><span class="profil-cle">Statut actuel</span><span class="profil-val">${libelleStatut(p.statut)}</span></div>
     </div>
   `;
 
-  const actions = document.getElementById('actions-preinscription');
-  actions.innerHTML = `
+  document.getElementById('actions-preinscription').innerHTML = `
     <button class="btn-annuler" onclick="imprimerDossier()">🖨️ Imprimer</button>
     <button class="btn-annuler" onclick="changerStatutPreinscription(${p.id}, 'rejete')">❌ Rejeter</button>
     <button class="btn-sauvegarder" onclick="changerStatutPreinscription(${p.id}, 'accepte')">✅ Accepter</button>
@@ -938,6 +935,21 @@ async function changerStatutPreinscription(id, nouveauStatut) {
   }
 }
 
+async function remplirListeProfesseurs() {
+  const select = document.getElementById('horaire-prof');
+  if (!select) return;
+
+  try {
+    const reponse = await fetch('http://localhost:3000/api/professeurs');
+    const profs = await reponse.json();
+    select.innerHTML = '<option value="">-- Choisir un professeur --</option>' +
+      profs.map(p => `<option value="${p.id}">${p.nom} ${p.prenom || ''}</option>`).join('');
+  } catch (erreur) {
+    console.error(erreur);
+  }
+}
+
+
 function appliquerFiltresPreinscriptions() {
   const termeEl = document.getElementById('recherche-preinscriptions');
   const statutEl = document.getElementById('filtre-statut-preinscription');
@@ -1008,10 +1020,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Programme
+// Programme
   if (document.getElementById('admin-programme')) {
     chargerProgramme();
-    ['filtre-prog-annee', 'filtre-prog-promotion', 'filtre-prog-semestre'].forEach(idFiltre => {
+    ['filtre-annee-prog', 'filtre-promotion-prog'].forEach(idFiltre => {
       const el = document.getElementById(idFiltre);
       if (el) el.addEventListener('change', chargerProgramme);
     });
@@ -1035,3 +1047,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (statutPre) statutPre.addEventListener('change', appliquerFiltresPreinscriptions);
   }
 });
+
+async function rafraichirCoursParPromotion() {
+  const promotion = document.getElementById('horaire-promotion').value;
+  const annee = document.getElementById('horaire-annee').value;
+  const selectCours = document.getElementById('horaire-cours');
+
+  try {
+    const params = new URLSearchParams({ promotion, annee });
+    const reponse = await fetch(`http://localhost:3000/api/programme?${params}`);
+    const cours = await reponse.json();
+
+    if (cours.length === 0) {
+      selectCours.innerHTML = '<option value="">Aucun cours pour cette promotion/année</option>';
+      return;
+    }
+
+    selectCours.innerHTML = cours.map(c => `<option value="${c.nom}">${c.code} — ${c.nom}</option>`).join('');
+  } catch (erreur) {
+    console.error(erreur);
+    selectCours.innerHTML = '<option value="">Erreur de chargement</option>';
+  }
+}

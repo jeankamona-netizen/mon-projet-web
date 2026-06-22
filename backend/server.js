@@ -19,6 +19,9 @@ const notesRoutes = require('./routes/notes');
 const horairesRoutes = require('./routes/horaires');
 const programmeRoutes = require('./routes/programme');
 const annoncesRoutes = require('./routes/annonces');
+
+const professeursRoutes = require('./routes/professeurs');
+
 // ===== TEST DE CONNEXION MYSQL =====
 pool.getConnection()
   .then(connection => {
@@ -38,6 +41,7 @@ app.use('/api/notes', notesRoutes);
 app.use('/api/horaires', horairesRoutes);
 app.use('/api/programme', programmeRoutes);
 app.use('/api/annonces', annoncesRoutes);
+app.use('/api/professeurs', professeursRoutes);
 
 // ===== ROUTE D'ACCUEIL =====
 app.get('/', (req, res) => {

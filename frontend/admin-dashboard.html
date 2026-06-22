@@ -245,7 +245,7 @@
     <div class="form-row-admin">
       <div class="form-group-dash">
         <label>Promotion / Filière</label>
-        <select id="horaire-promotion">
+        <select id="horaire-promotion" onchange="rafraichirCoursParPromotion()">
           <option>L1 Informatique</option>
           <option>L2 Informatique</option>
           <option>L3 Informatique</option>
@@ -255,7 +255,7 @@
       </div>
       <div class="form-group-dash">
         <label>Année académique</label>
-        <select id="horaire-annee">
+        <select id="horaire-annee" onchange="rafraichirCoursParPromotion()">
           <option>2025-2026</option>
           <option>2026-2027</option>
           <option>2024-2025</option>
@@ -300,15 +300,15 @@
     </div>
 
     <div class="form-row-admin">
-      <div class="form-group-dash">
-        <label>Professeur</label>
-        <input type="text" id="horaire-prof" placeholder="ex: Prof. Mutombo">
+        <div class="form-group-dash">
+          <label>Professeur</label>
+          <select id="horaire-prof"></select>
+        </div>
+        <div class="form-group-dash">
+          <label>Salle</label>
+          <input type="text" id="horaire-salle" placeholder="ex: Salle A12">
+        </div>
       </div>
-      <div class="form-group-dash">
-        <label>Salle</label>
-        <input type="text" id="horaire-salle" placeholder="ex: Salle A12">
-      </div>
-    </div>
 
     <div class="admin-modal-actions">
       <button class="btn-annuler" onclick="fermerModalHoraire()">Annuler</button>
@@ -609,7 +609,7 @@
     </main>
   </div>
 
-  <script src="js/dashboard.js"></script>
+ 
   <script src="js/admin.js"></script>
 </body>
 </html>
