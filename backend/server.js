@@ -53,3 +53,19 @@ app.listen(PORT, () => {
   console.log(`✅ Serveur démarré sur http://localhost:${PORT}`);
 });
 
+// ===== ROUTE STATISTIQUES (vue d'ensemble admin) =====
+app.get('/api/stats', async (req, res) => {
+  try {
+    
+
+    const [[{ etudiants }]]       = await pool.query('SELECT COUNT(*) AS etudiants FROM etudiant');
+    const [[{ preinscriptions }]] = await pool.query('SELECT COUNT(*) AS preinscriptions FROM preinscription WHERE statut = "en_attente"');
+    const [[{ cours }]]           = await pool.query('SELECT COUNT(*) AS cours FROM horaire');
+    const [[{ annonces }]]        = await pool.query('SELECT COUNT(*) AS annonces FROM annonce WHERE actif = 1');
+
+    res.json({ etudiants, preinscriptions, cours, annonces });
+  } catch (erreur) {
+     console.error('Erreur stats:', erreur.message);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});

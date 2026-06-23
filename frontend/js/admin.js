@@ -32,6 +32,20 @@ function toggleAdminPassword() {
 }
 
 // =====================
+// UTILITAIRES
+// =====================
+
+function formaterDate(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr; // si invalide, on retourne tel quel
+  const jour = String(d.getUTCDate()).padStart(2, '0');
+  const mois = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const annee = d.getUTCFullYear();
+  return `${jour}/${mois}/${annee}`;
+}
+
+// =====================
 // NAVIGATION ENTRE SECTIONS (tableau de bord admin)
 // =====================
 
@@ -192,6 +206,7 @@ async function sauvegarderNote() {
     afficherToast(idEdit ? '✅ Note modifiée avec succès !' : '✅ Note ajoutée avec succès !');
     fermerModalNote();
     chargerNotes();
+    chargerStats();
 
   } catch (erreur) {
     console.error(erreur);
@@ -206,6 +221,7 @@ async function supprimerNote(id) {
     await fetch(`http://localhost:3000/api/notes/${id}`, { method: 'DELETE' });
     afficherToast('🗑️ Note supprimée.');
     chargerNotes();
+    chargerStats();
   } catch (erreur) {
     console.error(erreur);
     alert('⚠️ Impossible de supprimer la note.');
@@ -362,6 +378,7 @@ async function sauvegarderHoraire() {
     afficherToast(idEdit ? '✅ Cours modifié avec succès !' : '✅ Cours ajouté à l\'horaire !');
     fermerModalHoraire();
     chargerHoraires();
+    chargerStats();
 
   } catch (erreur) {
     console.error(erreur);
@@ -376,6 +393,7 @@ async function supprimerHoraire(id) {
     await fetch(`http://localhost:3000/api/horaires/${id}`, { method: 'DELETE' });
     afficherToast('🗑️ Cours supprimé de l\'horaire.');
     chargerHoraires();
+    chargerStats();
   } catch (erreur) {
     console.error(erreur);
     alert('⚠️ Impossible de supprimer.');
@@ -523,6 +541,7 @@ async function sauvegarderProgramme() {
     afficherToast(idEdit ? '✅ Cours modifié !' : '✅ Cours ajouté au programme !');
     fermerModalProgramme();
     chargerProgramme();
+    chargerStats();
 
   } catch (erreur) {
     console.error(erreur);
@@ -537,6 +556,7 @@ async function supprimerProgramme(id) {
     await fetch(`http://localhost:3000/api/programme/${id}`, { method: 'DELETE' });
     afficherToast('🗑️ Cours retiré du programme.');
     chargerProgramme();
+    chargerStats();
   } catch (erreur) {
     console.error(erreur);
     alert('⚠️ Impossible de supprimer.');
@@ -682,6 +702,7 @@ async function sauvegarderAnnonce() {
     afficherToast(idEdit ? '✅ Annonce modifiée avec succès !' : '✅ Annonce publiée avec succès !');
     fermerModalAnnonce();
     chargerAnnonces();
+    chargerStats();
 
   } catch (erreur) {
     console.error(erreur);
@@ -696,6 +717,7 @@ async function toggleActifAnnonce(id) {
 
     afficherToast(donnees.actif ? '👁️ Annonce activée sur le site' : '🚫 Annonce masquée du site');
     chargerAnnonces();
+    chargerStats();
   } catch (erreur) {
     console.error(erreur);
     alert('⚠️ Impossible de changer le statut.');
@@ -808,7 +830,7 @@ function voirDetailPreinscription(id) {
 
       <p class="fiche-section-titre">Identité</p>
       <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${val(p.nom)} ${val(p.postnom)} ${val(p.prenom)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Date de naissance</span><span class="profil-val">${val(p.date_naissance)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Date de naissance</span><span class="profil-val">${formaterDate(p.date_naissance)}</span></div>
       <div class="profil-ligne"><span class="profil-cle">Lieu de naissance</span><span class="profil-val">${val(p.lieu_naissance)}</span></div>
       <div class="profil-ligne"><span class="profil-cle">Nationalité</span><span class="profil-val">${val(p.nationalite)}</span></div>
       <div class="profil-ligne"><span class="profil-cle">Sexe</span><span class="profil-val">${p.sexe === 'M' ? 'Masculin' : p.sexe === 'F' ? 'Féminin' : '—'}</span></div>
@@ -832,7 +854,7 @@ function voirDetailPreinscription(id) {
       <div class="profil-ligne"><span class="profil-cle">Ville de l'école</span><span class="profil-val">${val(p.ville_ecole)}</span></div>
       <div class="profil-ligne"><span class="profil-cle">N° du diplôme</span><span class="profil-val">${val(p.num_diplome)}</span></div>
       <div class="profil-ligne"><span class="profil-cle">Pourcentage obtenu</span><span class="profil-val">${val(p.pourcentage)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Année d'obtention</span><span class="profil-val">${val(p.annee_diplome)}</span></div>
+      <div class="profil-ligne"><span class="profil-cle">Année d'obtention</span><span class="profil-val">${formaterDate(p.annee_diplome)}</span></div>
       <div class="profil-ligne"><span class="profil-cle">Section suivie</span><span class="profil-val">${val(p.section_secondaire)}</span></div>
 
       <p class="fiche-section-titre">Choix du programme</p>
@@ -922,6 +944,7 @@ async function changerStatutPreinscription(id, nouveauStatut) {
 
     fermerModalPreinscription();
     appliquerFiltresPreinscriptions();
+    chargerStats();
 
     const messages = {
       accepte: '✅ Candidature acceptée et enregistrée !',
@@ -972,11 +995,59 @@ function appliquerFiltresPreinscriptions() {
   afficherTableauPreinscriptions(resultat);
 }
 
+async function rafraichirCoursParPromotion() {
+  const promotion = document.getElementById('horaire-promotion').value;
+  const annee = document.getElementById('horaire-annee').value;
+  const selectCours = document.getElementById('horaire-cours');
+
+  try {
+    const params = new URLSearchParams({ promotion, annee });
+    const reponse = await fetch(`http://localhost:3000/api/programme?${params}`);
+    const cours = await reponse.json();
+
+    if (cours.length === 0) {
+      selectCours.innerHTML = '<option value="">Aucun cours pour cette promotion/année</option>';
+      return;
+    }
+
+    selectCours.innerHTML = cours.map(c => `<option value="${c.nom}">${c.code} — ${c.nom}</option>`).join('');
+  } catch (erreur) {
+    console.error(erreur);
+    selectCours.innerHTML = '<option value="">Erreur de chargement</option>';
+  }
+}
+
+
+// =====================
+// VUE D'ENSEMBLE — statistiques réelles depuis MySQL
+// =====================
+
+async function chargerStats() {
+  try {
+    const reponse = await fetch('http://localhost:3000/api/stats');
+    if (!reponse.ok) throw new Error('Erreur serveur');
+    const stats = await reponse.json();
+
+    document.getElementById('cpt-etudiants').textContent       = stats.etudiants;
+    document.getElementById('cpt-preinscriptions').textContent = stats.preinscriptions;
+    document.getElementById('cpt-cours').textContent           = stats.cours;
+    document.getElementById('cpt-annonces').textContent        = stats.annonces;
+
+  } catch (erreur) {
+    console.error(erreur);
+    document.getElementById('cpt-etudiants').textContent       = '—';
+    document.getElementById('cpt-preinscriptions').textContent = '—';
+    document.getElementById('cpt-cours').textContent           = '—';
+    document.getElementById('cpt-annonces').textContent        = '—';
+  }
+}
+
 // =====================
 // INITIALISATION GLOBALE — un seul DOMContentLoaded pour tout
 // =====================
 
 document.addEventListener('DOMContentLoaded', () => {
+  
   // Connexion (page admin.html)
   const champPass = document.getElementById('admin-pass');
   if (champPass) {
@@ -985,14 +1056,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Compteurs vue d'ensemble
-  const cptEtudiants = document.getElementById('cpt-etudiants');
-  if (cptEtudiants) {
-    cptEtudiants.textContent = '1';
-    document.getElementById('cpt-preinscriptions').textContent = '0';
-    document.getElementById('cpt-cours').textContent = '8';
-    document.getElementById('cpt-annonces').textContent = '5';
-  }
+
+  // Compteurs vue d'ensemble — connectés à MySQL
+  if (document.getElementById('cpt-etudiants')) {
+  chargerStats();
+}
 
   // Notes
   if (document.getElementById('admin-notes')) {
@@ -1020,7 +1088,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-// Programme
+  // Programme
   if (document.getElementById('admin-programme')) {
     chargerProgramme();
     ['filtre-annee-prog', 'filtre-promotion-prog'].forEach(idFiltre => {
@@ -1048,24 +1116,3 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-async function rafraichirCoursParPromotion() {
-  const promotion = document.getElementById('horaire-promotion').value;
-  const annee = document.getElementById('horaire-annee').value;
-  const selectCours = document.getElementById('horaire-cours');
-
-  try {
-    const params = new URLSearchParams({ promotion, annee });
-    const reponse = await fetch(`http://localhost:3000/api/programme?${params}`);
-    const cours = await reponse.json();
-
-    if (cours.length === 0) {
-      selectCours.innerHTML = '<option value="">Aucun cours pour cette promotion/année</option>';
-      return;
-    }
-
-    selectCours.innerHTML = cours.map(c => `<option value="${c.nom}">${c.code} — ${c.nom}</option>`).join('');
-  } catch (erreur) {
-    console.error(erreur);
-    selectCours.innerHTML = '<option value="">Erreur de chargement</option>';
-  }
-}
