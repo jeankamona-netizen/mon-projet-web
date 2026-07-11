@@ -51,9 +51,234 @@
   gap: 16px;
 }
 
-.dash-notif {
-  font-size: 20px;
+.dash-notif-wrap {
+  position: relative;
+}
+
+/* MENU COMPTE (hamburger) — historique de cursus */
+.dash-menu-wrap {
+  position: relative;
+}
+
+.dash-menu-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+  display: flex;
+  align-items: center;
   cursor: pointer;
+}
+
+.menu-compte {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 300px;
+  max-height: 460px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.2);
+  border: 1px solid #eee;
+  display: none;
+  z-index: 210;
+  padding: 6px;
+}
+
+.menu-compte.ouvert {
+  display: block;
+}
+
+.menu-compte-entete {
+  padding: 12px 14px 10px;
+  font-size: 15px;
+  color: #333;
+}
+
+.menu-compte-item {
+  display: block;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  color: #333;
+  text-decoration: none;
+  border-radius: 8px;
+}
+
+.menu-compte-item:hover {
+  background: #f5f7fb;
+  color: var(--bleu);
+}
+
+.menu-compte-sep {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 6px 8px;
+}
+
+.menu-compte-titre {
+  padding: 8px 14px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #999;
+}
+
+.menu-cursus-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 14px;
+  font-size: 13px;
+  color: #333;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.menu-cursus-item:hover {
+  background: #f5f7fb;
+}
+
+.menu-cursus-item.actif {
+  background: #eef4ff;
+  color: var(--bleu);
+  font-weight: 600;
+}
+
+.menu-cursus-item small {
+  display: block;
+  color: #999;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+@media (max-width: 640px) {
+  .menu-compte {
+    position: fixed;
+    top: 62px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+}
+
+.dash-notif {
+  position: relative;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.notif-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  background: var(--rouge);
+  color: #fff;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  border: 2px solid var(--bleu);
+}
+
+.notif-panneau {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 330px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.2);
+  border: 1px solid #eee;
+  display: none;
+  z-index: 200;
+}
+
+.notif-panneau.ouvert {
+  display: block;
+}
+
+/* Sur petit écran, la cloche n'est pas à l'extrême droite : on ancre le
+   panneau au bord du viewport pour qu'il ne déborde jamais. */
+@media (max-width: 640px) {
+  .notif-panneau {
+    position: fixed;
+    top: 62px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+}
+
+.notif-entete {
+  padding: 13px 16px;
+  font-weight: 700;
+  color: var(--bleu);
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+  position: sticky;
+  top: 0;
+  background: #fff;
+}
+
+.notif-liste {
+  padding: 6px;
+}
+
+.notif-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.notif-item:hover {
+  background: #f5f7fb;
+}
+
+.notif-item-icone {
+  font-size: 18px;
+  flex-shrink: 0;
+  line-height: 1.3;
+}
+
+.notif-item-titre {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.notif-item-sous {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-top: 1px;
+}
+
+.notif-vide {
+  padding: 26px 16px;
+  text-align: center;
+  color: #999;
+  font-size: 13px;
 }
 
 .dash-avatar {
@@ -149,13 +374,25 @@
 }
 
 .nav-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 11px 18px;
   font-size: 13px;
   color: #555;
   text-decoration: none;
   transition: all 0.2s;
   border-left: 3px solid transparent;
+}
+
+.nav-item svg {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.nav-item.active svg,
+.nav-item:hover svg {
+  opacity: 1;
 }
 
 .nav-item:hover {
@@ -217,9 +454,31 @@
   gap: 4px;
 }
 
-.stat-icon {
-  font-size: 24px;
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--transition), box-shadow var(--transition);
 }
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 2px;
+}
+
+.stat-icon.bleu  { background: #e8eef8; color: var(--bleu); }
+.stat-icon.jaune { background: #fef8e0; color: #8a6d00; }
+.stat-icon.vert  { background: #e8f5e8; color: var(--vert); }
+.stat-icon.rouge { background: #fde8e8; color: var(--rouge); }
 
 .stat-valeur {
   font-size: 26px;
@@ -278,6 +537,12 @@
 
 .dash-table tr:last-child td {
   border-bottom: none;
+}
+
+/* Lignes de démarcation plus marquées entre chaque professeur (ligne "Cours
+   attribués" pouvant contenir plusieurs cours sur plusieurs lignes). */
+#admin-professeurs-body tr td {
+  border-bottom: 1px solid #e2e2e2;
 }
 
 /* BADGES */
@@ -512,7 +777,7 @@
   font-weight: 600;
 }
 
-.form-group-dash input {
+.form-group-dash input:not([type="checkbox"]):not([type="radio"]) {
   padding: 9px 12px;
   border: 1.5px solid #ddd;
   border-radius: 7px;
@@ -520,7 +785,7 @@
   transition: border-color 0.2s;
 }
 
-.form-group-dash input:focus {
+.form-group-dash input:not([type="checkbox"]):not([type="radio"]):focus {
   outline: none;
   border-color: var(--bleu);
 }
@@ -630,32 +895,6 @@
   background: #1d5c1d;
 }
 
-.toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: var(--vert);
-  color: var(--blanc);
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  z-index: 999;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: all 0.3s;
-}
-
-.toast.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.toast.erreur {
-  background: var(--rouge);
-}
-
 /* =====================
    BLOC IA
    ===================== */
@@ -762,4 +1001,76 @@
   color: #8A8F98;
   text-align: center;
   padding: 10px 0;
+}
+
+/* =====================
+   RESPONSIVE — mobile & tablette
+   ===================== */
+@media (max-width: 900px) {
+  .dash-layout {
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .dash-sidebar {
+    width: 100%;
+    position: static;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    overflow-x: auto;
+    padding: 6px 8px;
+    gap: 2px;
+  }
+
+  .nav-item {
+    flex-shrink: 0;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+
+  .nav-item.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--bleu);
+  }
+
+  .dash-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .dash-header {
+    padding: 10px 14px;
+  }
+
+  .dash-brand {
+    font-size: 12px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mdp-form {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .profil-ligne {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .profil-val {
+    text-align: left;
+  }
 }

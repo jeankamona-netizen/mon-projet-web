@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Espace Professeur — UML</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/admin.css">
+  <link rel="icon" href="img/logo.png" type="image/png">
+</head>
+<body class="dashboard-body">
+
+  <!-- HEADER -->
+  <header class="dash-header admin-header">
+    <div class="dash-header-left">
+      <img src="img/logo.png" alt="Logo UML" class="dash-logo">
+      <div>
+        <span class="dash-brand">Université Méthodiste de Lubumbashi</span>
+        <span class="dash-brand-sub admin-badge-header">Espace Professeur</span>
+      </div>
+    </div>
+    <div class="dash-header-right">
+      <div class="dash-avatar admin-avatar" id="prof-avatar-header"></div>
+      <a href="professeur.html" class="dash-deconnexion" onclick="deconnecterProfesseur()">Déconnexion</a>
+    </div>
+  </header>
+
+  <!-- LAYOUT -->
+  <div class="dash-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="dash-sidebar">
+      <div class="sidebar-profil admin-sidebar-profil">
+        <div class="profil-avatar admin-avatar" id="prof-avatar-sidebar"></div>
+        <div class="profil-info">
+          <span class="profil-nom" id="prof-nom-sidebar"></span>
+          <span class="profil-promo" id="prof-grade-sidebar"></span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" onclick="afficherSectionProf('prof-horaire', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Mon horaire
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSectionProf('prof-notes', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+          Saisir les notes
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSectionProf('prof-profil', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Mon profil
+        </a>
+      </nav>
+    </aside>
+
+    <!-- CONTENU -->
+    <main class="dash-main">
+
+      <!-- ===== MON HORAIRE ===== -->
+      <section id="prof-horaire" class="dash-section active">
+        <h2>Mon horaire</h2>
+        <p class="dash-sous-titre">Vos cours programmés cette année</p>
+
+        <div class="dash-card">
+          <table class="dash-table horaire-table">
+            <thead>
+              <tr>
+                <th>Jour</th>
+                <th>Heure</th>
+                <th>Cours</th>
+                <th>Promotion</th>
+                <th>Salle</th>
+              </tr>
+            </thead>
+            <tbody id="prof-horaire-body">
+              <tr><td colspan="5" class="admin-vide">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== SAISIR LES NOTES ===== -->
+      <section id="prof-notes" class="dash-section">
+        <h2>Saisir les notes</h2>
+        <p class="dash-sous-titre">Choisissez un de vos cours pour noter vos étudiants</p>
+
+        <div class="admin-toolbar">
+          <select class="admin-recherche" id="prof-select-cours" onchange="chargerEtudiantsCours()" style="flex:0 0 320px">
+            <option value="">— Choisir un cours —</option>
+          </select>
+          <button class="btn-ajouter" onclick="sauvegarderToutesLesNotesProf()">✅ Enregistrer toutes les notes</button>
+        </div>
+
+        <div class="dash-card">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Étudiant</th>
+                <th>Moyenne actuelle</th>
+                <th>Contrôle continu /20</th>
+                <th>Examen /20</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="prof-etudiants-body">
+              <tr><td colspan="5" class="admin-vide">Choisissez un cours pour afficher la liste des étudiants.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== MON PROFIL ===== -->
+      <section id="prof-profil" class="dash-section">
+        <h2>Mon profil</h2>
+        <p class="dash-sous-titre">Vos informations et votre mot de passe</p>
+
+        <div class="dash-card">
+          <div class="profil-details">
+            <div class="profil-ligne">
+              <span class="profil-cle">Nom complet</span>
+              <span class="profil-val" id="prof-nom">—</span>
+            </div>
+            <div class="profil-ligne">
+              <span class="profil-cle">Email</span>
+              <span class="profil-val" id="prof-email-val">—</span>
+            </div>
+            <div class="profil-ligne">
+              <span class="profil-cle">Téléphone</span>
+              <span class="profil-val" id="prof-telephone">—</span>
+            </div>
+            <div class="profil-ligne">
+              <span class="profil-cle">Grade</span>
+              <span class="profil-val" id="prof-grade">—</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-card" style="margin-top:20px">
+          <h3>Changer le mot de passe</h3>
+          <form autocomplete="off" onsubmit="return false">
+            <div class="form-group-dash">
+              <label>Mot de passe actuel</label>
+              <input type="password" id="prof-mdp-actuel" placeholder="••••••••">
+            </div>
+            <div class="form-group-dash">
+              <label>Nouveau mot de passe</label>
+              <input type="password" id="prof-mdp-nouveau" placeholder="••••••••">
+            </div>
+            <div class="form-group-dash">
+              <label>Confirmer le nouveau mot de passe</label>
+              <input type="password" id="prof-mdp-confirm" placeholder="••••••••">
+            </div>
+            <button type="button" class="btn-submit" onclick="changerMotDePasseProf()" style="margin-top:8px">
+              Changer le mot de passe
+            </button>
+          </form>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/professeur.js"></script>
+</body>
+</html>

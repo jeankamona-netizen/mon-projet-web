@@ -316,3 +316,118 @@
   border-top: none;
   margin-top: 0;
 }
+
+/* =====================
+   LISTE DE CASES À COCHER — ex. facultés d'une inscription en masse
+   ===================== */
+.faculte-checkbox-liste {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.faculte-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #444;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.faculte-checkbox-item:has(input:checked) {
+  border-color: var(--bleu);
+  background: #f0f4fb;
+  color: var(--bleu);
+}
+
+.faculte-checkbox-item:hover {
+  border-color: var(--bleu);
+}
+
+.faculte-checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--bleu);
+  cursor: pointer;
+}
+
+/* =====================
+   SOUS-ONGLETS — ex. "Attributions des cours", "Gérer les notes"
+   ===================== */
+.attr-sous-onglets,
+.notes-sous-onglets,
+.reins-sous-onglets {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid #f0f0f0;
+  margin-bottom: 20px;
+}
+
+.attr-onglet-btn,
+.notes-onglet-btn,
+.reins-onglet-btn {
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.attr-onglet-btn.active,
+.notes-onglet-btn.active,
+.reins-onglet-btn.active {
+  color: var(--bleu);
+  border-bottom-color: var(--bleu);
+}
+
+.attr-onglet-btn:hover:not(.active),
+.notes-onglet-btn:hover:not(.active),
+.reins-onglet-btn:hover:not(.active) {
+  color: var(--bleu);
+  background: #f5f7fb;
+}
+
+.attr-onglet-contenu,
+.notes-onglet-contenu,
+.reins-onglet-contenu {
+  display: none;
+}
+
+.attr-onglet-contenu.active,
+.notes-onglet-contenu.active,
+.reins-onglet-contenu.active {
+  display: block;
+}
+
+/* =====================
+   RESPONSIVE — mobile
+   ===================== */
+@media (max-width: 640px) {
+  .admin-recherche {
+    min-width: 0;
+  }
+
+  .form-row-admin {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-modal {
+    padding: 18px;
+  }
+
+  .admin-actions-cell {
+    flex-wrap: wrap;
+  }
+}

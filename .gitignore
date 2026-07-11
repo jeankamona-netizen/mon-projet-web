@@ -1,3 +1,7 @@
 node_modules/
 .env
 *.log
+
+# Documents uploadés par les candidats (données personnelles) — jamais dans git
+frontend/uploads/*
+!frontend/uploads/.gitkeep

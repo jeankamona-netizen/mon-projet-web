@@ -1,17 +1,30 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../database');
+const { requireAdmin } = require('../middleware/auth');
+const upload = require('../upload');
 
-// ===== GET /api/annonces — toutes les annonces (avec filtre type) =====
+// ===== POST /api/annonces/image — téléverser l'image d'un événement (admin) =====
+// L'image est choisie sur le disque de l'utilisateur (input type=file), envoyée
+// en multipart et enregistrée dans frontend/uploads. On renvoie son chemin
+// relatif (uploads/xxx) que le formulaire stocke ensuite dans annonce.image.
+router.post('/image', requireAdmin, upload.single('image'), upload.verifierContenuFichiers, (req, res) => {
+  if (!req.file) return res.status(400).json({ erreur: "Aucune image reçue." });
+  res.status(201).json({ chemin: 'uploads/' + req.file.filename });
+});
+
+// ===== GET /api/annonces — toutes les annonces (avec filtres type/actif/faculté) =====
 router.get('/', async (req, res) => {
   try {
-    const { type, actif } = req.query;
+    const { type, actif, faculte } = req.query;
 
     let sql = 'SELECT * FROM annonce WHERE 1=1';
     const params = [];
 
     if (type) { sql += ' AND type = ?'; params.push(type); }
     if (actif !== undefined) { sql += ' AND actif = ?'; params.push(actif === 'true' ? 1 : 0); }
+    // faculte fourni → annonces visibles par tous (cible_faculte NULL) OU ciblant cette faculté
+    if (faculte) { sql += ' AND (cible_faculte IS NULL OR cible_faculte = ?)'; params.push(faculte); }
 
     sql += ' ORDER BY date_annonce DESC';
 
@@ -24,17 +37,17 @@ router.get('/', async (req, res) => {
 });
 
 // ===== POST /api/annonces — créer une annonce =====
-router.post('/', async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { type, titre, description, date_annonce, icone, image, actif } = req.body;
+    const { type, titre, description, date_annonce, icone, image, actif, cible_faculte } = req.body;
 
     if (!type || !titre || !description || !date_annonce) {
       return res.status(400).json({ erreur: "Champs obligatoires manquants." });
     }
 
     const [resultat] = await pool.query(
-      'INSERT INTO annonce (type, titre, description, date_annonce, icone, image, actif) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [type, titre, description, date_annonce, icone || '📢', image || '', actif !== false]
+      'INSERT INTO annonce (type, titre, description, date_annonce, icone, image, actif, cible_faculte) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [type, titre, description, date_annonce, icone || '📢', image || '', actif !== false, cible_faculte || null]
     );
 
     res.status(201).json({ message: "Annonce publiée avec succès.", id: resultat.insertId });
@@ -45,13 +58,13 @@ router.post('/', async (req, res) => {
 });
 
 // ===== PUT /api/annonces/:id — modifier =====
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
-    const { type, titre, description, date_annonce, icone, image, actif } = req.body;
+    const { type, titre, description, date_annonce, icone, image, actif, cible_faculte } = req.body;
 
     await pool.query(
-      'UPDATE annonce SET type=?, titre=?, description=?, date_annonce=?, icone=?, image=?, actif=? WHERE id=?',
-      [type, titre, description, date_annonce, icone, image, actif, req.params.id]
+      'UPDATE annonce SET type=?, titre=?, description=?, date_annonce=?, icone=?, image=?, actif=?, cible_faculte=? WHERE id=?',
+      [type, titre, description, date_annonce, icone, image, actif, cible_faculte || null, req.params.id]
     );
 
     res.json({ message: "Annonce modifiée avec succès." });
@@ -62,7 +75,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // ===== PATCH /api/annonces/:id/toggle — activer/désactiver =====
-router.patch('/:id/toggle', async (req, res) => {
+router.patch('/:id/toggle', requireAdmin, async (req, res) => {
   try {
     const [lignes] = await pool.query('SELECT actif FROM annonce WHERE id = ?', [req.params.id]);
 
@@ -81,7 +94,7 @@ router.patch('/:id/toggle', async (req, res) => {
 });
 
 // ===== DELETE /api/annonces/:id =====
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM annonce WHERE id = ?', [req.params.id]);
     res.json({ message: "Annonce supprimée." });

@@ -1,1118 +1,1986 @@
 // =====================
-// CONNEXION ADMINISTRATEUR
+// CONFIG — BASE_URL définie globalement par config.js (chargé avant ce fichier)
 // =====================
-
-const ADMIN_USER = "admin.uml";
-const ADMIN_PASS = "admin2026";
-
-function connexionAdmin() {
-  const user = document.getElementById('admin-user').value.trim();
-  const pass = document.getElementById('admin-pass').value.trim();
+// CONNEXION ADMINISTRATEUR — via backend (plus d'identifiants dans le frontend)
+// =====================
+async function connexionAdmin() {
+  const user     = document.getElementById('admin-user')?.value.trim();
+  const password = document.getElementById('admin-pass')?.value.trim();
   const erreurBox = document.getElementById('admin-erreur');
 
-  if (!user || !pass) {
+  if (!user || !password) {
     erreurBox.textContent = '⚠️ Veuillez remplir tous les champs.';
     erreurBox.style.display = 'block';
     return;
   }
 
-  if (user !== ADMIN_USER || pass !== ADMIN_PASS) {
-    erreurBox.textContent = '❌ Identifiant ou mot de passe incorrect.';
-    erreurBox.style.display = 'block';
-    return;
-  }
+  try {
+    const reponse = await fetch(`${BASE_URL}/api/auth/admin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user, password })
+    });
 
-  erreurBox.style.display = 'none';
-  window.location.href = 'admin-dashboard.html';
+    const donnees = await reponse.json();
+
+    if (!reponse.ok) {
+      erreurBox.textContent = '❌ ' + donnees.erreur;
+      erreurBox.style.display = 'block';
+      return;
+    }
+
+    // Stocker le token de session
+    sessionStorage.setItem('admin_token', donnees.token);
+    window.location.href = 'admin-dashboard.html';
+
+  } catch (erreur) {
+    erreurBox.textContent = '⚠️ Impossible de contacter le serveur.';
+    erreurBox.style.display = 'block';
+    console.error(erreur);
+  }
 }
 
 function toggleAdminPassword() {
   const input = document.getElementById('admin-pass');
-  input.type = input.type === 'password' ? 'text' : 'password';
+  if (input) input.type = input.type === 'password' ? 'text' : 'password';
 }
 
 // =====================
-// UTILITAIRES
+// VÉRIFICATION SESSION ADMIN
 // =====================
-
-function formaterDate(dateStr) {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr; // si invalide, on retourne tel quel
-  const jour = String(d.getUTCDate()).padStart(2, '0');
-  const mois = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const annee = d.getUTCFullYear();
-  return `${jour}/${mois}/${annee}`;
+function verifierSessionAdmin() {
+  const token = sessionStorage.getItem('admin_token');
+  if (!token && document.getElementById('cpt-etudiants')) {
+    window.location.href = 'admin.html';
+  }
 }
 
 // =====================
-// NAVIGATION ENTRE SECTIONS (tableau de bord admin)
+// APPEL API AUTHENTIFIÉ — ajoute le token JWT admin, gère l'expiration de session
 // =====================
+async function fetchAdmin(url, options = {}) {
+  const token = sessionStorage.getItem('admin_token');
+  const headers = { ...(options.headers || {}), Authorization: `Bearer ${token}` };
+  const reponse = await fetch(url, { ...options, headers });
+  if (reponse.status === 401) {
+    sessionStorage.removeItem('admin_token');
+    afficherToast('⚠️ Session expirée, veuillez vous reconnecter.', 'erreur');
+    window.location.href = 'admin.html';
+    throw new Error('Session expirée.');
+  }
+  return reponse;
+}
 
+// =====================
+// FILIÈRES PAR FACULTÉ
+// =====================
+const filiereParFaculte = {
+  'Faculté de Théologie':                    ['Missiologie','Théologie Pratique','Théologie Systématique','Théologie Biblique AT & NT'],
+  'Sciences Informatiques':                  ['Gestion Informatique','Réseau & Télécom','Génie Logicielle','Design'],
+  'Sciences Économiques':                    ['Gestion des Ressources Humaines','Finances, Banque & Comptabilité','Gestion Marketing','Entrepreneuriat','Douane'],
+  "Sciences de l'Éducation & Psychologie":  ["Sciences de l'Éducation",'Psychologie']
+};
+
+// =====================
+// ANNÉES ACADÉMIQUES — alimentées depuis la base (table annee_academique)
+// pour ne plus avoir à modifier le code chaque année.
+// Chaque select : id + libellé de l'option « toutes » ('' = pas d'option toutes).
+// =====================
+const SELECTS_ANNEES = [
+  { id: 'filtre-annee',        all: 'Toutes les années' },
+  { id: 'filtre-annee-prog',   all: '— Année —' },
+  { id: 'filtre-note-annee',   all: '' },
+  { id: 'notes-filtre-annee',  all: 'Toutes les années' },
+  { id: 'filtre-attr-annee',   all: 'Toutes les années' },
+  { id: 'horaire-annee',       all: '' },
+  { id: 'prog-annee',          all: '' },
+  { id: 'inscrit-annee',       all: '' },
+  { id: 'reins-annee-promo',   all: '' },
+  { id: 'reins-annee-nouveau', all: '' },
+  { id: 'filtre-inscrits-annee', all: 'Toutes les années' },
+];
+
+async function chargerAnnees() {
+  try {
+    const r = await fetch(`${BASE_URL}/api/annees`);
+    if (!r.ok) return;
+    const annees = await r.json();
+    if (!Array.isArray(annees) || annees.length === 0) return;
+    const courante = annees.find(a => a.est_courante)?.libelle;
+    SELECTS_ANNEES.forEach(cfg => {
+      const sel = document.getElementById(cfg.id);
+      if (!sel) return;
+      const ancienne = sel.value;
+      sel.innerHTML = (cfg.all !== '' ? `<option value="">${cfg.all}</option>` : '') +
+        annees.map(a => `<option value="${a.libelle}">${a.libelle}</option>`).join('');
+      if (ancienne && annees.some(a => a.libelle === ancienne)) sel.value = ancienne;
+      else if (cfg.all === '' && courante) sel.value = courante;
+    });
+  } catch { /* en cas d'échec, on garde les options statiques du HTML */ }
+}
+
+// =====================
+// NAVIGATION ENTRE SECTIONS
+// =====================
 function afficherSection(id, lien) {
   document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  lien.classList.add('active');
+  document.getElementById(id)?.classList.add('active');
+  lien?.classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  if (id === 'admin-accueil')         chargerStats();
+  if (id === 'admin-notes')           { chargerNotes(); chargerResumeBulletins(); }
+  if (id === 'admin-horaires')        chargerHoraires();
+  if (id === 'admin-programme')       chargerProgramme();
+  if (id === 'admin-annonces')        chargerAnnonces();
+  if (id === 'admin-preinscriptions') chargerPreinscriptions();
+  if (id === 'admin-inscrits')        chargerInscrits();
+  if (id === 'admin-attributions')    chargerAttributions();
+  if (id === 'admin-audit')           chargerAuditLog();
 }
 
 // =====================
-// TOAST NOTIFICATION (partagée par tous les modules)
+// UTILITAIRES DATE
 // =====================
+function formaterDate(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}`;
+}
 
-function afficherToast(message) {
-  let toast = document.getElementById('toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'toast';
-    toast.className = 'toast';
-    document.body.appendChild(toast);
+// =====================
+// VUE D'ENSEMBLE — statistiques MySQL
+// =====================
+async function chargerStats() {
+  try {
+    const reponse = await fetchAdmin(`${BASE_URL}/api/stats`);
+    if (!reponse.ok) throw new Error('Erreur serveur');
+    const stats = await reponse.json();
+    const ids = { 'cpt-etudiants': stats.etudiants, 'cpt-preinscriptions': stats.preinscriptions, 'cpt-cours': stats.cours, 'cpt-annonces': stats.annonces };
+    Object.entries(ids).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.textContent = val; });
+  } catch (erreur) {
+    console.error('chargerStats:', erreur);
+    ['cpt-etudiants','cpt-preinscriptions','cpt-cours','cpt-annonces'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
   }
-  toast.textContent = message;
-  toast.className = 'toast';
-  setTimeout(() => toast.classList.add('visible'), 10);
-  setTimeout(() => toast.classList.remove('visible'), 3000);
+  chargerGraphiqueFacultes();
+  chargerStatistiquesAvancees();
 }
 
 // =====================
-// GESTION DES NOTES — connecté à MySQL
+// GRAPHIQUE — répartition des étudiants par faculté ET filière
 // =====================
+let graphiqueFacultes = null;
 
+async function chargerGraphiqueFacultes() {
+  const canvas = document.getElementById('graphique-facultes');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/etudiants`);
+    const etudiants = await r.json();
+
+    // Regroupe par (faculté → filière) selon les inscriptions réelles.
+    const parFacFil = {};
+    etudiants.forEach(e => {
+      const fac = e.faculte || 'Non renseignée';
+      const fil = e.promotion || 'Sans filière';
+      (parFacFil[fac] = parFacFil[fac] || {})[fil] = (parFacFil[fac][fil] || 0) + 1;
+    });
+
+    const facultes = Object.keys(parFacFil);
+    // Seules les filières où des étudiants sont réellement inscrits apparaissent.
+    const filieres = [...new Set(etudiants.map(e => e.promotion || 'Sans filière'))];
+
+    const palette = ['#1a3a6b','#f0c020','#2d7a2d','#cc2200','#2D6FE0','#8a6d00','#7a2d7a',
+                     '#00897b','#e07b00','#5c6bc0','#c2185b','#558b2f','#00838f','#6d4c41','#455a64'];
+
+    // Un dataset par filière → segments empilés dans la colonne de sa faculté.
+    const datasets = filieres.map((fil, i) => ({
+      label: fil,
+      data: facultes.map(fac => parFacFil[fac][fil] || 0),
+      backgroundColor: palette[i % palette.length],
+      borderRadius: 4,
+      stack: 'etudiants',
+    }));
+
+    if (graphiqueFacultes) graphiqueFacultes.destroy();
+    graphiqueFacultes = new Chart(canvas, {
+      type: 'bar',
+      data: { labels: facultes, datasets },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 }, padding: 8 } },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label} : ${ctx.parsed.y} étudiant(s)` } }
+        },
+        scales: {
+          x: { stacked: true, ticks: { font: { size: 10 } } },
+          y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
+        }
+      }
+    });
+  } catch (erreur) {
+    console.error('chargerGraphiqueFacultes:', erreur);
+  }
+}
+
+let graphiqueEvolution = null;
+let graphiqueReussite = null;
+
+async function chargerStatistiquesAvancees() {
+  const canvasEvolution = document.getElementById('graphique-evolution');
+  const canvasReussite  = document.getElementById('graphique-reussite');
+  if ((!canvasEvolution && !canvasReussite) || typeof Chart === 'undefined') return;
+
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/stats/avancees`);
+    const { evolutionPreinscriptions, tauxReussiteParFaculte } = await r.json();
+
+    if (canvasEvolution) {
+      if (graphiqueEvolution) graphiqueEvolution.destroy();
+      graphiqueEvolution = new Chart(canvasEvolution, {
+        type: 'line',
+        data: {
+          labels: evolutionPreinscriptions.map(e => e.mois),
+          datasets: [{
+            label: 'Pré-inscriptions',
+            data: evolutionPreinscriptions.map(e => e.total),
+            borderColor: '#1a3a6b',
+            backgroundColor: 'rgba(26,58,107,0.1)',
+            tension: 0.3,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
+    }
+
+    if (canvasReussite) {
+      if (graphiqueReussite) graphiqueReussite.destroy();
+      graphiqueReussite = new Chart(canvasReussite, {
+        type: 'bar',
+        data: {
+          labels: tauxReussiteParFaculte.map(f => f.faculte),
+          datasets: [{
+            label: 'Taux de réussite (%)',
+            data: tauxReussiteParFaculte.map(f => f.tauxReussite),
+            backgroundColor: '#2d7a2d',
+            borderRadius: 6,
+            maxBarThickness: 56,
+          }]
+        },
+        options: {
+          responsive: true,
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true, max: 100 } }
+        }
+      });
+    }
+  } catch (erreur) {
+    console.error('chargerStatistiquesAvancees:', erreur);
+  }
+}
+
+// =====================
+// GESTION DES NOTES
+// =====================
 let notesAdmin = [];
+
+function basculerOngletNotes(idOnglet, btn) {
+  document.querySelectorAll('.notes-onglet-contenu').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.notes-onglet-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(idOnglet)?.classList.add('active');
+  btn?.classList.add('active');
+}
+
+function chargerFilieresPourFiltreNotes() {
+  const faculte = document.getElementById('notes-filtre-faculte')?.value || '';
+  const sel = document.getElementById('notes-filtre-filiere');
+  if (!sel) return;
+  const filieres = filiereParFaculte[faculte] || [];
+  sel.innerHTML = '<option value="">Toutes les filières</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join('');
+}
 
 async function chargerNotes() {
   const tbody = document.getElementById('admin-notes-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
-
+  tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Chargement...</td></tr>`;
   try {
-    const reponse = await fetch('http://localhost:3000/api/notes');
+    const faculte = document.getElementById('notes-filtre-faculte')?.value || '';
+    const filiere = document.getElementById('notes-filtre-filiere')?.value || '';
+    const annee   = document.getElementById('notes-filtre-annee')?.value   || '';
+    const params = new URLSearchParams();
+    if (faculte) params.append('faculte', faculte);
+    if (filiere) params.append('filiere', filiere);
+    if (annee)   params.append('annee', annee);
+    const reponse = await fetchAdmin(`${BASE_URL}/api/notes?${params}`);
     if (!reponse.ok) throw new Error('Erreur serveur');
     notesAdmin = await reponse.json();
     afficherTableauNotes();
   } catch (erreur) {
-    console.error(erreur);
-    tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Impossible de charger les notes. Vérifiez le backend.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">⚠️ Impossible de charger les notes. Vérifiez le backend.</td></tr>`;
   }
 }
 
 function afficherTableauNotes(liste = notesAdmin) {
   const tbody = document.getElementById('admin-notes-body');
   if (!tbody) return;
-
-  if (liste.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Aucune note enregistrée pour le moment.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = liste.map(n => {
-    const statut = n.note >= 10
-      ? '<span class="badge reussi">Réussi</span>'
-      : '<span class="badge echec">Échec</span>';
-
-    return `
-      <tr>
-        <td>${n.nom_etudiant} ${n.prenom_etudiant}<br><span style="font-size:11px;color:#999">${n.etudiant_id}</span></td>
-        <td>${n.matiere}</td>
-        <td>${n.note}/20</td>
-        <td>${n.session === 'S1' ? 'Semestre 1' : 'Semestre 2'}</td>
-        <td>${statut}</td>
-        <td class="admin-actions-cell">
-          <button class="btn-icone" title="Modifier" onclick="modifierNote(${n.id})">✏️</button>
-          <button class="btn-icone danger" title="Supprimer" onclick="supprimerNote(${n.id})">🗑️</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
+  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Aucune note enregistrée.</td></tr>`; return; }
+  tbody.innerHTML = liste.map(n => `
+    <tr>
+      <td>${n.nom_etudiant} ${n.prenom_etudiant}<br><span style="font-size:11px;color:#999">${n.etudiant_id}</span></td>
+      <td>${n.matiere}</td>
+      <td>${n.note_cc ?? '—'}</td>
+      <td>${n.note_examen ?? '—'}</td>
+      <td>${n.note !== null && n.note !== undefined ? n.note+'/20' : '—'}</td>
+      <td>${n.session === 'S1' ? 'Semestre 1' : 'Semestre 2'}</td>
+      <td>${n.note === null || n.note === undefined ? '<span class="badge attente">En attente</span>' : n.note >= 10 ? '<span class="badge reussi">Réussi</span>' : '<span class="badge echec">Échec</span>'}</td>
+      <td class="admin-actions-cell">
+        <button class="btn-icone" onclick="modifierNote(${n.id})" aria-label="Modifier">${icone('crayon')}</button>
+        <button class="btn-icone danger" onclick="supprimerNote(${n.id})" aria-label="Supprimer">${icone('corbeille')}</button>
+      </td>
+    </tr>`).join('');
 }
 
-function ouvrirModalNote() {
+let resumeBulletinsAdmin = [];
+
+async function chargerResumeBulletins() {
+  const tbody = document.getElementById('bulletins-notes-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/notes/bulletins/resume`);
+    if (!r.ok) throw new Error('Erreur serveur');
+    resumeBulletinsAdmin = await r.json();
+    afficherTableauBulletins();
+  } catch {
+    tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">⚠️ Impossible de charger le résumé des bulletins.</td></tr>`;
+  }
+}
+
+function afficherTableauBulletins(liste = resumeBulletinsAdmin) {
+  const tbody = document.getElementById('bulletins-notes-body');
+  if (!tbody) return;
+  const selectTout = document.getElementById('notes-select-tout');
+  if (selectTout) selectTout.checked = false;
+  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Aucun étudiant noté.</td></tr>`; return; }
+  tbody.innerHTML = liste.map(e => `
+    <tr>
+      <td><input type="checkbox" class="note-select" data-etudiant-id="${e.etudiant_id}"></td>
+      <td>${e.nom} ${e.postnom||''} ${e.prenom}<br><span style="font-size:11px;color:#999">${e.etudiant_id}</span></td>
+      <td>${e.filiere||'—'}</td>
+      <td>${e.faculte||'—'}</td>
+      <td>${e.promotion||'—'}</td>
+      <td>${e.moyenne_generale !== null ? e.moyenne_generale.toFixed(2)+'/20' : '—'}</td>
+      <td>${e.credits_valides} / ${e.credits_total}</td>
+      <td>${e.mention}</td>
+    </tr>`).join('');
+}
+
+function basculerSelectionToutesNotes(caseTout) {
+  document.querySelectorAll('#bulletins-notes-body .note-select').forEach(c => { c.checked = caseTout.checked; });
+}
+
+// Imprime (télécharge en PDF) le bulletin de chaque étudiant coché — un seul
+// bulletin par étudiant même si plusieurs de ses notes sont sélectionnées.
+async function imprimerBulletinsSelectionnes() {
+  const etudiantIds = [...new Set(
+    Array.from(document.querySelectorAll('#bulletins-notes-body .note-select:checked')).map(c => c.dataset.etudiantId)
+  )];
+  if (etudiantIds.length === 0) { afficherToast('⚠️ Sélectionnez au moins un étudiant.', 'erreur'); return; }
+  afficherToast(`⏳ Génération de ${etudiantIds.length} bulletin(s)...`);
+  let reussis = 0;
+  for (const etudiantId of etudiantIds) {
+    const ok = await telechargerBulletin(etudiantId);
+    if (ok) reussis++;
+    // Petite pause entre chaque téléchargement pour éviter que le navigateur ne bloque les téléchargements multiples.
+    await new Promise(resolve => setTimeout(resolve, 400));
+  }
+  afficherToast(reussis === etudiantIds.length ? `✅ ${reussis} bulletin(s) téléchargé(s) !` : `⚠️ ${reussis}/${etudiantIds.length} bulletin(s) téléchargé(s).`);
+}
+
+function filtrerEtudiantsParFaculte() {
+  const faculte = document.getElementById('filtre-note-faculte')?.value || '';
+  const sel = document.getElementById('filtre-note-promotion');
+  if (!sel) return;
+  const filieres = filiereParFaculte[faculte] || [];
+  sel.innerHTML = '<option value="">Toutes les filières</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join('');
+  filtrerEtudiants();
+}
+
+let debounceTimer;
+async function filtrerEtudiants() {
+  const annee     = document.getElementById('filtre-note-annee')?.value.trim()     || '';
+  const niveau    = document.getElementById('filtre-note-niveau')?.value.trim()    || '';
+  const faculte   = document.getElementById('filtre-note-faculte')?.value.trim()   || '';
+  const promotion = document.getElementById('filtre-note-promotion')?.value.trim() || '';
+  const nom       = document.getElementById('filtre-note-nom')?.value.trim()       || '';
+  const select    = document.getElementById('note-etudiant');
+  if (!select) return;
+  select.innerHTML = '<option value="">Chargement...</option>';
+
+  const params = new URLSearchParams();
+  if (annee) params.append('annee', annee);
+  if (niveau) params.append('niveau', niveau);
+  if (faculte) params.append('faculte', faculte);
+  if (promotion) params.append('promotion', promotion);
+  if (nom) params.append('nom', nom);
+
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/etudiants?${params}`);
+    const etudiants = await r.json();
+    if (!Array.isArray(etudiants) || etudiants.length === 0) {
+      select.innerHTML = '<option value="">Aucun étudiant trouvé</option>';
+      const sm = document.getElementById('note-matiere');
+      if (sm) sm.innerHTML = '<option value="">— Sélectionnez un étudiant —</option>';
+      return;
+    }
+    select.innerHTML = '<option value="">— Choisir un étudiant —</option>' +
+      etudiants.map(e => `<option value="${e.id}" data-faculte="${e.faculte||''}" data-niveau="${e.niveau||''}" data-filiere="${e.promotion||''}" data-annee="${e.annee_academique||''}">${e.nom} ${e.postnom||''} ${e.prenom} (${[e.niveau,e.promotion].filter(Boolean).join(' ')})</option>`).join('');
+    // La liste des matières suit les mêmes filtres (faculté/année/niveau/filière).
+    await chargerMatieresPourNote();
+  } catch (err) {
+    select.innerHTML = '<option value="">⚠️ Erreur</option>';
+    console.error(err);
+  }
+}
+
+// Charge les matières selon les filtres du modal : faculté + année + niveau
+// (+ filière si choisie), pour éviter une liste de tous les cours.
+async function chargerMatieresPourNote() {
+  const sel = document.getElementById('note-matiere');
+  if (!sel) return;
+  const faculte = document.getElementById('filtre-note-faculte')?.value || '';
+  const niveau  = document.getElementById('filtre-note-niveau')?.value  || '';
+  const annee   = document.getElementById('filtre-note-annee')?.value   || '';
+  const filiere = document.getElementById('filtre-note-promotion')?.value || '';
+  const params = new URLSearchParams();
+  if (faculte) params.append('faculte', faculte);
+  if (niveau)  params.append('niveau', niveau);
+  if (annee)   params.append('annee', annee);
+  if (filiere) params.append('filiere', filiere);
+  sel.innerHTML = '<option value="">Chargement...</option>';
+  try {
+    const r = await fetch(`${BASE_URL}/api/programme?${params}`);
+    const cours = await r.json();
+    sel.innerHTML = (!Array.isArray(cours) || cours.length === 0)
+      ? '<option value="">Aucun cours pour ces critères</option>'
+      : '<option value="">— Choisir une matière —</option>' + cours.map(c => `<option value="${c.nom}" data-semestre="${c.semestre}">${c.code} — ${c.nom} (${c.promotion})</option>`).join('');
+    majSemestreNote();
+  } catch { sel.innerHTML = '<option value="">⚠️ Erreur</option>'; }
+}
+
+// Quand un étudiant est choisi : matières exactement de sa faculté/niveau/filière
+// pour l'année sélectionnée (le plus précis possible).
+async function chargerCoursEtudiant() {
+  const select = document.getElementById('note-etudiant');
+  const sel = document.getElementById('note-matiere');
+  if (!select || !sel) return;
+  const option = select.options[select.selectedIndex];
+  if (!option?.value) return;
+  const faculte = option.dataset.faculte || '';
+  const niveau  = option.dataset.niveau  || '';
+  const filiere = option.dataset.filiere || '';
+  const annee   = document.getElementById('filtre-note-annee')?.value || option.dataset.annee || '';
+  const params = new URLSearchParams();
+  if (faculte) params.append('faculte', faculte);
+  if (niveau)  params.append('niveau', niveau);
+  if (annee)   params.append('annee', annee);
+  if (filiere) params.append('filiere', filiere);
+  sel.innerHTML = '<option value="">Chargement...</option>';
+  try {
+    const r = await fetch(`${BASE_URL}/api/programme?${params}`);
+    const cours = await r.json();
+    sel.innerHTML = (!Array.isArray(cours) || cours.length === 0)
+      ? '<option value="">Aucun cours pour cet étudiant</option>'
+      : '<option value="">— Choisir une matière —</option>' + cours.map(c => `<option value="${c.nom}" data-semestre="${c.semestre}">${c.code} — ${c.nom}</option>`).join('');
+    majSemestreNote();
+  } catch { sel.innerHTML = '<option value="">⚠️ Erreur</option>'; }
+}
+
+// Affiche le semestre (S1/S2) du cours choisi : la note en hérite automatiquement.
+function majSemestreNote() {
+  const sel = document.getElementById('note-matiere');
+  const info = document.getElementById('note-semestre-info');
+  if (!sel || !info) return;
+  const opt = sel.options[sel.selectedIndex];
+  const sem = opt?.dataset?.semestre || '';
+  info.value = sem === 'S1' ? 'Semestre 1' : sem === 'S2' ? 'Semestre 2' : '—';
+}
+
+function previsualiserMoyenneNote() {
+  const cc = parseFloat(document.getElementById('note-cc')?.value);
+  const examen = parseFloat(document.getElementById('note-examen')?.value);
+  const apercu = document.getElementById('note-moyenne-apercu');
+  if (!apercu) return;
+  apercu.value = (isNaN(cc) || isNaN(examen)) ? '' : (Math.round(((cc + examen) / 2) * 100) / 100);
+}
+
+async function ouvrirModalNote() {
   document.getElementById('modal-note-titre').textContent = 'Ajouter une note';
   document.getElementById('note-id-edit').value = '';
-  document.getElementById('note-etudiant').value = 'UML-2024-0012';
-  document.getElementById('note-matiere').selectedIndex = 0;
-  document.getElementById('note-valeur').value = '';
-  document.getElementById('note-session').value = 'S1';
-  document.getElementById('modal-note').classList.add('active');
+  document.getElementById('note-edit-contexte').style.display = 'none';
+  document.getElementById('note-add-selection').style.display = '';
+  document.getElementById('note-cc').value      = '';
+  document.getElementById('note-examen').value  = '';
+  document.getElementById('note-moyenne-apercu').value = '';
+  document.getElementById('note-semestre-info').value = '—';
+  ['filtre-note-annee','filtre-note-niveau','filtre-note-faculte','filtre-note-nom'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const sf = document.getElementById('filtre-note-promotion');
+  if (sf) sf.innerHTML = '<option value="">Toutes les filières</option>';
+  const se = document.getElementById('note-etudiant');
+  if (se) se.innerHTML = '<option value="">— Choisir un étudiant —</option>';
+  await filtrerEtudiants();
+  const champNom = document.getElementById('filtre-note-nom');
+  if (champNom) champNom.oninput = () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(filtrerEtudiants, 300); };
+  document.getElementById('modal-note')?.classList.add('active');
 }
 
 function modifierNote(id) {
   const note = notesAdmin.find(n => n.id === id);
   if (!note) return;
-
   document.getElementById('modal-note-titre').textContent = 'Modifier la note';
-  document.getElementById('note-id-edit').value = note.id;
-  document.getElementById('note-etudiant').value = note.etudiant_id;
-  document.getElementById('note-matiere').value = note.matiere;
-  document.getElementById('note-valeur').value = note.note;
-  document.getElementById('note-session').value = note.session;
-  document.getElementById('modal-note').classList.add('active');
+  document.getElementById('note-id-edit').value  = note.id;
+
+  // Mode modification : on masque les sélecteurs et on montre le contexte figé.
+  document.getElementById('note-add-selection').style.display = 'none';
+  document.getElementById('note-edit-contexte').style.display = 'block';
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  set('note-ctx-etudiant', `${note.nom_etudiant} ${note.postnom_etudiant||''} ${note.prenom_etudiant} (${note.etudiant_id})`.replace(/\s+/g,' '));
+  set('note-ctx-matiere', `${note.code ? note.code+' — ' : ''}${note.matiere}`);
+  set('note-ctx-faculte', note.faculte || '—');
+  set('note-ctx-filiere', note.filiere || '—');
+  set('note-ctx-niveau', note.niveau || '—');
+  set('note-ctx-annee', note.annee_academique || '—');
+
+  // Champs éditables : CC, examen, moyenne (auto), semestre (figé par le cours).
+  document.getElementById('note-cc').value       = note.note_cc ?? '';
+  document.getElementById('note-examen').value   = note.note_examen ?? '';
+  document.getElementById('note-semestre-info').value = note.session === 'S1' ? 'Semestre 1' : note.session === 'S2' ? 'Semestre 2' : '—';
+  previsualiserMoyenneNote();
+  document.getElementById('modal-note')?.classList.add('active');
 }
 
-function fermerModalNote() {
-  document.getElementById('modal-note').classList.remove('active');
-}
+function fermerModalNote() { document.getElementById('modal-note')?.classList.remove('active'); }
 
 async function trouverCoursIdParNom(nomCours) {
-  const reponse = await fetch('http://localhost:3000/api/programme');
-  const cours = await reponse.json();
-  const trouve = cours.find(c => c.nom === nomCours);
-  return trouve ? trouve.id : null;
+  const r = await fetch(`${BASE_URL}/api/programme`);
+  const cours = await r.json();
+  const t = cours.find(c => c.nom === nomCours);
+  return t ? t.id : null;
 }
 
 async function sauvegarderNote() {
-  const idEdit = document.getElementById('note-id-edit').value;
-  const etudiant_id = document.getElementById('note-etudiant').value;
-  const matiereNom = document.getElementById('note-matiere').value;
-  const note = parseFloat(document.getElementById('note-valeur').value);
-  const session = document.getElementById('note-session').value;
+  const idEdit      = document.getElementById('note-id-edit').value;
+  const etudiant_id = document.getElementById('note-etudiant')?.value;
+  const matiereNom  = document.getElementById('note-matiere')?.value;
+  const ccValeur     = document.getElementById('note-cc').value;
+  const examenValeur = document.getElementById('note-examen').value;
+  const note_cc     = ccValeur     === '' ? undefined : parseFloat(ccValeur);
+  const note_examen = examenValeur === '' ? undefined : parseFloat(examenValeur);
+  // Le semestre est déterminé côté serveur d'après le cours choisi.
+  // En modification, l'année provient du contexte figé de la note.
+  const annee_academique = idEdit
+    ? (document.getElementById('note-ctx-annee')?.value || '')
+    : (document.getElementById('filtre-note-annee')?.value || '2025-2026');
 
-  if (isNaN(note) || note < 0 || note > 20) {
-    alert('⚠️ Veuillez saisir une note valide entre 0 et 20.');
-    return;
-  }
+  if (note_cc === undefined && note_examen === undefined) { afficherToast('⚠️ Renseignez au moins le contrôle continu ou l\'examen.', 'erreur'); return; }
+  if (note_cc     !== undefined && (isNaN(note_cc)     || note_cc     < 0 || note_cc     > 20)) { afficherToast('⚠️ Contrôle continu entre 0 et 20.', 'erreur'); return; }
+  if (note_examen !== undefined && (isNaN(note_examen) || note_examen < 0 || note_examen > 20)) { afficherToast('⚠️ Examen entre 0 et 20.', 'erreur'); return; }
+  if (!idEdit && !etudiant_id) { afficherToast('⚠️ Sélectionnez un étudiant.', 'erreur'); return; }
+  if (!idEdit && !matiereNom) { afficherToast('⚠️ Sélectionnez une matière.', 'erreur'); return; }
 
-  const cours_id = await trouverCoursIdParNom(matiereNom);
-  if (!cours_id) {
-    alert('⚠️ Ce cours n\'existe pas dans le programme. Ajoutez-le d\'abord dans "Programme annuel".');
-    return;
-  }
-
-  const annee_academique = '2025-2026';
+  const corps = { annee_academique };
+  if (note_cc     !== undefined) corps.note_cc     = note_cc;
+  if (note_examen !== undefined) corps.note_examen = note_examen;
 
   try {
     let reponse;
     if (idEdit) {
-      reponse = await fetch(`http://localhost:3000/api/notes/${idEdit}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note, session, annee_academique })
-      });
+      reponse = await fetchAdmin(`${BASE_URL}/api/notes/${idEdit}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(corps) });
     } else {
-      reponse = await fetch('http://localhost:3000/api/notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ etudiant_id, cours_id, note, session, annee_academique })
-      });
+      const cours_id = await trouverCoursIdParNom(matiereNom);
+      if (!cours_id) { afficherToast('⚠️ Cours introuvable dans le programme.', 'erreur'); return; }
+      corps.etudiant_id = etudiant_id;
+      corps.cours_id = cours_id;
+      reponse = await fetchAdmin(`${BASE_URL}/api/notes`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(corps) });
     }
-
-    const donnees = await reponse.json();
-    if (!reponse.ok) {
-      alert('❌ ' + donnees.erreur);
-      return;
-    }
-
-    afficherToast(idEdit ? '✅ Note modifiée avec succès !' : '✅ Note ajoutée avec succès !');
-    fermerModalNote();
-    chargerNotes();
-    chargerStats();
-
-  } catch (erreur) {
-    console.error(erreur);
-    alert('⚠️ Impossible de contacter le serveur.');
-  }
+    const d = await reponse.json();
+    if (!reponse.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    const suffixe = d.note !== null && d.note !== undefined ? ` Moyenne : ${d.note}/20` : ' (en attente de l\'autre note pour calculer la moyenne)';
+    afficherToast((idEdit ? '✅ Note modifiée !' : '✅ Note ajoutée !') + suffixe);
+    fermerModalNote(); chargerNotes(); chargerStats();
+  } catch (err) { afficherToast('⚠️ Impossible de contacter le serveur.', 'erreur'); }
 }
 
 async function supprimerNote(id) {
-  if (!confirm('Voulez-vous vraiment supprimer cette note ?')) return;
-
-  try {
-    await fetch(`http://localhost:3000/api/notes/${id}`, { method: 'DELETE' });
-    afficherToast('🗑️ Note supprimée.');
-    chargerNotes();
-    chargerStats();
-  } catch (erreur) {
-    console.error(erreur);
-    alert('⚠️ Impossible de supprimer la note.');
-  }
+  if (!await confirmerAction('Supprimer cette note ? Cette action est irréversible.', { titre: 'Supprimer la note', texteConfirmer: 'Supprimer' })) return;
+  try { await fetchAdmin(`${BASE_URL}/api/notes/${id}`, {method:'DELETE'}); afficherToast('🗑️ Note supprimée.'); chargerNotes(); chargerStats(); }
+  catch (err) { console.error(err); }
 }
 
 // =====================
-// GESTION DES HORAIRES — connecté à MySQL
+// GESTION DES HORAIRES
 // =====================
-
 let horairesAdmin = [];
 
 async function chargerHoraires() {
   const tbody = document.getElementById('admin-horaires-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Chargement...</td></tr>`;
-
+  tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">Chargement...</td></tr>`;
   try {
-    const annee = document.getElementById('filtre-annee')?.value || '';
-    const promotion = document.getElementById('filtre-promotion')?.value || '';
-    const jour = document.getElementById('filtre-jour')?.value || '';
-
+    const annee  = document.getElementById('filtre-annee')?.value  || '';
+    const niveau = document.getElementById('filtre-niveau')?.value || '';
+    const jour   = document.getElementById('filtre-jour')?.value   || '';
     const params = new URLSearchParams();
     if (annee) params.append('annee', annee);
-    if (promotion) params.append('promotion', promotion);
+    if (niveau) params.append('niveau', niveau);
     if (jour) params.append('jour', jour);
-
-    const reponse = await fetch(`http://localhost:3000/api/horaires?${params}`);
-    if (!reponse.ok) throw new Error('Erreur serveur');
-    horairesAdmin = await reponse.json();
+    const r = await fetchAdmin(`${BASE_URL}/api/horaires?${params}`);
+    if (!r.ok) throw new Error();
+    horairesAdmin = await r.json();
     afficherTableauHoraires();
-  } catch (erreur) {
-    console.error(erreur);
-    tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">⚠️ Impossible de charger les horaires.</td></tr>`;
-  }
+  } catch { tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">⚠️ Impossible de charger les horaires.</td></tr>`; }
 }
 
 function afficherTableauHoraires(liste = horairesAdmin) {
   const tbody = document.getElementById('admin-horaires-body');
   if (!tbody) return;
-
-  if (liste.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Aucun cours programmé pour ces critères.</td></tr>`;
-    return;
-  }
-
+  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">Aucun cours programmé.</td></tr>`; return; }
   tbody.innerHTML = liste.map(h => `
     <tr>
       <td><strong>${h.promotion}</strong></td>
       <td><span class="annee-badge">${h.annee_academique}</span></td>
       <td><span class="jour-badge">${h.jour}</span></td>
+      <td>${formaterDate(h.date_debut)}</td>
       <td>${h.heure_debut} – ${h.heure_fin}</td>
       <td>${h.cours}</td>
-      <td>${h.professeur || '—'}</td>
+      <td>${h.professeur||'—'}${h.grade?' ('+h.grade+')':''}</td>
       <td>${h.salle}</td>
       <td class="admin-actions-cell">
-        <button class="btn-icone" title="Modifier" onclick="modifierHoraire(${h.id})">✏️</button>
-        <button class="btn-icone danger" title="Supprimer" onclick="supprimerHoraire(${h.id})">🗑️</button>
+        <button class="btn-icone" onclick="modifierHoraire(${h.id})" aria-label="Modifier">${icone('crayon')}</button>
+        <button class="btn-icone danger" onclick="supprimerHoraire(${h.id})" aria-label="Supprimer">${icone('corbeille')}</button>
       </td>
-    </tr>
-  `).join('');
+    </tr>`).join('');
+}
+
+async function remplirListeProfesseurs() {
+  const sel = document.getElementById('horaire-prof');
+  if (!sel) return;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/professeurs`);
+    const profs = await r.json();
+    sel.innerHTML = '<option value="">-- Choisir un professeur --</option>' + profs.map(p => `<option value="${p.id}">${p.nom} ${p.prenom||''}${p.grade?' — '+p.grade:''}</option>`).join('');
+  } catch (err) { console.error(err); }
+}
+
+let coursHoraireCache = [];
+
+function chargerFilieresPourHoraire() {
+  const faculte = document.getElementById('horaire-faculte')?.value || '';
+  const sel = document.getElementById('horaire-filiere');
+  if (!sel) return;
+  const filieres = filiereParFaculte[faculte] || [];
+  sel.innerHTML = '<option value="">— Toute la faculté (cours commun) —</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join('');
+  rafraichirCoursHoraire();
+}
+
+async function rafraichirCoursHoraire() {
+  const faculte  = document.getElementById('horaire-faculte')?.value  || '';
+  const filiere  = document.getElementById('horaire-filiere')?.value  || '';
+  const niveau   = document.getElementById('horaire-niveau')?.value   || '';
+  const annee    = document.getElementById('horaire-annee')?.value    || '';
+  const sel      = document.getElementById('horaire-cours');
+  if (!sel) return;
+  if (!faculte) { sel.innerHTML = '<option value="">— Choisir d\'abord une faculté —</option>'; return; }
+  try {
+    const params = new URLSearchParams({ faculte, niveau, annee });
+    if (filiere) params.append('filiere', filiere);
+    const r = await fetch(`${BASE_URL}/api/programme?${params}`);
+    coursHoraireCache = await r.json();
+    sel.innerHTML = coursHoraireCache.length === 0
+      ? '<option value="">Aucun cours pour cette sélection</option>'
+      : coursHoraireCache.map(c => `<option value="${c.id}">${c.code} — ${c.nom} (${c.promotion})</option>`).join('');
+  } catch { sel.innerHTML = '<option value="">Erreur</option>'; }
+}
+
+const JOURS_SEMAINE = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+
+function synchroniserJourDepuisDate() {
+  const dateVal = document.getElementById('horaire-date-debut').value;
+  if (!dateVal) return;
+  // new Date('YYYY-MM-DD') est interprété en UTC : on lit getUTCDay() pour éviter
+  // un décalage de jour selon le fuseau horaire du navigateur.
+  const jourSemaine = JOURS_SEMAINE[new Date(dateVal).getUTCDay()];
+  const select = document.getElementById('horaire-jour');
+  if (select && jourSemaine !== 'Dimanche' && jourSemaine !== 'Samedi') {
+    select.value = jourSemaine;
+  }
+}
+
+function autoSelectionnerProfesseurHoraire() {
+  const coursId = document.getElementById('horaire-cours')?.value;
+  const selectProf = document.getElementById('horaire-prof');
+  if (!selectProf) return;
+  const cours = coursHoraireCache.find(c => String(c.id) === String(coursId));
+  selectProf.value = cours?.professeur_id || '';
 }
 
 async function ouvrirModalHoraire() {
   await remplirListeProfesseurs();
   document.getElementById('modal-horaire-titre').textContent = 'Ajouter un cours à l\'horaire';
   document.getElementById('horaire-id-edit').value = '';
-  document.getElementById('horaire-promotion').selectedIndex = 0;
-  document.getElementById('horaire-annee').value = '2025-2026';
-  document.getElementById('horaire-jour').selectedIndex = 0;
-  document.getElementById('horaire-debut').value = '07:30';
-  document.getElementById('horaire-fin').value = '09:30';
-  document.getElementById('horaire-salle').value = '';
-  document.getElementById('modal-horaire').classList.add('active');
-  await rafraichirCoursParPromotion();
+  document.getElementById('horaire-faculte').selectedIndex = 0;
+  document.getElementById('horaire-niveau').value = 'L1';
+  document.getElementById('horaire-annee').value  = '2025-2026';
+  document.getElementById('horaire-jour').value = '';
+  document.getElementById('horaire-date-debut').value = '';
+  document.getElementById('horaire-debut').value  = '07:30';
+  document.getElementById('horaire-fin').value    = '09:30';
+  document.getElementById('horaire-salle').value  = '';
+  chargerFilieresPourHoraire();
+  document.getElementById('modal-horaire')?.classList.add('active');
 }
 
 async function modifierHoraire(id) {
   const h = horairesAdmin.find(x => x.id === id);
   if (!h) return;
-
-  document.getElementById('horaire-promotion').value = h.promotion;
-  document.getElementById('horaire-annee').value = h.annee_academique;
-  await rafraichirCoursParPromotion();
   await remplirListeProfesseurs();
-
   document.getElementById('modal-horaire-titre').textContent = 'Modifier le cours';
   document.getElementById('horaire-id-edit').value = h.id;
-  document.getElementById('horaire-jour').value = h.jour;
-  document.getElementById('horaire-debut').value = h.heure_debut;
-  document.getElementById('horaire-fin').value = h.heure_fin;
-  document.getElementById('horaire-cours').value = h.cours;
-  document.getElementById('horaire-prof').value = '';  // Toujours vide, à re-choisir explicitement
-  document.getElementById('horaire-salle').value = h.salle;
-  document.getElementById('modal-horaire').classList.add('active');
+  document.getElementById('horaire-jour').value    = h.jour;
+  document.getElementById('horaire-date-debut').value = h.date_debut ? h.date_debut.split('T')[0] : '';
+  document.getElementById('horaire-debut').value   = h.heure_debut;
+  document.getElementById('horaire-fin').value     = h.heure_fin;
+  document.getElementById('horaire-prof').value    = '';
+  document.getElementById('horaire-salle').value   = h.salle;
+  document.getElementById('horaire-annee').value   = h.annee_academique;
+
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/programme?annee=${h.annee_academique}`);
+    const programme = await r.json();
+    const coursActuel = programme.find(c => c.id === h.cours_id);
+    if (coursActuel) {
+      document.getElementById('horaire-faculte').value = coursActuel.faculte || '';
+      document.getElementById('horaire-niveau').value  = coursActuel.niveau || 'L1';
+      chargerFilieresPourHoraire();
+      document.getElementById('horaire-filiere').value = coursActuel.filiere_nom || '';
+      await rafraichirCoursHoraire();
+      document.getElementById('horaire-cours').value = h.cours_id;
+    }
+  } catch (err) { console.error(err); }
+
+  document.getElementById('modal-horaire')?.classList.add('active');
 }
 
-function fermerModalHoraire() {
-  document.getElementById('modal-horaire').classList.remove('active');
-}
+function fermerModalHoraire() { document.getElementById('modal-horaire')?.classList.remove('active'); }
 
 async function sauvegarderHoraire() {
   const idEdit = document.getElementById('horaire-id-edit').value;
-  const promotion = document.getElementById('horaire-promotion').value;
   const annee_academique = document.getElementById('horaire-annee').value;
-  const jour = document.getElementById('horaire-jour').value;
-  const heure_debut = document.getElementById('horaire-debut').value;
-  const heure_fin = document.getElementById('horaire-fin').value;
-  const coursNom = document.getElementById('horaire-cours').value;
-  const professeur_id = document.getElementById('horaire-prof').value;
-  const salle = document.getElementById('horaire-salle').value.trim();
+  const jour             = document.getElementById('horaire-jour').value;
+  const date_debut       = document.getElementById('horaire-date-debut').value;
+  const heure_debut      = document.getElementById('horaire-debut').value;
+  const heure_fin        = document.getElementById('horaire-fin').value;
+  const cours_id         = document.getElementById('horaire-cours').value;
+  const professeur_id    = document.getElementById('horaire-prof').value;
+  const salle            = document.getElementById('horaire-salle').value.trim();
 
-  if (!heure_debut || !heure_fin || !salle) {
-    alert('⚠️ Veuillez remplir tous les champs.');
-    return;
-  }
+  if (!date_debut||!heure_debut||!heure_fin||!salle) { afficherToast('⚠️ Remplissez tous les champs, y compris la date de début.', 'erreur'); return; }
+  if (!jour) { afficherToast('⚠️ La date choisie tombe un week-end : choisissez un jour de semaine (Lundi à Vendredi).', 'erreur'); return; }
+  if (heure_fin <= heure_debut) { afficherToast('⚠️ Heure de fin incorrecte.', 'erreur'); return; }
+  if (!cours_id) { afficherToast('⚠️ Choisissez un cours.', 'erreur'); return; }
+  const coursSelectionne = coursHoraireCache.find(c => String(c.id) === String(cours_id));
+  const promotion = coursSelectionne ? coursSelectionne.promotion : '';
 
-  if (heure_fin <= heure_debut) {
-    alert('⚠️ L\'heure de fin doit être après l\'heure de début.');
-    return;
-  }
-
-  const cours_id = await trouverCoursIdParNom(coursNom);
-  if (!cours_id) {
-    alert('⚠️ Ce cours n\'existe pas dans le programme annuel. Ajoutez-le d\'abord.');
-    return;
-  }
-
-  const corps = { promotion, annee_academique, jour, heure_debut, heure_fin, cours_id, professeur_id, salle };
-
-  
   try {
-    let reponse;
-    if (idEdit) {
-      reponse = await fetch(`http://localhost:3000/api/horaires/${idEdit}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(corps)
-      });
-    } else {
-      reponse = await fetch('http://localhost:3000/api/horaires', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(corps)
-      });
-    }
-
-    const donnees = await reponse.json();
-    if (!reponse.ok) {
-      alert('⚠️ ' + donnees.erreur);
-      return;
-    }
-
-    afficherToast(idEdit ? '✅ Cours modifié avec succès !' : '✅ Cours ajouté à l\'horaire !');
-    fermerModalHoraire();
-    chargerHoraires();
-    chargerStats();
-
-  } catch (erreur) {
-    console.error(erreur);
-    alert('⚠️ Impossible de contacter le serveur.');
-  }
+    const corps = { promotion, annee_academique, jour, date_debut, heure_debut, heure_fin, cours_id, professeur_id, salle };
+    const r = await fetchAdmin(
+      idEdit ? `${BASE_URL}/api/horaires/${idEdit}` : `${BASE_URL}/api/horaires`,
+      { method: idEdit?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(corps) }
+    );
+    const d = await r.json();
+    if (!r.ok) { afficherToast('⚠️ '+d.erreur, 'erreur'); return; }
+    afficherToast(idEdit?'✅ Cours modifié !':'✅ Cours ajouté !');
+    fermerModalHoraire(); chargerHoraires(); chargerStats();
+  } catch { afficherToast('⚠️ Impossible de contacter le serveur.', 'erreur'); }
 }
 
 async function supprimerHoraire(id) {
-  if (!confirm('Voulez-vous vraiment supprimer ce cours de l\'horaire ?')) return;
-
-  try {
-    await fetch(`http://localhost:3000/api/horaires/${id}`, { method: 'DELETE' });
-    afficherToast('🗑️ Cours supprimé de l\'horaire.');
-    chargerHoraires();
-    chargerStats();
-  } catch (erreur) {
-    console.error(erreur);
-    alert('⚠️ Impossible de supprimer.');
-  }
+  if (!await confirmerAction('Supprimer ce cours de l\'horaire ? Cette action est irréversible.', { titre: 'Supprimer le cours', texteConfirmer: 'Supprimer' })) return;
+  try { await fetchAdmin(`${BASE_URL}/api/horaires/${id}`,{method:'DELETE'}); afficherToast('🗑️ Supprimé.'); chargerHoraires(); chargerStats(); }
+  catch (err) { console.error(err); }
 }
 
 // =====================
-// GESTION DU PROGRAMME ANNUEL — connecté à MySQL
+// GESTION DU PROGRAMME ANNUEL
 // =====================
-
 let programmeAdmin = [];
+let vueGroupeeProgramme = false;
+
+function chargerFilieresPourFiltreProg() {
+  const faculte = document.getElementById('filtre-faculte-prog')?.value || '';
+  const sel = document.getElementById('filtre-filiere-prog');
+  if (!sel) return;
+  const filieres = filiereParFaculte[faculte] || [];
+  sel.innerHTML = '<option value="">Toutes les filières</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join('');
+}
+
+function basculerVueGroupeeProgramme() {
+  vueGroupeeProgramme = !vueGroupeeProgramme;
+  const btn = document.getElementById('btn-vue-groupee');
+  if (btn) btn.style.opacity = vueGroupeeProgramme ? '0.7' : '1';
+  chargerProgramme();
+}
+
+// Génère les lignes d'un tableau de cours (un semestre).
+function lignesCoursProgramme(cours) {
+  if (cours.length === 0) return `<tr><td colspan="4" class="admin-vide">Aucun cours.</td></tr>`;
+  return cours.map(p => `<tr><td><span class="prog-code-admin">${p.code}</span></td><td>${p.nom}</td><td>${p.credits} cr.</td><td class="admin-actions-cell"><button class="btn-icone" onclick="ouvrirModalInscriptions(${p.id},'${p.nom.replace(/'/g,"\\'")}','${p.promotion}')" aria-label="Étudiants inscrits" title="Étudiants inscrits">${icone('utilisateurs')}</button><button class="btn-icone" onclick="modifierProgramme(${p.id})" aria-label="Modifier">${icone('crayon')}</button><button class="btn-icone danger" onclick="supprimerProgramme(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td></tr>`).join('');
+}
 
 async function chargerProgramme() {
-  const tbodyS1 = document.getElementById('prog-s1-body');
-  const tbodyS2 = document.getElementById('prog-s2-body');
-  if (!tbodyS1 || !tbodyS2) return;
+  const message = document.getElementById('programme-message');
+  const normal  = document.getElementById('programme-normal');
+  const groupe  = document.getElementById('programme-groupe');
+  if (!message || !normal || !groupe) return;
 
-  tbodyS1.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
-  tbodyS2.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
+  const faculte = document.getElementById('filtre-faculte-prog')?.value || '';
+  const filiere = document.getElementById('filtre-filiere-prog')?.value || '';
+  const annee   = document.getElementById('filtre-annee-prog')?.value   || '';
+  const niveau  = document.getElementById('filtre-niveau-prog')?.value  || '';
 
-  try {
-    const annee = document.getElementById('filtre-annee-prog')?.value || '';
-    const promotion = document.getElementById('filtre-promotion-prog')?.value || '';
-
-    const params = new URLSearchParams();
-    if (annee) params.append('annee', annee);
-    if (promotion) params.append('promotion', promotion);
-
-    const reponse = await fetch(`http://localhost:3000/api/programme?${params}`);
-    if (!reponse.ok) throw new Error('Erreur serveur');
-    programmeAdmin = await reponse.json();
-    afficherTableauProgramme();
-  } catch (erreur) {
-    console.error(erreur);
-    tbodyS1.innerHTML = `<tr><td colspan="4" class="admin-vide">⚠️ Impossible de charger le programme.</td></tr>`;
-    tbodyS2.innerHTML = '';
-  }
-}
-
-function afficherTableauProgramme(liste = programmeAdmin) {
-  const tbodyS1 = document.getElementById('prog-s1-body');
-  const tbodyS2 = document.getElementById('prog-s2-body');
-  const totalS1El = document.getElementById('prog-s1-total');
-  const totalS2El = document.getElementById('prog-s2-total');
-  if (!tbodyS1 || !tbodyS2) return;
-
-  const coursS1 = liste.filter(p => p.semestre === 'S1');
-  const coursS2 = liste.filter(p => p.semestre === 'S2');
-
-  const genererLignes = (cours) => {
-    if (cours.length === 0) {
-      return `<tr><td colspan="4" class="admin-vide">Aucun cours pour ce semestre.</td></tr>`;
-    }
-    return cours.map(p => `
-      <tr>
-        <td><span class="prog-code-admin">${p.code}</span></td>
-        <td>${p.nom}</td>
-        <td>${p.credits} cr.</td>
-        <td class="admin-actions-cell">
-          <button class="btn-icone" title="Modifier" onclick="modifierProgramme(${p.id})">✏️</button>
-          <button class="btn-icone danger" title="Supprimer" onclick="supprimerProgramme(${p.id})">🗑️</button>
-        </td>
-      </tr>
-    `).join('');
-  };
-
-  tbodyS1.innerHTML = genererLignes(coursS1);
-  tbodyS2.innerHTML = genererLignes(coursS2);
-
-  const totalCreditsS1 = coursS1.reduce((s, p) => s + p.credits, 0);
-  const totalCreditsS2 = coursS2.reduce((s, p) => s + p.credits, 0);
-  if (totalS1El) totalS1El.textContent = totalCreditsS1;
-  if (totalS2El) totalS2El.textContent = totalCreditsS2;
-}
-
-function ouvrirModalProgramme() {
-  document.getElementById('modal-programme-titre').textContent = 'Ajouter un cours au programme';
-  document.getElementById('prog-id-edit').value = '';
-  document.getElementById('prog-code').value = '';
-  document.getElementById('prog-credits').value = '';
-  document.getElementById('prog-nom').value = '';
-  document.getElementById('prog-promotion').selectedIndex = 0;
-  document.getElementById('prog-annee').value = '2025-2026';
-  document.getElementById('prog-semestre').value = 'S1';
-  document.getElementById('modal-programme').classList.add('active');
-}
-
-function modifierProgramme(id) {
-  const p = programmeAdmin.find(x => x.id === id);
-  if (!p) return;
-
-  document.getElementById('modal-programme-titre').textContent = 'Modifier le cours';
-  document.getElementById('prog-id-edit').value = p.id;
-  document.getElementById('prog-code').value = p.code;
-  document.getElementById('prog-credits').value = p.credits;
-  document.getElementById('prog-nom').value = p.nom;
-  document.getElementById('prog-promotion').value = p.promotion;
-  document.getElementById('prog-annee').value = p.annee_academique;
-  document.getElementById('prog-semestre').value = p.semestre;
-  document.getElementById('modal-programme').classList.add('active');
-}
-
-function fermerModalProgramme() {
-  document.getElementById('modal-programme').classList.remove('active');
-}
-
-async function sauvegarderProgramme() {
-  const idEdit = document.getElementById('prog-id-edit').value;
-  const code = document.getElementById('prog-code').value.trim();
-  const credits = parseInt(document.getElementById('prog-credits').value);
-  const nom = document.getElementById('prog-nom').value.trim();
-  const promotion = document.getElementById('prog-promotion').value;
-  const annee_academique = document.getElementById('prog-annee').value;
-  const semestre = document.getElementById('prog-semestre').value;
-
-  if (!code || !nom || isNaN(credits) || credits < 1) {
-    alert('⚠️ Veuillez remplir tous les champs correctement (crédits ≥ 1).');
+  // Vue groupée : les deux semestres de chaque faculté, séparément.
+  if (vueGroupeeProgramme) {
+    message.style.display = 'none';
+    normal.style.display = 'none';
+    groupe.style.display = 'block';
+    groupe.innerHTML = '<div class="dash-card" style="text-align:center;color:#888">Chargement...</div>';
+    try {
+      const params = new URLSearchParams();
+      if (annee)  params.append('annee', annee);
+      if (niveau) params.append('niveau', niveau);
+      const r = await fetch(`${BASE_URL}/api/programme?${params}`);
+      programmeAdmin = await r.json();
+      afficherProgrammeGroupe();
+    } catch { groupe.innerHTML = '<div class="dash-card" style="text-align:center;color:#888">⚠️ Erreur de chargement.</div>'; }
     return;
   }
 
-  const corps = { code, nom, promotion, annee_academique, semestre, credits };
-
-  try {
-    let reponse;
-    if (idEdit) {
-      reponse = await fetch(`http://localhost:3000/api/programme/${idEdit}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(corps)
-      });
-    } else {
-      reponse = await fetch('http://localhost:3000/api/programme', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(corps)
-      });
-    }
-
-    const donnees = await reponse.json();
-    if (!reponse.ok) {
-      alert('⚠️ ' + donnees.erreur);
-      return;
-    }
-
-    afficherToast(idEdit ? '✅ Cours modifié !' : '✅ Cours ajouté au programme !');
-    fermerModalProgramme();
-    chargerProgramme();
-    chargerStats();
-
-  } catch (erreur) {
-    console.error(erreur);
-    alert('⚠️ Impossible de contacter le serveur.');
+  // Vue normale : nécessite une sélection précise (faculté + année + niveau).
+  if (!faculte || !annee || !niveau) {
+    message.style.display = 'block';
+    normal.style.display = 'none';
+    groupe.style.display = 'none';
+    return;
   }
+
+  message.style.display = 'none';
+  groupe.style.display = 'none';
+  normal.style.display = 'flex';
+  const t1 = document.getElementById('prog-s1-body');
+  const t2 = document.getElementById('prog-s2-body');
+  t1.innerHTML = t2.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const params = new URLSearchParams({ faculte, annee, niveau });
+    if (filiere) params.append('filiere', filiere);
+    const r = await fetch(`${BASE_URL}/api/programme?${params}`);
+    programmeAdmin = await r.json();
+    afficherTableauProgramme();
+  } catch { t1.innerHTML = `<tr><td colspan="4" class="admin-vide">⚠️ Erreur.</td></tr>`; t2.innerHTML=''; }
+}
+
+function afficherTableauProgramme(liste = programmeAdmin) {
+  const t1 = document.getElementById('prog-s1-body');
+  const t2 = document.getElementById('prog-s2-body');
+  if (!t1||!t2) return;
+  const s1 = liste.filter(p=>p.semestre==='S1');
+  const s2 = liste.filter(p=>p.semestre==='S2');
+  t1.innerHTML = lignesCoursProgramme(s1); t2.innerHTML = lignesCoursProgramme(s2);
+  const e1 = document.getElementById('prog-s1-total'); const e2 = document.getElementById('prog-s2-total');
+  if (e1) e1.textContent = s1.reduce((s,p)=>s+p.credits,0);
+  if (e2) e2.textContent = s2.reduce((s,p)=>s+p.credits,0);
+}
+
+// Affiche chaque faculté dans son propre bloc, avec ses deux semestres.
+function afficherProgrammeGroupe() {
+  const groupe = document.getElementById('programme-groupe');
+  if (!groupe) return;
+  const FACULTES = ['Faculté de Théologie','Sciences Informatiques','Sciences Économiques',"Sciences de l'Éducation & Psychologie"];
+  if (programmeAdmin.length === 0) {
+    groupe.innerHTML = '<div class="dash-card" style="text-align:center;color:#888;padding:30px">Aucun cours pour cette sélection.</div>';
+    return;
+  }
+  // Un tableau de semestre pour une filière donnée, avec total crédits.
+  const tableauSemestre = (titre, liste) => `
+    <div class="dash-card" style="flex:1;min-width:260px">
+      <h4 style="margin:0 0 8px">${titre} <span style="font-weight:400;color:#999;font-size:12px">(${liste.reduce((s,p)=>s+p.credits,0)} cr.)</span></h4>
+      <table class="dash-table">
+        <thead><tr><th>Code</th><th>Cours</th><th>Crédits</th><th>Actions</th></tr></thead>
+        <tbody>${lignesCoursProgramme(liste)}</tbody>
+      </table>
+    </div>`;
+
+  groupe.innerHTML = FACULTES.map(fac => {
+    const coursFac = programmeAdmin.filter(p => p.faculte === fac);
+    if (coursFac.length === 0) {
+      return `<div style="margin-bottom:28px"><h2 style="font-size:16px;color:var(--bleu);border-bottom:2px solid var(--jaune);padding-bottom:6px;margin-bottom:10px">${fac}</h2><p style="color:#999;font-size:13px">Aucun cours.</p></div>`;
+    }
+    // Dans chaque faculté, on groupe par filière (les cours communs à part).
+    const COMMUN = 'Cours communs (toute la faculté)';
+    const filieres = [...new Set(coursFac.map(p => p.filiere_nom || COMMUN))].sort((a,b) => a === COMMUN ? 1 : b === COMMUN ? -1 : a.localeCompare(b));
+    const blocs = filieres.map(fil => {
+      const coursFil = coursFac.filter(p => (p.filiere_nom || COMMUN) === fil);
+      const s1 = coursFil.filter(p => p.semestre === 'S1');
+      const s2 = coursFil.filter(p => p.semestre === 'S2');
+      return `
+        <div style="margin-bottom:16px">
+          <h3 style="font-size:14px;color:#333;margin:0 0 8px;padding-left:8px;border-left:3px solid var(--jaune)">${fil}</h3>
+          <div class="dash-row">${tableauSemestre('Semestre 1', s1)}${tableauSemestre('Semestre 2', s2)}</div>
+        </div>`;
+    }).join('');
+    return `
+      <div style="margin-bottom:30px">
+        <h2 style="font-size:16px;color:var(--bleu);border-bottom:2px solid var(--jaune);padding-bottom:6px;margin-bottom:14px">${fac}</h2>
+        ${blocs}
+      </div>`;
+  }).join('');
+}
+
+function chargerFilieresPourProgramme() {
+  const faculte = document.getElementById('prog-faculte')?.value || '';
+  const sel = document.getElementById('prog-filiere');
+  if (!sel) return;
+  const filieres = filiereParFaculte[faculte] || [];
+  sel.innerHTML = '<option value="">— Toute la faculté (cours commun) —</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join('');
+}
+
+function ouvrirModalProgramme() {
+  document.getElementById('modal-programme-titre').textContent = 'Ajouter un cours';
+  ['prog-id-edit','prog-code','prog-credits','prog-nom'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('prog-faculte').selectedIndex=0;
+  chargerFilieresPourProgramme();
+  document.getElementById('prog-niveau').value='L1';
+  document.getElementById('prog-annee').value='2025-2026';
+  document.getElementById('prog-semestre').value='S1';
+  document.getElementById('modal-programme')?.classList.add('active');
+}
+
+function modifierProgramme(id) {
+  const p = programmeAdmin.find(x=>x.id===id);
+  if (!p) return;
+  document.getElementById('modal-programme-titre').textContent='Modifier le cours';
+  document.getElementById('prog-id-edit').value  = p.id;
+  document.getElementById('prog-code').value     = p.code;
+  document.getElementById('prog-credits').value  = p.credits;
+  document.getElementById('prog-nom').value      = p.nom;
+  document.getElementById('prog-faculte').value  = p.faculte || '';
+  chargerFilieresPourProgramme();
+  document.getElementById('prog-filiere').value  = p.filiere_nom || '';
+  document.getElementById('prog-niveau').value   = p.niveau || 'L1';
+  document.getElementById('prog-annee').value    = p.annee_academique;
+  document.getElementById('prog-semestre').value = p.semestre;
+  document.getElementById('modal-programme')?.classList.add('active');
+}
+
+function fermerModalProgramme() { document.getElementById('modal-programme')?.classList.remove('active'); }
+
+async function sauvegarderProgramme() {
+  const idEdit = document.getElementById('prog-id-edit').value;
+  const code   = document.getElementById('prog-code').value.trim();
+  const credits= parseInt(document.getElementById('prog-credits').value);
+  const nom    = document.getElementById('prog-nom').value.trim();
+  const faculte = document.getElementById('prog-faculte').value;
+  const filiere = document.getElementById('prog-filiere').value;
+  const niveau  = document.getElementById('prog-niveau').value;
+  const annee_academique = document.getElementById('prog-annee').value;
+  const semestre = document.getElementById('prog-semestre').value;
+  if (!code||!nom||!faculte||isNaN(credits)||credits<1) { afficherToast('⚠️ Remplissez tous les champs, dont la faculté.', 'erreur'); return; }
+  try {
+    const r = await fetchAdmin(idEdit?`${BASE_URL}/api/programme/${idEdit}`:`${BASE_URL}/api/programme`,
+      { method:idEdit?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({code,nom,faculte,filiere,niveau,annee_academique,semestre,credits}) });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('⚠️ '+d.erreur, 'erreur'); return; }
+    afficherToast(idEdit?'✅ Modifié !':`✅ Ajouté ! (${d.etudiantsInscrits||0} étudiant(s) inscrit(s) automatiquement)`);
+    // On aligne les filtres sur le cours ajouté/modifié pour qu'il soit
+    // immédiatement visible (sinon il resterait masqué derrière le message).
+    vueGroupeeProgramme = false;
+    const btnG = document.getElementById('btn-vue-groupee'); if (btnG) btnG.style.opacity = '1';
+    if (document.getElementById('filtre-faculte-prog')) document.getElementById('filtre-faculte-prog').value = faculte;
+    chargerFilieresPourFiltreProg();
+    if (document.getElementById('filtre-filiere-prog')) document.getElementById('filtre-filiere-prog').value = filiere || '';
+    if (document.getElementById('filtre-annee-prog'))   document.getElementById('filtre-annee-prog').value = annee_academique;
+    if (document.getElementById('filtre-niveau-prog'))  document.getElementById('filtre-niveau-prog').value = niveau;
+    fermerModalProgramme(); chargerProgramme(); chargerStats();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
 async function supprimerProgramme(id) {
-  if (!confirm('Voulez-vous vraiment supprimer ce cours du programme ?')) return;
-
-  try {
-    await fetch(`http://localhost:3000/api/programme/${id}`, { method: 'DELETE' });
-    afficherToast('🗑️ Cours retiré du programme.');
-    chargerProgramme();
-    chargerStats();
-  } catch (erreur) {
-    console.error(erreur);
-    alert('⚠️ Impossible de supprimer.');
-  }
+  if (!await confirmerAction('Retirer ce cours du programme ? Cette action est irréversible.', { titre: 'Retirer le cours', texteConfirmer: 'Retirer' })) return;
+  try { await fetchAdmin(`${BASE_URL}/api/programme/${id}`,{method:'DELETE'}); afficherToast('🗑️ Supprimé.'); chargerProgramme(); chargerStats(); }
+  catch (err) { console.error(err); }
 }
 
+// =====================
+// INSCRIPTIONS AUX COURS
+// =====================
+async function ouvrirModalInscriptions(coursId, nomCours, promotion) {
+  document.getElementById('inscriptions-cours-id').value = coursId;
+  document.getElementById('inscriptions-nom-cours').textContent = nomCours;
+  document.getElementById('inscriptions-promotion-label').textContent = promotion;
+  document.getElementById('inscriptions-recherche').value = '';
+  document.getElementById('inscriptions-resultats-recherche').innerHTML = '';
+
+  const coursActuel = programmeAdmin.find(p => p.id === coursId);
+  document.getElementById('inscriptions-niveau-masse').value = coursActuel?.niveau || 'L1';
+  document.querySelectorAll('#inscriptions-facultes-checkboxes input').forEach(cb => { cb.checked = coursActuel?.faculte === cb.value; });
+
+  document.getElementById('modal-inscriptions')?.classList.add('active');
+  await chargerInscriptions();
+}
+
+function fermerModalInscriptions() { document.getElementById('modal-inscriptions')?.classList.remove('active'); }
+
+async function chargerInscriptions() {
+  const coursId = document.getElementById('inscriptions-cours-id').value;
+  const tbody = document.getElementById('inscriptions-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/inscriptions/cours/${coursId}`);
+    const etudiants = await r.json();
+    document.getElementById('inscriptions-total').textContent = etudiants.length;
+    tbody.innerHTML = etudiants.length === 0
+      ? `<tr><td class="admin-vide">Aucun étudiant inscrit.</td></tr>`
+      : etudiants.map(e => `<tr>
+          <td>${e.nom} ${e.postnom||''} ${e.prenom} <span style="color:#999;font-size:11px">(${e.promotion||'—'})</span></td>
+          <td class="admin-actions-cell" style="justify-content:flex-end"><button class="btn-icone danger" onclick="retirerInscription('${e.id}')" aria-label="Retirer">${icone('corbeille')}</button></td>
+        </tr>`).join('');
+  } catch { tbody.innerHTML = `<tr><td class="admin-vide">⚠️ Erreur.</td></tr>`; }
+}
+
+async function inscrirePlusieursFacultes() {
+  const cours_id = document.getElementById('inscriptions-cours-id').value;
+  const niveau = document.getElementById('inscriptions-niveau-masse').value;
+  const facultes = Array.from(document.querySelectorAll('#inscriptions-facultes-checkboxes input:checked')).map(cb => cb.value);
+  if (facultes.length === 0) { afficherToast('⚠️ Sélectionnez au moins une faculté.', 'erreur'); return; }
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/inscriptions/bulk-multi`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cours_id, groupes: facultes.map(faculte => ({ faculte, niveau })) })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
+    afficherToast(`✅ ${d.total} étudiant(s) inscrit(s).`);
+    chargerInscriptions();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+let debounceInscriptions;
+function rechercherEtudiantPourInscription() {
+  clearTimeout(debounceInscriptions);
+  debounceInscriptions = setTimeout(async () => {
+    const nom = document.getElementById('inscriptions-recherche').value.trim();
+    const zone = document.getElementById('inscriptions-resultats-recherche');
+    if (!nom) { zone.innerHTML = ''; return; }
+    try {
+      const r = await fetchAdmin(`${BASE_URL}/api/etudiants?${new URLSearchParams({ nom })}`);
+      const etudiants = await r.json();
+      zone.innerHTML = etudiants.length === 0
+        ? '<p style="color:#999;font-size:12px;padding:6px 0">Aucun étudiant trouvé.</p>'
+        : etudiants.slice(0, 8).map(e => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px">
+              <span>${e.nom} ${e.postnom||''} ${e.prenom} <span style="color:#999;font-size:11px">(${e.promotion||'—'})</span></span>
+              <button class="btn-icone" onclick="ajouterInscriptionIndividuelle('${e.id}')" aria-label="Inscrire">${icone('plus')}</button>
+            </div>`).join('');
+    } catch { zone.innerHTML = ''; }
+  }, 300);
+}
+
+async function ajouterInscriptionIndividuelle(etudiantId) {
+  const cours_id = document.getElementById('inscriptions-cours-id').value;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/inscriptions`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ etudiant_id: etudiantId, cours_id })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
+    afficherToast('✅ Étudiant inscrit.');
+    document.getElementById('inscriptions-recherche').value = '';
+    document.getElementById('inscriptions-resultats-recherche').innerHTML = '';
+    chargerInscriptions();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function retirerInscription(etudiantId) {
+  const coursId = document.getElementById('inscriptions-cours-id').value;
+  if (!await confirmerAction('Retirer cet étudiant du cours ?', { titre: 'Retirer l\'inscription', texteConfirmer: 'Retirer' })) return;
+  try {
+    await fetchAdmin(`${BASE_URL}/api/inscriptions/${etudiantId}/${coursId}`, { method: 'DELETE' });
+    afficherToast('🗑️ Étudiant retiré du cours.');
+    chargerInscriptions();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
 
 // =====================
-// GESTION DES ANNONCES & ÉVÉNEMENTS — connecté à MySQL
+// GESTION DES ANNONCES
 // =====================
-
 let annoncesAdmin = [];
 
 function formatDateAffichage(dateStr) {
   const d = new Date(dateStr);
-  const mois_noms = ["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Août","Sep","Oct","Nov","Déc"];
-  return `${String(d.getDate()).padStart(2,'0')} ${mois_noms[d.getMonth()]} ${d.getFullYear()}`;
+  const m = ["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Août","Sep","Oct","Nov","Déc"];
+  return `${String(d.getUTCDate()).padStart(2,'0')} ${m[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 async function chargerAnnonces() {
   const tbody = document.getElementById('admin-annonces-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Chargement...</td></tr>`;
-
+  tbody.innerHTML=`<tr><td colspan="5" class="admin-vide">Chargement...</td></tr>`;
   try {
-    const type = document.getElementById('filtre-type-annonce')?.value || '';
+    const type = document.getElementById('filtre-type-annonce')?.value||'';
     const params = new URLSearchParams();
-    if (type) params.append('type', type);
-
-    const reponse = await fetch(`http://localhost:3000/api/annonces?${params}`);
-    if (!reponse.ok) throw new Error('Erreur serveur');
-    annoncesAdmin = await reponse.json();
+    if (type) params.append('type',type);
+    const r = await fetch(`${BASE_URL}/api/annonces?${params}`);
+    annoncesAdmin = await r.json();
     afficherTableauAnnonces();
-  } catch (erreur) {
-    console.error(erreur);
-    tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">⚠️ Impossible de charger les annonces.</td></tr>`;
-  }
+  } catch { tbody.innerHTML=`<tr><td colspan="5" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
-function afficherTableauAnnonces(liste = annoncesAdmin) {
-  const tbody = document.getElementById('admin-annonces-body');
+function afficherTableauAnnonces(liste=annoncesAdmin) {
+  const tbody=document.getElementById('admin-annonces-body');
   if (!tbody) return;
-
-  if (liste.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Aucune annonce pour ces critères.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = liste.map(a => `
+  if (!liste.length) { tbody.innerHTML=`<tr><td colspan="6" class="admin-vide">Aucune annonce.</td></tr>`; return; }
+  tbody.innerHTML=liste.map(a=>`
     <tr>
       <td>${a.icone} ${a.titre}</td>
-      <td><span class="type-badge ${a.type}">${a.type === 'annonce' ? 'Annonce' : 'Événement'}</span></td>
+      <td><span class="type-badge ${a.type}">${a.type==='annonce'?'Annonce':'Événement'}</span></td>
       <td>${formatDateAffichage(a.date_annonce)}</td>
-      <td><span class="badge ${a.actif ? 'actif' : 'inactif'}">${a.actif ? 'Actif' : 'Masqué'}</span></td>
+      <td>${a.cible_faculte ? `<span class="annee-badge">${a.cible_faculte}</span>` : '<span style="color:#999;font-size:12px">Tout le monde</span>'}</td>
+      <td><span class="badge ${a.actif?'actif':'inactif'}">${a.actif?'Actif':'Masqué'}</span></td>
       <td class="admin-actions-cell">
-        <button class="btn-icone" title="${a.actif ? 'Masquer' : 'Activer'}" onclick="toggleActifAnnonce(${a.id})">${a.actif ? '👁️' : '🚫'}</button>
-        <button class="btn-icone" title="Modifier" onclick="modifierAnnonce(${a.id})">✏️</button>
-        <button class="btn-icone danger" title="Supprimer" onclick="supprimerAnnonce(${a.id})">🗑️</button>
+        <button class="btn-icone" onclick="toggleActifAnnonce(${a.id})" aria-label="${a.actif?'Masquer':'Afficher'}">${icone(a.actif?'oeil':'oeil-barre')}</button>
+        <button class="btn-icone" onclick="modifierAnnonce(${a.id})" aria-label="Modifier">${icone('crayon')}</button>
+        <button class="btn-icone danger" onclick="supprimerAnnonce(${a.id})" aria-label="Supprimer">${icone('corbeille')}</button>
       </td>
-    </tr>
-  `).join('');
+    </tr>`).join('');
 }
 
 function gererAffichageChampImage() {
-  const type = document.getElementById('annonce-type').value;
-  document.getElementById('champ-image-evenement').style.display = type === 'evenement' ? 'block' : 'none';
+  const t=document.getElementById('annonce-type')?.value;
+  const c=document.getElementById('champ-image-evenement');
+  if (c) c.style.display=t==='evenement'?'block':'none';
 }
 
 function ouvrirModalAnnonce() {
-  document.getElementById('modal-annonce-titre').textContent = 'Nouvelle annonce';
-  document.getElementById('annonce-id-edit').value = '';
-  document.getElementById('annonce-type').value = 'annonce';
-  document.getElementById('annonce-titre-input').value = '';
-  document.getElementById('annonce-description').value = '';
-  document.getElementById('annonce-date').value = '';
-  document.getElementById('annonce-icone').value = '📅';
-  document.getElementById('annonce-image').selectedIndex = 0;
-  document.getElementById('annonce-actif').checked = true;
+  document.getElementById('modal-annonce-titre').textContent='Nouvelle annonce';
+  ['annonce-id-edit','annonce-titre-input','annonce-description','annonce-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('annonce-type').value='annonce';
+  document.getElementById('annonce-icone').value='📅';
+  document.getElementById('annonce-image').value='';
+  const fchNew=document.getElementById('annonce-image-fichier'); if(fchNew) fchNew.value='';
+  const apNew=document.getElementById('annonce-image-apercu'); if(apNew) apNew.innerHTML='';
+  document.getElementById('annonce-cible').value='';
+  document.getElementById('annonce-actif').checked=true;
   gererAffichageChampImage();
-  document.getElementById('modal-annonce').classList.add('active');
+  document.getElementById('modal-annonce')?.classList.add('active');
 }
 
 function modifierAnnonce(id) {
-  const a = annoncesAdmin.find(x => x.id === id);
+  const a=annoncesAdmin.find(x=>x.id===id);
   if (!a) return;
-
-  document.getElementById('modal-annonce-titre').textContent = 'Modifier l\'annonce';
-  document.getElementById('annonce-id-edit').value = a.id;
-  document.getElementById('annonce-type').value = a.type;
-  document.getElementById('annonce-titre-input').value = a.titre;
-  document.getElementById('annonce-description').value = a.description;
-  document.getElementById('annonce-date').value = a.date_annonce.split('T')[0];
-  document.getElementById('annonce-icone').value = a.icone;
-  if (a.image) document.getElementById('annonce-image').value = a.image;
-  document.getElementById('annonce-actif').checked = !!a.actif;
+  document.getElementById('modal-annonce-titre').textContent='Modifier l\'annonce';
+  document.getElementById('annonce-id-edit').value=a.id;
+  document.getElementById('annonce-type').value=a.type;
+  document.getElementById('annonce-titre-input').value=a.titre;
+  document.getElementById('annonce-description').value=a.description;
+  document.getElementById('annonce-date').value=a.date_annonce.split('T')[0];
+  document.getElementById('annonce-icone').value=a.icone;
+  document.getElementById('annonce-image').value=a.image||'';
+  const fchEdit=document.getElementById('annonce-image-fichier'); if(fchEdit) fchEdit.value='';
+  const apEdit=document.getElementById('annonce-image-apercu');
+  if(apEdit) apEdit.innerHTML=a.image?`<img src="${a.image.startsWith('uploads/')?a.image:'img/'+a.image}" alt="" style="max-width:120px;border-radius:6px">`:'';
+  document.getElementById('annonce-cible').value=a.cible_faculte||'';
+  document.getElementById('annonce-actif').checked=!!a.actif;
   gererAffichageChampImage();
-  document.getElementById('modal-annonce').classList.add('active');
+  document.getElementById('modal-annonce')?.classList.add('active');
 }
 
-function fermerModalAnnonce() {
-  document.getElementById('modal-annonce').classList.remove('active');
+// Aperçu local (sans téléversement) de l'image choisie sur le disque.
+function apercuImageAnnonce(input) {
+  const zone=document.getElementById('annonce-image-apercu');
+  if (!zone) return;
+  const f=input.files?.[0];
+  if (!f) { zone.innerHTML=''; return; }
+  const url=URL.createObjectURL(f);
+  zone.innerHTML=`<img src="${url}" alt="" style="max-width:120px;border-radius:6px">`;
 }
+
+function fermerModalAnnonce() { document.getElementById('modal-annonce')?.classList.remove('active'); }
 
 async function sauvegarderAnnonce() {
-  const idEdit = document.getElementById('annonce-id-edit').value;
-  const type = document.getElementById('annonce-type').value;
-  const titre = document.getElementById('annonce-titre-input').value.trim();
-  const description = document.getElementById('annonce-description').value.trim();
-  const date_annonce = document.getElementById('annonce-date').value;
-  const icone = document.getElementById('annonce-icone').value;
-  const image = type === 'evenement' ? document.getElementById('annonce-image').value : '';
-  const actif = document.getElementById('annonce-actif').checked;
-
-  if (!titre || !description || !date_annonce) {
-    alert('⚠️ Veuillez remplir tous les champs obligatoires.');
-    return;
-  }
-
-  const corps = { type, titre, description, date_annonce, icone, image, actif };
-
+  const idEdit=document.getElementById('annonce-id-edit').value;
+  const type=document.getElementById('annonce-type').value;
+  const titre=document.getElementById('annonce-titre-input').value.trim();
+  const description=document.getElementById('annonce-description').value.trim();
+  const date_annonce=document.getElementById('annonce-date').value;
+  const icone=document.getElementById('annonce-icone').value;
+  const cible_faculte=document.getElementById('annonce-cible').value||null;
+  const actif=document.getElementById('annonce-actif').checked;
+  if (!titre||!description||!date_annonce) { afficherToast('⚠️ Champs obligatoires manquants.', 'erreur'); return; }
+  // Image : uniquement pour les événements. Si un fichier est choisi sur le disque,
+  // on le téléverse d'abord et on récupère son chemin (uploads/xxx) ; sinon on
+  // conserve l'image déjà enregistrée (champ caché annonce-image).
+  let image = type==='evenement' ? (document.getElementById('annonce-image').value||'') : '';
   try {
-    let reponse;
-    if (idEdit) {
-      reponse = await fetch(`http://localhost:3000/api/annonces/${idEdit}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(corps)
-      });
-    } else {
-      reponse = await fetch('http://localhost:3000/api/annonces', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(corps)
-      });
+    const fichierImg=document.getElementById('annonce-image-fichier')?.files?.[0];
+    if (type==='evenement' && fichierImg) {
+      const fd=new FormData(); fd.append('image', fichierImg);
+      const ri=await fetchAdmin(`${BASE_URL}/api/annonces/image`, {method:'POST', body:fd});
+      const di=await ri.json();
+      if (!ri.ok) { afficherToast('⚠️ '+(di.erreur||"Échec de l'envoi de l'image."), 'erreur'); return; }
+      image=di.chemin;
     }
-
-    const donnees = await reponse.json();
-    if (!reponse.ok) {
-      alert('⚠️ ' + donnees.erreur);
-      return;
-    }
-
-    afficherToast(idEdit ? '✅ Annonce modifiée avec succès !' : '✅ Annonce publiée avec succès !');
-    fermerModalAnnonce();
-    chargerAnnonces();
-    chargerStats();
-
-  } catch (erreur) {
-    console.error(erreur);
-    alert('⚠️ Impossible de contacter le serveur.');
-  }
+  } catch { afficherToast("⚠️ Échec de l'envoi de l'image.", 'erreur'); return; }
+  try {
+    const r=await fetchAdmin(idEdit?`${BASE_URL}/api/annonces/${idEdit}`:`${BASE_URL}/api/annonces`,
+      {method:idEdit?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,titre,description,date_annonce,icone,image,actif,cible_faculte})});
+    const d=await r.json();
+    if (!r.ok) { afficherToast('⚠️ '+d.erreur, 'erreur'); return; }
+    afficherToast(idEdit?'✅ Modifiée !':'✅ Publiée !');
+    fermerModalAnnonce(); chargerAnnonces(); chargerStats();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
 async function toggleActifAnnonce(id) {
   try {
-    const reponse = await fetch(`http://localhost:3000/api/annonces/${id}/toggle`, { method: 'PATCH' });
-    const donnees = await reponse.json();
-
-    afficherToast(donnees.actif ? '👁️ Annonce activée sur le site' : '🚫 Annonce masquée du site');
-    chargerAnnonces();
-    chargerStats();
-  } catch (erreur) {
-    console.error(erreur);
-    alert('⚠️ Impossible de changer le statut.');
-  }
+    const r=await fetchAdmin(`${BASE_URL}/api/annonces/${id}/toggle`,{method:'PATCH'});
+    const d=await r.json();
+    afficherToast(d.actif?'👁️ Activée':'🚫 Masquée');
+    chargerAnnonces(); chargerStats();
+  } catch (err) { console.error(err); }
 }
 
 async function supprimerAnnonce(id) {
-  if (!confirm('Voulez-vous vraiment supprimer cette annonce définitivement ?')) return;
-
-  try {
-    await fetch(`http://localhost:3000/api/annonces/${id}`, { method: 'DELETE' });
-    afficherToast('🗑️ Annonce supprimée.');
-    chargerAnnonces();
-  } catch (erreur) {
-    console.error(erreur);
-    alert('⚠️ Impossible de supprimer.');
-  }
+  if (!await confirmerAction('Supprimer cette annonce ? Cette action est irréversible.', { titre: 'Supprimer l\'annonce', texteConfirmer: 'Supprimer' })) return;
+  try { await fetchAdmin(`${BASE_URL}/api/annonces/${id}`,{method:'DELETE'}); afficherToast('🗑️ Supprimée.'); chargerAnnonces(); chargerStats(); }
+  catch (err) { console.error(err); }
 }
 
 // =====================
-// PRE-INSCRIPTIONS — connecté à MySQL via le backend Express
+// PRÉ-INSCRIPTIONS
 // =====================
-
-let preinscriptionsCache = [];
+let preinscriptionsCache=[];
 
 async function chargerPreinscriptions() {
-  const tbody = document.getElementById('admin-preinscriptions-body');
+  const tbody=document.getElementById('admin-preinscriptions-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement des données...</td></tr>`;
-
+  tbody.innerHTML=`<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
   try {
-    const reponse = await fetch('http://localhost:3000/api/preinscription');
-    if (!reponse.ok) throw new Error('Erreur serveur');
-
-    const donnees = await reponse.json();
-    preinscriptionsCache = donnees.map(d => ({ ...d, statut: d.statut || 'en_attente' }));
+    const r=await fetchAdmin(`${BASE_URL}/api/preinscription`);
+    const d=await r.json();
+    preinscriptionsCache=d.map(x=>({...x,statut:x.statut||'en_attente'}));
     appliquerFiltresPreinscriptions();
-
-  } catch (erreur) {
-    console.error(erreur);
-    tbody.innerHTML = `
-      <tr><td colspan="6" class="admin-vide">
-        ⚠️ Impossible de contacter le serveur backend.<br>
-        Vérifiez que <code>node server.js</code> est bien lancé.
-      </td></tr>
-    `;
-  }
+  } catch { tbody.innerHTML=`<tr><td colspan="6" class="admin-vide">⚠️ Serveur indisponible.</td></tr>`; }
 }
 
-function libelleStatut(statut) {
-  const libelles = {
-    en_attente: '<span class="badge attente">En attente</span>',
-    accepte: '<span class="badge actif">Accepté</span>',
-    rejete: '<span class="badge inactif" style="background:#fde8e8;color:var(--rouge)">Rejeté</span>'
-  };
-  return libelles[statut] || libelles.en_attente;
+function libelleStatut(s) {
+  return {en_attente:'<span class="badge attente">En attente</span>',accepte:'<span class="badge actif">Accepté</span>',rejete:'<span class="badge inactif" style="background:#fde8e8;color:var(--rouge)">Rejeté</span>'}[s]||'';
 }
 
 function afficherTableauPreinscriptions(liste) {
-  const tbody = document.getElementById('admin-preinscriptions-body');
+  const tbody=document.getElementById('admin-preinscriptions-body');
   if (!tbody) return;
+  if (!liste.length) { tbody.innerHTML=`<tr><td colspan="6" class="admin-vide">Aucune pré-inscription.</td></tr>`; return; }
+  tbody.innerHTML=[...liste].sort((a,b)=>new Date(b.date_soumission||0)-new Date(a.date_soumission||0)).map(p=>`
+    <tr>
+      <td>${[p.nom,p.postnom,p.prenom].filter(Boolean).join(' ')||'—'}</td>
+      <td>${p.specialite||'—'}</td>
+      <td style="font-size:12px">${p.telephone||''}<br>${p.email||''}</td>
+      <td>${p.date_soumission?new Date(p.date_soumission).toLocaleDateString('fr-FR'):'—'}</td>
+      <td>${libelleStatut(p.statut)}</td>
+      <td class="admin-actions-cell"><button class="btn-icone" onclick="voirDetailPreinscription(${p.id})" aria-label="Voir le dossier">${icone('oeil')}</button></td>
+    </tr>`).join('');
+}
 
-  if (liste.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Aucune pré-inscription pour ces critères.</td></tr>`;
-    return;
-  }
-
-  const triee = [...liste].sort((a, b) =>
-    new Date(b.dateSoumission || b.date_soumission || 0) - new Date(a.dateSoumission || a.date_soumission || 0)
-  );
-
-  tbody.innerHTML = triee.map(p => {
-    const nomComplet = `${p.nom || ''} ${p.postnom || ''} ${p.prenom || ''}`.trim();
-    const dateBrute = p.dateSoumission || p.date_soumission;
-    const dateAffichee = dateBrute ? new Date(dateBrute).toLocaleDateString('fr-FR') : '—';
-
-    return `
-      <tr>
-        <td>${nomComplet || '—'}</td>
-        <td>${p.specialite || '—'}</td>
-        <td style="font-size:12px">${p.telephone || ''}<br>${p.email || ''}</td>
-        <td>${dateAffichee}</td>
-        <td>${libelleStatut(p.statut)}</td>
-        <td class="admin-actions-cell">
-          <button class="btn-icone" title="Voir le dossier" onclick="voirDetailPreinscription(${p.id})">👁️</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
+function appliquerFiltresPreinscriptions() {
+  const t=document.getElementById('recherche-preinscriptions')?.value.toLowerCase()||'';
+  const s=document.getElementById('filtre-statut-preinscription')?.value||'';
+  let r=preinscriptionsCache;
+  if (t) r=r.filter(p=>[p.nom,p.postnom,p.prenom,p.specialite].join(' ').toLowerCase().includes(t));
+  if (s) r=r.filter(p=>p.statut===s);
+  afficherTableauPreinscriptions(r);
 }
 
 function voirDetailPreinscription(id) {
-  const p = preinscriptionsCache.find(x => x.id === id);
+  const p=preinscriptionsCache.find(x=>x.id===id);
   if (!p) return;
-
-  // Fonction utilitaire pour afficher une valeur ou un tiret
-  const val = (v) => v || '—';
-  const bool = (v) => v ? 'Oui' : 'Non';
-
-  const contenu = document.getElementById('detail-preinscription-contenu');
-  contenu.innerHTML = `
-    <div id="zone-impression">
-      <div class="fiche-entete">
-        <img src="img/logo.png" alt="Logo UML" class="fiche-logo">
-        <div>
-          <p class="fiche-titre-uni">Université Méthodiste de Lubumbashi</p>
-          <p class="fiche-sous-titre">Fiche de pré-inscription — Dossier n°${p.id}</p>
-        </div>
-      </div>
-
-      <p class="fiche-section-titre">Identité</p>
-      <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${val(p.nom)} ${val(p.postnom)} ${val(p.prenom)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Date de naissance</span><span class="profil-val">${formaterDate(p.date_naissance)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Lieu de naissance</span><span class="profil-val">${val(p.lieu_naissance)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Nationalité</span><span class="profil-val">${val(p.nationalite)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Sexe</span><span class="profil-val">${p.sexe === 'M' ? 'Masculin' : p.sexe === 'F' ? 'Féminin' : '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">État civil</span><span class="profil-val">${val(p.etat_civil)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Type d'identité</span><span class="profil-val">${val(p.type_identite)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">N° identité</span><span class="profil-val">${val(p.num_identite)}</span></div>
-
-      <p class="fiche-section-titre">Contact</p>
-      <div class="profil-ligne"><span class="profil-cle">Adresse</span><span class="profil-val">${val(p.adresse1)} ${p.adresse2 ? '— ' + p.adresse2 : ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Téléphone</span><span class="profil-val">${val(p.telephone)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${val(p.email)}</span></div>
-
-      <p class="fiche-section-titre">Responsables / Tuteurs</p>
-      <div class="profil-ligne"><span class="profil-cle">Père</span><span class="profil-val">${val(p.nom_pere)} ${p.tel_pere ? '— ' + p.tel_pere : ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Mère</span><span class="profil-val">${val(p.nom_mere)} ${p.tel_mere ? '— ' + p.tel_mere : ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Tuteur</span><span class="profil-val">${val(p.nom_tuteur)} ${p.tel_tuteur ? '— ' + p.tel_tuteur : ''}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Adresse d'urgence</span><span class="profil-val">${val(p.adresse_urgence)}</span></div>
-
-      <p class="fiche-section-titre">Études secondaires</p>
-      <div class="profil-ligne"><span class="profil-cle">École fréquentée</span><span class="profil-val">${val(p.ecole)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Ville de l'école</span><span class="profil-val">${val(p.ville_ecole)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">N° du diplôme</span><span class="profil-val">${val(p.num_diplome)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Pourcentage obtenu</span><span class="profil-val">${val(p.pourcentage)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Année d'obtention</span><span class="profil-val">${formaterDate(p.annee_diplome)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Section suivie</span><span class="profil-val">${val(p.section_secondaire)}</span></div>
-
-      <p class="fiche-section-titre">Choix du programme</p>
-      <div class="profil-ligne"><span class="profil-cle">1er choix</span><span class="profil-val">${val(p.specialite)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">2e choix</span><span class="profil-val">${val(p.specialite2)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Niveau souhaité</span><span class="profil-val">${val(p.niveau)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Redoublant</span><span class="profil-val">${bool(p.redoublant)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">En activité professionnelle</span><span class="profil-val">${bool(p.professionnel)}</span></div>
-
-      <p class="fiche-section-titre">Personne de référence</p>
-      <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${val(p.ref_nom)} ${val(p.ref_postnom)} ${val(p.ref_prenom)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Téléphone</span><span class="profil-val">${val(p.ref_telephone)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${val(p.ref_email)}</span></div>
-
-      <p class="fiche-section-titre">Informations complémentaires</p>
-      <div class="profil-ligne"><span class="profil-cle">Canal de découverte</span><span class="profil-val">${val(p.canal_decouverte)}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Date de soumission</span><span class="profil-val">${p.date_soumission ? new Date(p.date_soumission).toLocaleString('fr-FR') : '—'}</span></div>
-      <div class="profil-ligne"><span class="profil-cle">Statut actuel</span><span class="profil-val">${libelleStatut(p.statut)}</span></div>
-    </div>
-  `;
-
-  document.getElementById('actions-preinscription').innerHTML = `
+  const v=(x)=>x||'—';
+  const b=(x)=>x?'Oui':'Non';
+  const c=document.getElementById('detail-preinscription-contenu');
+  c.innerHTML=`<div id="zone-impression">
+    <div class="fiche-entete"><img src="img/logo.png" alt="Logo UML" class="fiche-logo"><div><p class="fiche-titre-uni">Université Méthodiste de Lubumbashi</p><p class="fiche-sous-titre">Fiche de pré-inscription — Dossier n°${p.id}</p></div></div>
+    <p class="fiche-section-titre">Identité</p>
+    <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${v(p.nom)} ${v(p.postnom)} ${v(p.prenom)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Date de naissance</span><span class="profil-val">${formaterDate(p.date_naissance)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Lieu de naissance</span><span class="profil-val">${v(p.lieu_naissance)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Nationalité</span><span class="profil-val">${v(p.nationalite)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Sexe</span><span class="profil-val">${p.sexe==='M'?'Masculin':p.sexe==='F'?'Féminin':'—'}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">État civil</span><span class="profil-val">${v(p.etat_civil)}</span></div>
+    <p class="fiche-section-titre">Contact</p>
+    <div class="profil-ligne"><span class="profil-cle">Adresse</span><span class="profil-val">${v(p.adresse1)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Téléphone</span><span class="profil-val">${v(p.telephone)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${v(p.email)}</span></div>
+    <p class="fiche-section-titre">Responsables / Tuteurs</p>
+    <div class="profil-ligne"><span class="profil-cle">Père</span><span class="profil-val">${v(p.nom_pere)}${p.tel_pere?' — '+p.tel_pere:''}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Mère</span><span class="profil-val">${v(p.nom_mere)}${p.tel_mere?' — '+p.tel_mere:''}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Tuteur</span><span class="profil-val">${v(p.nom_tuteur)}${p.tel_tuteur?' — '+p.tel_tuteur:''}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Adresse d'urgence</span><span class="profil-val">${v(p.adresse_urgence)}</span></div>
+    <p class="fiche-section-titre">Études secondaires</p>
+    <div class="profil-ligne"><span class="profil-cle">École</span><span class="profil-val">${v(p.ecole)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Ville</span><span class="profil-val">${v(p.ville_ecole)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">N° diplôme</span><span class="profil-val">${v(p.num_diplome)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Pourcentage</span><span class="profil-val">${v(p.pourcentage)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Année d'obtention</span><span class="profil-val">${formaterDate(p.annee_diplome)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Section</span><span class="profil-val">${v(p.section_secondaire)}</span></div>
+    <p class="fiche-section-titre">Choix du programme</p>
+    <div class="profil-ligne"><span class="profil-cle">1er choix</span><span class="profil-val">${v(p.specialite)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">2e choix</span><span class="profil-val">${v(p.specialite2)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Niveau</span><span class="profil-val">${v(p.niveau)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Redoublant</span><span class="profil-val">${b(p.redoublant)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">En activité</span><span class="profil-val">${b(p.professionnel)}</span></div>
+    <p class="fiche-section-titre">Personne de référence</p>
+    <div class="profil-ligne"><span class="profil-cle">Nom complet</span><span class="profil-val">${v(p.ref_nom)} ${v(p.ref_postnom)} ${v(p.ref_prenom)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Téléphone</span><span class="profil-val">${v(p.ref_telephone)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Email</span><span class="profil-val">${v(p.ref_email)}</span></div>
+    <p class="fiche-section-titre">Informations complémentaires</p>
+    <div class="profil-ligne"><span class="profil-cle">Canal de découverte</span><span class="profil-val">${v(p.canal_decouverte)}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Date de soumission</span><span class="profil-val">${p.date_soumission?new Date(p.date_soumission).toLocaleString('fr-FR'):'—'}</span></div>
+    <div class="profil-ligne"><span class="profil-cle">Statut</span><span class="profil-val">${libelleStatut(p.statut)}</span></div>
+    <p class="fiche-section-titre">Documents joints</p>
+    <div style="padding:8px 0">${p.document_path?p.document_path.split(',').map(f=>`<a href="${BASE_URL}/uploads/${f}" target="_blank" style="display:inline-block;margin:4px 2px;padding:4px 12px;background:#eef2ff;color:#1a3a6b;border-radius:5px;text-decoration:none;font-size:12px">📎 ${f.substring(f.indexOf('_')+1)}</a>`).join(''):'<span style="color:#888;font-size:13px">Aucun document joint</span>'}</div>
+  </div>`;
+  document.getElementById('actions-preinscription').innerHTML=`
     <button class="btn-annuler" onclick="imprimerDossier()">🖨️ Imprimer</button>
-    <button class="btn-annuler" onclick="changerStatutPreinscription(${p.id}, 'rejete')">❌ Rejeter</button>
-    <button class="btn-sauvegarder" onclick="changerStatutPreinscription(${p.id}, 'accepte')">✅ Accepter</button>
-  `;
-
-  document.getElementById('modal-preinscription').classList.add('active');
+    <button class="btn-annuler" onclick="changerStatutPreinscription(${p.id},'rejete')">❌ Rejeter</button>
+    <button class="btn-sauvegarder" onclick="changerStatutPreinscription(${p.id},'accepte')">✅ Accepter</button>`;
+  document.getElementById('modal-preinscription')?.classList.add('active');
 }
 
 function fermerModalPreinscription() {
-  document.getElementById('modal-preinscription').classList.remove('active');
+  document.getElementById('modal-preinscription')?.classList.remove('active');
+  chargerInscrits(); chargerStats();
 }
 
 function imprimerDossier() {
-  const contenu = document.getElementById('zone-impression').innerHTML;
-  const fenetreImpression = window.open('', '_blank', 'width=800,height=900');
-
-  fenetreImpression.document.write(`
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-      <meta charset="UTF-8">
-      <title>Fiche de pré-inscription — UML</title>
-      <style>
-        @page { size: A4; margin: 18mm 16mm; }
-        * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; color: #222; font-size: 11px; line-height: 1.4; }
-        .fiche-entete { display: flex; align-items: center; gap: 12px; border-bottom: 2.5px solid #f0c020; padding-bottom: 10px; margin-bottom: 12px; }
-        .fiche-logo { height: 42px; }
-        .fiche-titre-uni { font-size: 14px; font-weight: 700; color: #1a3a6b; margin: 0; }
-        .fiche-sous-titre { font-size: 11px; color: #666; margin: 2px 0 0; }
-        .fiche-section-titre { font-size: 11.5px; font-weight: 700; color: #1a3a6b; margin: 10px 0 4px; padding-top: 6px; border-top: 1px solid #ddd; break-inside: avoid; }
-        .fiche-section-titre:first-of-type { border-top: none; margin-top: 0; }
-        .profil-ligne { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; border-bottom: 0.5px dotted #ccc; break-inside: avoid; }
-        .profil-cle { color: #666; font-size: 10.5px; flex: 0 0 42%; }
-        .profil-val { color: #111; font-weight: 600; text-align: right; flex: 1; font-size: 10.5px; }
-      </style>
-    </head>
-    <body>${contenu}</body>
-    </html>
-  `);
-
-  fenetreImpression.document.close();
-  fenetreImpression.focus();
-  setTimeout(() => fenetreImpression.print(), 400);
+  const contenu=document.getElementById('zone-impression').innerHTML;
+  const fen=window.open('','_blank','width=800,height=900');
+  fen.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Fiche UML</title><style>@page{size:A4;margin:18mm 16mm}*{box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;color:#222;font-size:11px;line-height:1.4}.fiche-entete{display:flex;align-items:center;gap:12px;border-bottom:2.5px solid #f0c020;padding-bottom:10px;margin-bottom:12px}.fiche-logo{height:42px}.fiche-titre-uni{font-size:14px;font-weight:700;color:#1a3a6b;margin:0}.fiche-sous-titre{font-size:11px;color:#666;margin:2px 0 0}.fiche-section-titre{font-size:11.5px;font-weight:700;color:#1a3a6b;margin:10px 0 4px;padding-top:6px;border-top:1px solid #ddd}.profil-ligne{display:flex;justify-content:space-between;padding:3px 0;border-bottom:.5px dotted #ccc}.profil-cle{color:#666;font-size:10.5px;flex:0 0 42%}.profil-val{color:#111;font-weight:600;text-align:right;font-size:10.5px}</style></head><body>${contenu}</body></html>`);
+  fen.document.close(); fen.focus(); setTimeout(()=>fen.print(),400);
 }
 
-async function changerStatutPreinscription(id, nouveauStatut) {
+async function changerStatutPreinscription(id,nouveauStatut) {
   try {
-    const reponse = await fetch(`http://localhost:3000/api/preinscription/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ statut: nouveauStatut })
+    const r=await fetchAdmin(`${BASE_URL}/api/preinscription/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({statut:nouveauStatut})});
+    let d=null; try{d=await r.json();}catch(e){}
+    if (!r.ok) throw new Error(d?.erreur||`Erreur ${r.status}`);
+    const p=preinscriptionsCache.find(x=>x.id===id);
+    if (p) p.statut=d?.dossier?d.dossier.statut:nouveauStatut;
+    fermerModalPreinscription(); appliquerFiltresPreinscriptions(); chargerStats();
+    afficherToast(nouveauStatut==='accepte'?'✅ Accepté — étudiant créé !':'❌ Rejeté.');
+  } catch (err) { afficherToast('⚠️ '+err.message, 'erreur'); }
+}
+
+// =====================
+// GESTION DES INSCRITS
+// =====================
+let inscritsAdmin=[];
+
+function chargerFilieresPourInscrit() {
+  const f=document.getElementById('inscrit-faculte')?.value||'';
+  const sel=document.getElementById('inscrit-filiere');
+  if (!sel) return;
+  const fl=filiereParFaculte[f]||[];
+  sel.innerHTML=fl.length===0?'<option value="">— Choisir une faculté d\'abord —</option>':
+    '<option value="">— Choisir une filière —</option>'+fl.map(x=>`<option value="${x}">${x}</option>`).join('');
+}
+
+async function chargerInscrits() {
+  const tbody=document.getElementById('admin-inscrits-body');
+  if (!tbody) return;
+  tbody.innerHTML=`<tr><td colspan="8" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const nom=document.getElementById('recherche-inscrits')?.value||'';
+    const annee=document.getElementById('filtre-inscrits-annee')?.value||'';
+    const niveau=document.getElementById('filtre-inscrits-niveau')?.value||'';
+    const faculte=document.getElementById('filtre-inscrits-faculte')?.value||'';
+    const params=new URLSearchParams();
+    if (nom) params.append('nom',nom);
+    if (annee) params.append('annee',annee);
+    if (niveau) params.append('niveau',niveau);
+    if (faculte) params.append('faculte',faculte);
+    const r=await fetchAdmin(`${BASE_URL}/api/etudiants?${params}`);
+    inscritsAdmin=await r.json();
+    if (!inscritsAdmin.length) { tbody.innerHTML=`<tr><td colspan="8" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
+    tbody.innerHTML=inscritsAdmin.map(e=>`
+      <tr>
+        <td><code style="font-size:11px">${e.id}</code></td>
+        <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}</td>
+        <td>${e.faculte||'—'}</td>
+        <td>${e.promotion||'—'}</td>
+        <td>${e.niveau?`<span class="annee-badge">${e.niveau}</span>`:'—'}</td>
+        <td>${e.annee_academique||'—'}</td>
+        <td><span class="badge ${e.statut==='actif'?'reussi':e.statut==='diplome'?'attente':'echec'}">${e.statut||'actif'}</span></td>
+        <td class="admin-actions-cell">
+          <button class="btn-icone" onclick="ouvrirModalPaiements('${e.id}','${e.nom} ${e.prenom}')" aria-label="Frais de scolarité" title="Frais de scolarité">${icone('argent')}</button>
+          <button class="btn-icone" onclick="telechargerBulletin('${e.id}')" aria-label="Télécharger le bulletin" title="Télécharger le bulletin">${icone('notes')}</button>
+          <button class="btn-icone" onclick="modifierInscrit('${e.id}')" aria-label="Modifier">${icone('crayon')}</button>
+          <button class="btn-icone danger" onclick="supprimerInscrit('${e.id}')" aria-label="Supprimer">${icone('corbeille')}</button>
+        </td>
+      </tr>`).join('');
+  } catch { tbody.innerHTML=`<tr><td colspan="8" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+}
+
+// Le bulletin est réservé à l'administrateur (l'étudiant n'a pas le droit de
+// l'imprimer) : la route backend exige un token admin, donc le téléchargement
+// doit passer par fetchAdmin() plutôt qu'un simple lien <a href>.
+async function telechargerBulletin(etudiantId) {
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/etudiant/${etudiantId}/bulletin`);
+    if (!r.ok) { afficherToast('❌ Impossible de générer le bulletin.', 'erreur'); return false; }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bulletin-${etudiantId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    return true;
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); return false; }
+}
+
+function modifierInscrit(id) {
+  const e=inscritsAdmin.find(x=>x.id===id);
+  if (!e) { afficherToast('⚠️ Étudiant non trouvé. Actualisez.', 'erreur'); return; }
+  document.getElementById('inscrit-id-edit').value   = e.id;
+  document.getElementById('inscrit-nom').value       = e.nom||'';
+  document.getElementById('inscrit-postnom').value   = e.postnom||'';
+  document.getElementById('inscrit-prenom').value    = e.prenom||'';
+  document.getElementById('inscrit-ddn').value       = e.date_naissance?e.date_naissance.split('T')[0]:'';
+  document.getElementById('inscrit-sexe').value      = e.sexe||'M';
+  document.getElementById('inscrit-email').value     = e.email||'';
+  document.getElementById('inscrit-telephone').value = e.telephone||'';
+  document.getElementById('inscrit-annee').value     = e.annee_academique||'2025-2026';
+  document.getElementById('inscrit-statut').value    = e.statut||'actif';
+  document.getElementById('inscrit-promotion').value = e.niveau||'L1';
+  document.getElementById('inscrit-faculte').value   = e.faculte||'';
+  chargerFilieresPourInscrit();
+  const sel=document.getElementById('inscrit-filiere');
+  if (e.promotion) {
+    const ok=Array.from(sel.options).some(o=>o.value===e.promotion);
+    if (!ok) { const opt=document.createElement('option'); opt.value=e.promotion; opt.textContent=e.promotion; sel.appendChild(opt); }
+    sel.value=e.promotion;
+  }
+  document.getElementById('modal-inscrit')?.classList.add('active');
+}
+
+function fermerModalInscrit() { document.getElementById('modal-inscrit')?.classList.remove('active'); }
+
+async function sauvegarderInscrit() {
+  const id=document.getElementById('inscrit-id-edit').value;
+  const faculte=document.getElementById('inscrit-faculte').value;
+  const filiere=document.getElementById('inscrit-filiere').value;
+  const niveau=document.getElementById('inscrit-promotion').value;
+  const corps={
+    nom:document.getElementById('inscrit-nom').value.trim(),
+    postnom:document.getElementById('inscrit-postnom').value.trim(),
+    prenom:document.getElementById('inscrit-prenom').value.trim(),
+    date_naissance:document.getElementById('inscrit-ddn').value,
+    sexe:document.getElementById('inscrit-sexe').value,
+    email:document.getElementById('inscrit-email').value.trim(),
+    telephone:document.getElementById('inscrit-telephone').value.trim(),
+    faculte,promotion:filiere,niveau,
+    annee_academique:document.getElementById('inscrit-annee').value,
+    statut:document.getElementById('inscrit-statut').value
+  };
+  try {
+    const r=await fetchAdmin(`${BASE_URL}/api/etudiants/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(corps)});
+    const d=await r.json();
+    if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
+    afficherToast('✅ Mis à jour !'); fermerModalInscrit(); chargerInscrits(); chargerStats();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function supprimerInscrit(id) {
+  if (!await confirmerAction(`Supprimer l'étudiant ${id} ? Cette action est irréversible.`, { titre: 'Supprimer l\'étudiant', texteConfirmer: 'Supprimer' })) return;
+  try {
+    const r=await fetchAdmin(`${BASE_URL}/api/etudiants/${id}`,{method:'DELETE'});
+    const d=await r.json();
+    if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
+    afficherToast('🗑️ Supprimé.'); chargerInscrits(); chargerStats();
+  } catch (err) { console.error(err); }
+}
+
+// =====================
+// RÉINSCRIPTIONS (promotion montante + nouvel étudiant à un niveau supérieur)
+// =====================
+function basculerOngletReinscription(idOnglet, btn) {
+  document.querySelectorAll('.reins-onglet-contenu').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.reins-onglet-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(idOnglet)?.classList.add('active');
+  btn?.classList.add('active');
+}
+
+let debounceReins;
+function rechercherEtudiantPourPromotion() {
+  clearTimeout(debounceReins);
+  debounceReins = setTimeout(async () => {
+    const nom = document.getElementById('reins-recherche').value.trim();
+    const zone = document.getElementById('reins-resultats');
+    if (!nom) { zone.innerHTML = ''; return; }
+    try {
+      const r = await fetchAdmin(`${BASE_URL}/api/etudiants?${new URLSearchParams({ nom })}`);
+      const etudiants = await r.json();
+      zone.innerHTML = etudiants.length === 0
+        ? '<p style="color:#999;font-size:12px;padding:6px 0">Aucun étudiant trouvé.</p>'
+        : etudiants.slice(0, 8).map(e => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 4px;border-bottom:1px solid #f0f0f0;font-size:13px">
+              <span>${e.nom} ${e.postnom||''} ${e.prenom} <span style="color:#999;font-size:11px">(${e.id} · ${e.niveau||'—'} ${e.promotion||''})</span></span>
+              <button class="btn-icone" onclick="selectionnerEtudiantPromotion('${e.id}','${(e.nom+' '+(e.postnom||'')+' '+e.prenom).replace(/'/g,"\\'")}','${e.niveau||''}','${(e.promotion||'').replace(/'/g,"\\'")}','${e.faculte||''}','${e.annee_academique||''}')" aria-label="Sélectionner">${icone('coche')}</button>
+            </div>`).join('');
+    } catch { zone.innerHTML = ''; }
+  }, 300);
+}
+
+function selectionnerEtudiantPromotion(id, nomComplet, niveau, promotion, faculte, annee) {
+  document.getElementById('reins-etudiant-id').value = id;
+  document.getElementById('reins-etudiant-info').innerHTML =
+    `<b>${nomComplet}</b><br><span style="color:#666">${id} · ${faculte||'—'} · ${promotion||'—'} · Niveau actuel : <b>${niveau||'—'}</b> · ${annee||'—'}</span>`;
+  document.getElementById('reins-resultats').innerHTML = '';
+  document.getElementById('reins-recherche').value = '';
+  document.getElementById('reins-selection').style.display = 'block';
+  // Pré-suggérer le niveau suivant.
+  const suite = { L1:'L2', L2:'L3', L3:'M1', M1:'M2', M2:'D1', D1:'D2' };
+  if (suite[niveau]) document.getElementById('reins-nouveau-niveau').value = suite[niveau];
+}
+
+async function promouvoirEtudiant() {
+  const etudiant_id = document.getElementById('reins-etudiant-id').value;
+  const nouveau_niveau = document.getElementById('reins-nouveau-niveau').value;
+  const annee_academique = document.getElementById('reins-annee-promo').value;
+  if (!etudiant_id) { afficherToast('⚠️ Sélectionnez d\'abord un étudiant.', 'erreur'); return; }
+  if (!await confirmerAction(`Promouvoir cet étudiant en ${nouveau_niveau} pour ${annee_academique} ?`, { titre: 'Promotion montante', texteConfirmer: 'Promouvoir' })) return;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/reinscriptions/promouvoir`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ etudiant_id, nouveau_niveau, annee_academique })
     });
-
-    let donnees = null;
-    try { donnees = await reponse.json(); } catch (e) { donnees = null; }
-
-    if (!reponse.ok) {
-      const messageErreur = donnees?.erreur || `Erreur ${reponse.status}`;
-      throw new Error(messageErreur);
-    }
-
-    const p = preinscriptionsCache.find(x => x.id === id);
-    if (p) p.statut = (donnees && donnees.dossier) ? donnees.dossier.statut : nouveauStatut;
-
-    fermerModalPreinscription();
-    appliquerFiltresPreinscriptions();
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
+    afficherToast(`✅ ${d.message} (${d.coursInscrits} cours inscrit(s))`);
+    document.getElementById('reins-selection').style.display = 'none';
+    document.getElementById('reins-etudiant-id').value = '';
     chargerStats();
-
-    const messages = {
-      accepte: '✅ Candidature acceptée et enregistrée !',
-      rejete: '❌ Candidature rejetée et enregistrée.'
-    };
-    afficherToast(messages[nouveauStatut]);
-
-  } catch (erreur) {
-    console.error('Erreur changerStatutPreinscription:', erreur);
-    alert('⚠️ ' + erreur.message + '\n\nSi le statut a bien changé malgré ce message, actualisez la liste pour vérifier.');
-  }
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
-async function remplirListeProfesseurs() {
-  const select = document.getElementById('horaire-prof');
-  if (!select) return;
+function chargerFilieresPourReinscription() {
+  const faculte = document.getElementById('reins-faculte')?.value || '';
+  const sel = document.getElementById('reins-filiere');
+  if (!sel) return;
+  const filieres = filiereParFaculte[faculte] || [];
+  sel.innerHTML = filieres.length === 0
+    ? '<option value="">— Choisir une faculté d\'abord —</option>'
+    : '<option value="">— Choisir une filière —</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join('');
+}
 
+async function reinscrireNouvelEtudiant() {
+  const corps = {
+    nom: document.getElementById('reins-nom').value.trim(),
+    postnom: document.getElementById('reins-postnom').value.trim(),
+    prenom: document.getElementById('reins-prenom').value.trim(),
+    sexe: document.getElementById('reins-sexe').value,
+    date_naissance: document.getElementById('reins-ddn').value,
+    email: document.getElementById('reins-email').value.trim(),
+    telephone: document.getElementById('reins-telephone').value.trim(),
+    faculte: document.getElementById('reins-faculte').value,
+    filiere: document.getElementById('reins-filiere').value,
+    niveau: document.getElementById('reins-niveau').value,
+    annee_academique: document.getElementById('reins-annee-nouveau').value
+  };
+  if (!corps.nom || !corps.prenom || !corps.faculte || !corps.niveau) {
+    afficherToast('⚠️ Nom, prénom, faculté et niveau sont obligatoires.', 'erreur'); return;
+  }
   try {
-    const reponse = await fetch('http://localhost:3000/api/professeurs');
-    const profs = await reponse.json();
-    select.innerHTML = '<option value="">-- Choisir un professeur --</option>' +
-      profs.map(p => `<option value="${p.id}">${p.nom} ${p.prenom || ''}</option>`).join('');
-  } catch (erreur) {
-    console.error(erreur);
-  }
-}
-
-
-function appliquerFiltresPreinscriptions() {
-  const termeEl = document.getElementById('recherche-preinscriptions');
-  const statutEl = document.getElementById('filtre-statut-preinscription');
-  const terme = termeEl ? termeEl.value.toLowerCase() : '';
-  const statut = statutEl ? statutEl.value : '';
-
-  let resultat = preinscriptionsCache;
-
-  if (terme) {
-    resultat = resultat.filter(p => {
-      const nomComplet = `${p.nom || ''} ${p.postnom || ''} ${p.prenom || ''}`.toLowerCase();
-      return nomComplet.includes(terme) || (p.specialite || '').toLowerCase().includes(terme);
+    const r = await fetchAdmin(`${BASE_URL}/api/reinscriptions/nouveau`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corps)
     });
-  }
-
-  if (statut) {
-    resultat = resultat.filter(p => p.statut === statut);
-  }
-
-  afficherTableauPreinscriptions(resultat);
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
+    // Réinitialiser le formulaire
+    ['reins-nom','reins-postnom','reins-prenom','reins-ddn','reins-email','reins-telephone'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    document.getElementById('reins-faculte').selectedIndex = 0;
+    chargerFilieresPourReinscription();
+    chargerStats();
+    await confirmerAction(
+      `Étudiant réinscrit en ${corps.niveau} (${d.coursInscrits} cours). Matricule : ${d.matricule} — Mot de passe temporaire : ${d.motDePasseTemporaire}`,
+      { titre: '✅ Réinscription réussie', texteConfirmer: 'Compris' }
+    );
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
-async function rafraichirCoursParPromotion() {
-  const promotion = document.getElementById('horaire-promotion').value;
-  const annee = document.getElementById('horaire-annee').value;
-  const selectCours = document.getElementById('horaire-cours');
+// =====================
+// FRAIS DE SCOLARITÉ
+// =====================
+async function ouvrirModalPaiements(etudiantId, nomEtudiant) {
+  document.getElementById('paiements-etudiant-id').value = etudiantId;
+  document.getElementById('paiements-nom-etudiant').textContent = nomEtudiant;
+  document.getElementById('paiement-montant').value = '';
+  document.getElementById('paiement-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('paiement-reference').value = '';
+  document.getElementById('modal-paiements')?.classList.add('active');
+  await chargerPaiements();
+}
+
+function fermerModalPaiements() { document.getElementById('modal-paiements')?.classList.remove('active'); }
+
+async function chargerPaiements() {
+  const etudiantId = document.getElementById('paiements-etudiant-id').value;
+  const tbody = document.getElementById('paiements-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/paiements/etudiant/${etudiantId}`);
+    const paiements = await r.json();
+    const total = paiements.reduce((s, p) => s + Number(p.montant), 0);
+    document.getElementById('paiements-total').textContent = `${total.toFixed(2)} $`;
+    tbody.innerHTML = paiements.length === 0
+      ? `<tr><td colspan="4" class="admin-vide">Aucun versement enregistré.</td></tr>`
+      : paiements.map(p => `<tr>
+          <td>${formaterDate(p.date_paiement)}</td>
+          <td>${Number(p.montant).toFixed(2)} $</td>
+          <td>${p.mode_paiement || '—'}</td>
+          <td class="admin-actions-cell"><button class="btn-icone danger" onclick="supprimerPaiement(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td>
+        </tr>`).join('');
+  } catch { tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+}
+
+async function ajouterPaiement() {
+  const etudiant_id = document.getElementById('paiements-etudiant-id').value;
+  const montant = parseFloat(document.getElementById('paiement-montant').value);
+  const date_paiement = document.getElementById('paiement-date').value;
+  const mode_paiement = document.getElementById('paiement-mode').value;
+  const reference = document.getElementById('paiement-reference').value.trim();
+
+  if (isNaN(montant) || montant <= 0) { afficherToast('⚠️ Entrez un montant valide.', 'erreur'); return; }
+  if (!date_paiement) { afficherToast('⚠️ La date est obligatoire.', 'erreur'); return; }
 
   try {
-    const params = new URLSearchParams({ promotion, annee });
-    const reponse = await fetch(`http://localhost:3000/api/programme?${params}`);
-    const cours = await reponse.json();
+    const r = await fetchAdmin(`${BASE_URL}/api/paiements`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ etudiant_id, montant, date_paiement, mode_paiement, reference })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
+    afficherToast('✅ Versement enregistré.');
+    document.getElementById('paiement-montant').value = '';
+    document.getElementById('paiement-reference').value = '';
+    chargerPaiements();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
 
-    if (cours.length === 0) {
-      selectCours.innerHTML = '<option value="">Aucun cours pour cette promotion/année</option>';
-      return;
+async function supprimerPaiement(id) {
+  if (!await confirmerAction('Supprimer ce versement ? Cette action est irréversible.', { titre: 'Supprimer le versement', texteConfirmer: 'Supprimer' })) return;
+  try {
+    await fetchAdmin(`${BASE_URL}/api/paiements/${id}`, { method: 'DELETE' });
+    afficherToast('🗑️ Versement supprimé.');
+    chargerPaiements();
+  } catch (err) { console.error(err); }
+}
+
+// =====================
+// ATTRIBUTIONS DES COURS
+// =====================
+async function chargerAttributions() { await chargerProfesseurs(); await chargerCoursSansProf(); }
+
+function basculerOngletAttribution(idOnglet, btn) {
+  document.querySelectorAll('.attr-onglet-contenu').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.attr-onglet-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(idOnglet)?.classList.add('active');
+  btn?.classList.add('active');
+}
+
+async function chargerProfesseurs() {
+  const tbody=document.getElementById('admin-professeurs-body');
+  if (!tbody) return;
+  const annee=document.getElementById('filtre-attr-annee')?.value||'';
+  try {
+    const [rProfs,rProgramme]=await Promise.all([
+      fetchAdmin(`${BASE_URL}/api/professeurs`),
+      fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`)
+    ]);
+    const profs=await rProfs.json();
+    const programme=await rProgramme.json();
+
+    const coursParProf={};
+    programme.forEach(c=>{ if (!c.professeur_id) return; (coursParProf[c.professeur_id]||=[]).push(c); });
+
+    tbody.innerHTML=profs.length===0?`<tr><td colspan="5" class="admin-vide">Aucun professeur.</td></tr>`:
+      profs.map(p=>{
+        const cours=coursParProf[p.id]||[];
+        const listeCours=cours.length===0
+          ? '<span class="admin-vide">Aucun cours</span>'
+          : cours.map(c=>`${c.nom} <small>(${c.promotion})</small>`).join('<br>');
+        return `<tr><td>${p.nom}</td><td>${p.prenom||'—'}</td><td>${p.grade||'—'}</td><td>${listeCours}</td><td class="admin-actions-cell"><button class="btn-icone" onclick="ouvrirModalAttribution(null,${p.id})" aria-label="Attribuer un cours" title="Attribuer un cours">${icone('plus')}</button><button class="btn-icone" onclick="modifierProfesseur(${p.id})" aria-label="Modifier">${icone('crayon')}</button><button class="btn-icone danger" onclick="supprimerProfesseur(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td></tr>`;
+      }).join('');
+  } catch (err) { console.error(err); }
+}
+
+async function chargerCoursSansProf() {
+  const tbody=document.getElementById('admin-sans-prof-body');
+  if (!tbody) return;
+  const annee=document.getElementById('filtre-attr-annee')?.value||'';
+  try {
+    const r=await fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`);
+    const programme=await r.json();
+    const sans=programme.filter(c=>!c.professeur_id);
+    tbody.innerHTML=sans.length===0?`<tr><td colspan="4" class="admin-vide">✅ Tous les cours ont un professeur.</td></tr>`:
+      sans.map(c=>`<tr><td>${c.nom}</td><td>${c.promotion}</td><td>${c.semestre==='S1'?'Semestre 1':'Semestre 2'}</td><td><button class="btn-ajouter" style="padding:4px 10px;font-size:12px" onclick="ouvrirModalAttribution(${c.id},null)">Attribuer</button></td></tr>`).join('');
+  } catch (err) { console.error(err); }
+}
+
+function ouvrirModalProfesseur() {
+  document.getElementById('modal-prof-titre').textContent='Ajouter un professeur';
+  ['prof-id-edit','prof-nom','prof-prenom','prof-email','prof-telephone','prof-grade'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('modal-professeur')?.classList.add('active');
+}
+
+async function modifierProfesseur(id) {
+  try {
+    const r=await fetchAdmin(`${BASE_URL}/api/professeurs`);
+    const profs=await r.json();
+    const p=profs.find(x=>x.id===id);
+    if (!p) return;
+    document.getElementById('modal-prof-titre').textContent='Modifier le professeur';
+    document.getElementById('prof-id-edit').value   = p.id;
+    document.getElementById('prof-nom').value       = p.nom;
+    document.getElementById('prof-prenom').value    = p.prenom||'';
+    document.getElementById('prof-email').value     = p.email||'';
+    document.getElementById('prof-telephone').value = p.telephone||'';
+    document.getElementById('prof-grade').value     = p.grade||'';
+    document.getElementById('modal-professeur')?.classList.add('active');
+  } catch (err) { console.error(err); }
+}
+
+function fermerModalProfesseur() { document.getElementById('modal-professeur')?.classList.remove('active'); }
+
+async function sauvegarderProfesseur() {
+  const idEdit=document.getElementById('prof-id-edit').value;
+  const nom=document.getElementById('prof-nom').value.trim();
+  if (!nom) { afficherToast('⚠️ Le nom est obligatoire.', 'erreur'); return; }
+  const corps={nom,prenom:document.getElementById('prof-prenom').value.trim(),email:document.getElementById('prof-email').value.trim(),telephone:document.getElementById('prof-telephone').value.trim(),grade:document.getElementById('prof-grade').value.trim()};
+  try {
+    const r=await fetchAdmin(idEdit?`${BASE_URL}/api/professeurs/${idEdit}`:`${BASE_URL}/api/professeurs`,
+      {method:idEdit?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corps)});
+    const d=await r.json();
+    if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
+    fermerModalProfesseur(); chargerAttributions();
+    if (!idEdit && d.motDePasseTemporaire) {
+      await confirmerAction(
+        `Accès espace professeur créé. Communiquez ce mot de passe temporaire à ${corps.nom} : ${d.motDePasseTemporaire}`,
+        { titre: 'Mot de passe temporaire', texteConfirmer: 'Compris' }
+      );
+    } else {
+      afficherToast(idEdit?'✅ Modifié !':'✅ Ajouté !');
     }
-
-    selectCours.innerHTML = cours.map(c => `<option value="${c.nom}">${c.code} — ${c.nom}</option>`).join('');
-  } catch (erreur) {
-    console.error(erreur);
-    selectCours.innerHTML = '<option value="">Erreur de chargement</option>';
-  }
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
+async function supprimerProfesseur(id) {
+  if (!await confirmerAction('Supprimer ce professeur ? Cette action est irréversible.', { titre: 'Supprimer le professeur', texteConfirmer: 'Supprimer' })) return;
+  try { await fetchAdmin(`${BASE_URL}/api/professeurs/${id}`,{method:'DELETE'}); afficherToast('🗑️ Supprimé.'); chargerAttributions(); }
+  catch (err) { console.error(err); }
+}
 
-// =====================
-// VUE D'ENSEMBLE — statistiques réelles depuis MySQL
-// =====================
+let programmeAttribution=[];
 
-async function chargerStats() {
+function filtrerCoursAttribution(coursIdASelectionner) {
+  const promotion=document.getElementById('attr-promotion-select')?.value||'';
+  const liste=promotion?programmeAttribution.filter(c=>c.promotion===promotion):programmeAttribution;
+  const sel=document.getElementById('attr-cours-select');
+  if (!sel) return;
+  sel.innerHTML='<option value="">— Choisir un cours —</option>'+
+    liste.map(c=>`<option value="${c.id}">${c.nom} — ${c.promotion}${c.professeur_nom?' — actuellement : '+c.professeur_nom:''}</option>`).join('');
+  if (coursIdASelectionner) sel.value=coursIdASelectionner;
+}
+
+async function ouvrirModalAttribution(coursId,professeurId) {
+  const annee=document.getElementById('filtre-attr-annee')?.value||'';
   try {
-    const reponse = await fetch('http://localhost:3000/api/stats');
-    if (!reponse.ok) throw new Error('Erreur serveur');
-    const stats = await reponse.json();
+    const [rProgramme,rProfs]=await Promise.all([
+      fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`),
+      fetchAdmin(`${BASE_URL}/api/professeurs`)
+    ]);
+    programmeAttribution=await rProgramme.json();
+    const profs=await rProfs.json();
 
-    document.getElementById('cpt-etudiants').textContent       = stats.etudiants;
-    document.getElementById('cpt-preinscriptions').textContent = stats.preinscriptions;
-    document.getElementById('cpt-cours').textContent           = stats.cours;
-    document.getElementById('cpt-annonces').textContent        = stats.annonces;
+    const promotions=[...new Set(programmeAttribution.map(c=>c.promotion))].sort();
+    document.getElementById('attr-promotion-select').innerHTML='<option value="">— Toutes les promotions —</option>'+
+      promotions.map(p=>`<option value="${p}">${p}</option>`).join('');
 
-  } catch (erreur) {
-    console.error(erreur);
-    document.getElementById('cpt-etudiants').textContent       = '—';
-    document.getElementById('cpt-preinscriptions').textContent = '—';
-    document.getElementById('cpt-cours').textContent           = '—';
-    document.getElementById('cpt-annonces').textContent        = '—';
-  }
+    const coursActuel=coursId?programmeAttribution.find(c=>c.id===coursId):null;
+    if (coursActuel) document.getElementById('attr-promotion-select').value=coursActuel.promotion;
+    else document.getElementById('attr-promotion-select').value='';
+
+    filtrerCoursAttribution(coursId);
+
+    document.getElementById('attr-prof-select').innerHTML='<option value="">— Choisir un professeur —</option>'+
+      profs.map(p=>`<option value="${p.id}">${p.nom} ${p.prenom||''}${p.grade?' — '+p.grade:''}</option>`).join('');
+
+    if (professeurId) document.getElementById('attr-prof-select').value=professeurId;
+
+    const prof=professeurId?profs.find(p=>p.id===professeurId):null;
+    document.getElementById('modal-attribution-titre').textContent=prof?`Attribuer un cours à ${prof.nom}`:'Attribuer un professeur';
+
+    document.getElementById('modal-attribution')?.classList.add('active');
+  } catch (err) { console.error(err); afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+function fermerModalAttribution() { document.getElementById('modal-attribution')?.classList.remove('active'); }
+
+async function sauvegarderAttribution() {
+  const coursId=document.getElementById('attr-cours-select').value;
+  const professeur_id=document.getElementById('attr-prof-select').value;
+  if (!coursId) { afficherToast('⚠️ Choisissez un cours.', 'erreur'); return; }
+  if (!professeur_id) { afficherToast('⚠️ Choisissez un professeur.', 'erreur'); return; }
+  try {
+    const r=await fetchAdmin(`${BASE_URL}/api/programme/${coursId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({professeur_id})});
+    const d=await r.json();
+    if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
+    afficherToast('✅ Professeur attribué !'); fermerModalAttribution(); chargerAttributions();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
 // =====================
-// INITIALISATION GLOBALE — un seul DOMContentLoaded pour tout
+// JOURNAL D'AUDIT
 // =====================
-
-document.addEventListener('DOMContentLoaded', () => {
-  
-  // Connexion (page admin.html)
-  const champPass = document.getElementById('admin-pass');
-  if (champPass) {
-    champPass.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') connexionAdmin();
-    });
-  }
-
-
-  // Compteurs vue d'ensemble — connectés à MySQL
-  if (document.getElementById('cpt-etudiants')) {
-  chargerStats();
+function libelleActionAudit(methode, chemin) {
+  const libelles = {
+    'POST /api/etudiants': 'Création étudiant',
+    'PUT /api/etudiants': 'Modification étudiant',
+    'DELETE /api/etudiants': 'Suppression étudiant',
+    'POST /api/notes': 'Ajout de note',
+    'PUT /api/notes': 'Modification de note',
+    'DELETE /api/notes': 'Suppression de note',
+    'POST /api/horaires': 'Ajout d\'horaire',
+    'PUT /api/horaires': 'Modification d\'horaire',
+    'DELETE /api/horaires': 'Suppression d\'horaire',
+    'PATCH /api/horaires': 'Attribution professeur',
+    'POST /api/professeurs': 'Ajout professeur',
+    'PUT /api/professeurs': 'Modification professeur',
+    'DELETE /api/professeurs': 'Suppression professeur',
+    'POST /api/annonces': 'Publication annonce',
+    'PUT /api/annonces': 'Modification annonce',
+    'DELETE /api/annonces': 'Suppression annonce',
+    'PATCH /api/annonces': 'Bascule visibilité annonce',
+    'POST /api/programme': 'Ajout cours',
+    'PUT /api/programme': 'Modification cours',
+    'DELETE /api/programme': 'Suppression cours',
+    'PUT /api/preinscription': 'Décision pré-inscription',
+    'POST /api/paiements': 'Enregistrement paiement',
+    'DELETE /api/paiements': 'Suppression paiement',
+  };
+  const cle = Object.keys(libelles).find(k => `${methode} ${chemin}`.startsWith(k));
+  return libelles[cle] || `${methode} ${chemin}`;
 }
 
-  // Notes
+async function chargerAuditLog() {
+  const tbody = document.getElementById('admin-audit-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/audit-log`);
+    const lignes = await r.json();
+    tbody.innerHTML = lignes.length === 0
+      ? `<tr><td colspan="4" class="admin-vide">Aucune action enregistrée pour le moment.</td></tr>`
+      : lignes.map(l => `<tr>
+          <td>${new Date(l.date_action).toLocaleString('fr-FR')}</td>
+          <td>${l.admin_user}</td>
+          <td>${libelleActionAudit(l.methode, l.chemin)}</td>
+          <td><span class="badge reussi">${l.statut_http}</span></td>
+        </tr>`).join('');
+  } catch { tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">⚠️ Impossible de charger le journal.</td></tr>`; }
+}
+
+// =====================
+// INITIALISATION GLOBALE
+// =====================
+document.addEventListener('DOMContentLoaded', async () => {
+  verifierSessionAdmin();
+
+  const champPass=document.getElementById('admin-pass');
+  if (champPass) champPass.addEventListener('keypress',(e)=>{ if(e.key==='Enter') connexionAdmin(); });
+
+  // Alimente tous les menus d'années depuis la base avant les chargements.
+  await chargerAnnees();
+
+  if (document.getElementById('cpt-etudiants')) chargerStats();
+
   if (document.getElementById('admin-notes')) {
     chargerNotes();
-    const champRecherche = document.getElementById('recherche-notes');
-    if (champRecherche) {
-      champRecherche.addEventListener('input', (e) => {
-        const terme = e.target.value.toLowerCase();
-        const filtres = notesAdmin.filter(n =>
-          `${n.nom_etudiant} ${n.prenom_etudiant}`.toLowerCase().includes(terme) ||
-          n.matiere.toLowerCase().includes(terme) ||
-          n.etudiant_id.toLowerCase().includes(terme)
-        );
-        afficherTableauNotes(filtres);
-      });
-    }
+    chargerResumeBulletins();
+
+    const rch=document.getElementById('recherche-notes');
+    if (rch) rch.addEventListener('input',e=>{
+      const t=e.target.value.toLowerCase();
+      afficherTableauNotes(notesAdmin.filter(n=>`${n.nom_etudiant} ${n.prenom_etudiant}`.toLowerCase().includes(t)||n.matiere.toLowerCase().includes(t)||n.etudiant_id.toLowerCase().includes(t)));
+    });
+
+    const rchBulletins=document.getElementById('recherche-bulletins');
+    if (rchBulletins) rchBulletins.addEventListener('input',e=>{
+      const t=e.target.value.toLowerCase();
+      afficherTableauBulletins(resumeBulletinsAdmin.filter(e2=>`${e2.nom} ${e2.prenom}`.toLowerCase().includes(t)||e2.etudiant_id.toLowerCase().includes(t)||(e2.filiere||'').toLowerCase().includes(t)||(e2.faculte||'').toLowerCase().includes(t)||(e2.promotion||'').toLowerCase().includes(t)));
+    });
   }
 
-  // Horaires
   if (document.getElementById('admin-horaires')) {
     chargerHoraires();
-    ['filtre-annee', 'filtre-promotion', 'filtre-jour'].forEach(idFiltre => {
-      const el = document.getElementById(idFiltre);
-      if (el) el.addEventListener('change', chargerHoraires);
-    });
+    ['filtre-annee','filtre-niveau','filtre-jour'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',chargerHoraires);});
   }
 
-  // Programme
   if (document.getElementById('admin-programme')) {
-    chargerProgramme();
-    ['filtre-annee-prog', 'filtre-promotion-prog'].forEach(idFiltre => {
-      const el = document.getElementById(idFiltre);
-      if (el) el.addEventListener('change', chargerProgramme);
-    });
+    chargerProgramme(); // affiche le message de sélection par défaut ; les filtres sont câblés via onchange dans le HTML
   }
 
-  // Annonces
   if (document.getElementById('admin-annonces')) {
     chargerAnnonces();
-    const typeSelect = document.getElementById('annonce-type');
-    if (typeSelect) typeSelect.addEventListener('change', gererAffichageChampImage);
-    const filtreType = document.getElementById('filtre-type-annonce');
-    if (filtreType) filtreType.addEventListener('change', chargerAnnonces);
+    const ts=document.getElementById('annonce-type'); if(ts) ts.addEventListener('change',gererAffichageChampImage);
+    const ft=document.getElementById('filtre-type-annonce'); if(ft) ft.addEventListener('change',chargerAnnonces);
   }
 
-  // Pré-inscriptions
   if (document.getElementById('admin-preinscriptions')) {
     chargerPreinscriptions();
-    const rechPre = document.getElementById('recherche-preinscriptions');
-    if (rechPre) rechPre.addEventListener('input', appliquerFiltresPreinscriptions);
-    const statutPre = document.getElementById('filtre-statut-preinscription');
-    if (statutPre) statutPre.addEventListener('change', appliquerFiltresPreinscriptions);
+    const rp=document.getElementById('recherche-preinscriptions'); if(rp) rp.addEventListener('input',appliquerFiltresPreinscriptions);
+    const sp=document.getElementById('filtre-statut-preinscription'); if(sp) sp.addEventListener('change',appliquerFiltresPreinscriptions);
   }
-});
 
+  if (document.getElementById('admin-inscrits')) {
+    chargerInscrits();
+    const ri=document.getElementById('recherche-inscrits'); if(ri) ri.addEventListener('input',chargerInscrits);
+    ['filtre-inscrits-faculte','filtre-inscrits-niveau','filtre-inscrits-annee'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',chargerInscrits);});
+  }
+
+  if (document.getElementById('admin-attributions')) chargerAttributions();
+  if (document.getElementById('admin-audit')) chargerAuditLog();
+});

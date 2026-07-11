@@ -1,15 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../database');
+const { requireAdmin } = require('../middleware/auth');
+
+// Toutes les routes horaires sont réservées à l'admin (gestion des cours/salles)
+router.use(requireAdmin);
 
 // ===== GET /api/horaires — tous les horaires (avec filtres optionnels) =====
 router.get('/', async (req, res) => {
   try {
-    const { annee, promotion, jour } = req.query;
+    const { annee, niveau, jour } = req.query;
 
     let sql = `
-      SELECT h.id, h.promotion, h.annee_academique, h.jour, 
-       h.heure_debut, h.heure_fin, h.salle, h.professeur_id,
+      SELECT h.id, h.promotion, h.annee_academique, h.jour, h.date_debut,
+       h.heure_debut, h.heure_fin, h.salle, h.professeur_id, h.cours_id,
        c.nom AS cours, p.nom AS professeur
       FROM horaire h
       JOIN cours c ON h.cours_id = c.id
@@ -18,9 +22,11 @@ router.get('/', async (req, res) => {
     `;
     const params = [];
 
-    if (annee)      { sql += ' AND h.annee_academique = ?'; params.push(annee); }
-    if (promotion)   { sql += ' AND h.promotion = ?'; params.push(promotion); }
-    if (jour)        { sql += ' AND h.jour = ?'; params.push(jour); }
+    if (annee)  { sql += ' AND h.annee_academique = ?'; params.push(annee); }
+    // h.promotion est un libellé composé "NIVEAU LIBELLÉ" (ex. "L1 Gestion
+    // Informatique") : pas de colonne niveau dédiée sur horaire, d'où le préfixe.
+    if (niveau) { sql += ' AND h.promotion LIKE ?'; params.push(niveau + ' %'); }
+    if (jour)   { sql += ' AND h.jour = ?'; params.push(jour); }
 
     sql += ' ORDER BY h.annee_academique DESC, h.promotion, FIELD(h.jour, "Lundi","Mardi","Mercredi","Jeudi","Vendredi"), h.heure_debut';
 
@@ -35,9 +41,9 @@ router.get('/', async (req, res) => {
 // ===== POST /api/horaires — ajouter un cours à l'horaire =====
 router.post('/', async (req, res) => {
   try {
-    const { promotion, annee_academique, jour, heure_debut, heure_fin, cours_id, professeur_id, salle } = req.body;
+    const { promotion, annee_academique, jour, date_debut, heure_debut, heure_fin, cours_id, professeur_id, salle } = req.body;
 
-    if (!promotion || !annee_academique || !jour || !heure_debut || !heure_fin || !cours_id || !salle) {
+    if (!promotion || !annee_academique || !jour || !date_debut || !heure_debut || !heure_fin || !cours_id || !salle) {
       return res.status(400).json({ erreur: "Champs obligatoires manquants." });
     }
 
@@ -64,8 +70,8 @@ router.post('/', async (req, res) => {
     }
 
     const [resultat] = await pool.query(
-      'INSERT INTO horaire (promotion, annee_academique, jour, heure_debut, heure_fin, cours_id, professeur_id, salle) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [promotion, annee_academique, jour, heure_debut, heure_fin, cours_id, professeur_id || null, salle]
+      'INSERT INTO horaire (promotion, annee_academique, jour, date_debut, heure_debut, heure_fin, cours_id, professeur_id, salle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [promotion, annee_academique, jour, date_debut, heure_debut, heure_fin, cours_id, professeur_id || null, salle]
     );
 
     res.status(201).json({ message: "Cours ajouté à l'horaire.", id: resultat.insertId });
@@ -78,11 +84,11 @@ router.post('/', async (req, res) => {
 // ===== PUT /api/horaires/:id — modifier un cours de l'horaire =====
 router.put('/:id', async (req, res) => {
   try {
-    const { promotion, annee_academique, jour, heure_debut, heure_fin, cours_id, professeur_id, salle } = req.body;
+    const { promotion, annee_academique, jour, date_debut, heure_debut, heure_fin, cours_id, professeur_id, salle } = req.body;
 
     await pool.query(
-      `UPDATE horaire SET promotion=?, annee_academique=?, jour=?, heure_debut=?, heure_fin=?, cours_id=?, professeur_id=?, salle=? WHERE id=?`,
-      [promotion, annee_academique, jour, heure_debut, heure_fin, cours_id, professeur_id || null, salle, req.params.id]
+      `UPDATE horaire SET promotion=?, annee_academique=?, jour=?, date_debut=?, heure_debut=?, heure_fin=?, cours_id=?, professeur_id=?, salle=? WHERE id=?`,
+      [promotion, annee_academique, jour, date_debut, heure_debut, heure_fin, cours_id, professeur_id || null, salle, req.params.id]
     );
 
     res.json({ message: "Horaire modifié avec succès." });
@@ -103,4 +109,18 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// PATCH /api/horaires/:id — attribuer un professeur seulement
+router.patch('/:id', async (req, res) => {
+  const { professeur_id } = req.body;
+  try {
+    await pool.query(
+      'UPDATE horaire SET professeur_id = ? WHERE id = ?',
+      [professeur_id, req.params.id]
+    );
+    res.json({ message: "Professeur attribué avec succès." });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
 module.exports = router;

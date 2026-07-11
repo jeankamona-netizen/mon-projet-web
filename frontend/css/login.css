@@ -124,6 +124,17 @@
   transform: translateY(-50%);
   cursor: pointer;
   font-size: 18px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #888;
+  display: flex;
+  align-items: center;
+  transition: color var(--transition);
+}
+
+.toggle-pwd:hover {
+  color: var(--bleu);
 }
 
 /* OPTIONS */
@@ -317,4 +328,45 @@ input[type="file"] {
   font-size: 11px;
   color: var(--bleu);
   margin-top: 6px;
+}
+
+/* =====================
+   RESPONSIVE — mobile
+   ===================== */
+@media (max-width: 640px) {
+  .login-main {
+    padding: 20px 12px;
+  }
+
+  .tab-content {
+    padding: 22px 18px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .etapes {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .etape {
+    flex: 1 1 40%;
+  }
+
+  .form-checkboxes {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .form-nav {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .btn-suivant,
+  .btn-precedent {
+    width: 100%;
+  }
 }

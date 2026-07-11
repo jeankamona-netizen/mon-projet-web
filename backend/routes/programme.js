@@ -1,20 +1,50 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../database');
+const { requireAdmin } = require('../middleware/auth');
+
+// Résout le nom de filière envoyé par le formulaire vers son id réel (scopé à
+// la faculté choisie), et construit le libellé de rattachement horaire
+// ("L1 Informatique", "L1 Design"...) à partir des champs structurés.
+async function resoudreFiliereEtPromotion(niveau, faculte, nomFiliere) {
+  let filiere_id = null;
+  let libelle = faculte;
+
+  if (nomFiliere) {
+    const [[filiere]] = await pool.query(
+      'SELECT f.id, f.nom FROM filiere f JOIN faculte fa ON f.faculte_id = fa.id WHERE f.nom = ? AND fa.nom = ?',
+      [nomFiliere, faculte]
+    );
+    if (filiere) { filiere_id = filiere.id; libelle = filiere.nom; }
+  }
+
+  const promotion = `${niveau || ''} ${libelle || ''}`.trim();
+  return { filiere_id, promotion };
+}
 
 // ===== GET /api/programme — tous les cours (avec filtres) =====
 router.get('/', async (req, res) => {
   try {
-    const { annee, promotion, semestre } = req.query;
+    const { annee, promotion, semestre, faculte, niveau, filiere } = req.query;
 
-    let sql = 'SELECT * FROM cours WHERE 1=1';
+    let sql = `
+      SELECT c.*, f.nom AS filiere_nom, p.nom AS professeur_nom, p.prenom AS professeur_prenom
+      FROM cours c
+      LEFT JOIN filiere f ON c.filiere_id = f.id
+      LEFT JOIN professeur p ON c.professeur_id = p.id
+      WHERE 1=1
+    `;
     const params = [];
 
-    if (annee)     { sql += ' AND annee_academique = ?'; params.push(annee); }
-    if (promotion) { sql += ' AND promotion = ?'; params.push(promotion); }
-    if (semestre)  { sql += ' AND semestre = ?'; params.push(semestre); }
+    if (annee)     { sql += ' AND c.annee_academique = ?'; params.push(annee); }
+    if (promotion) { sql += ' AND c.promotion = ?'; params.push(promotion); }
+    if (semestre)  { sql += ' AND c.semestre = ?'; params.push(semestre); }
+    if (faculte)   { sql += ' AND c.faculte = ?'; params.push(faculte); }
+    if (niveau)    { sql += ' AND c.niveau = ?'; params.push(niveau); }
+    // Filière précise choisie, ou cours commun à toute la faculté (filiere_id NULL)
+    if (filiere)   { sql += ' AND (f.nom = ? OR c.filiere_id IS NULL)'; params.push(filiere); }
 
-    sql += ' ORDER BY annee_academique DESC, promotion, semestre, code';
+    sql += ' ORDER BY c.annee_academique DESC, c.promotion, c.semestre, c.code';
 
     const [cours] = await pool.query(sql, params);
     res.json(cours);
@@ -25,20 +55,39 @@ router.get('/', async (req, res) => {
 });
 
 // ===== POST /api/programme — ajouter un cours au programme =====
-router.post('/', async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { code, nom, promotion, annee_academique, semestre, credits } = req.body;
+    const { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits } = req.body;
 
-    if (!code || !nom || !promotion || !annee_academique || !semestre || !credits) {
-      return res.status(400).json({ erreur: "Champs obligatoires manquants." });
+    if (!code || !nom || !faculte || !niveau || !annee_academique || !semestre || !credits) {
+      return res.status(400).json({ erreur: "Champs obligatoires manquants (code, nom, faculté, niveau, année, semestre, crédits)." });
     }
 
+    const { filiere_id, promotion } = await resoudreFiliereEtPromotion(niveau, faculte, filiere || null);
+
     const [resultat] = await pool.query(
-      'INSERT INTO cours (code, nom, promotion, annee_academique, semestre, credits) VALUES (?, ?, ?, ?, ?, ?)',
-      [code.toUpperCase(), nom, promotion, annee_academique, semestre, credits]
+      'INSERT INTO cours (code, nom, faculte, filiere_id, niveau, promotion, annee_academique, semestre, credits) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [code.toUpperCase(), nom, faculte, filiere_id || null, niveau, promotion, annee_academique, semestre, credits]
     );
 
-    res.status(201).json({ message: "Cours ajouté au programme.", id: resultat.insertId });
+    // Inscrit automatiquement les étudiants concernés : toute la faculté+niveau
+    // si aucune filière précise n'est choisie (cours commun, ex. Educit), sinon
+    // seulement les étudiants de la filière ciblée. L'admin peut ensuite ajouter
+    // des étudiants supplémentaires (rattrapage) depuis "Programme annuel".
+    let sqlEtudiants = 'SELECT id FROM etudiant WHERE faculte = ? AND niveau = ?';
+    const paramsEtudiants = [faculte, niveau];
+    if (filiere_id) {
+      sqlEtudiants += ' AND filiere_id = ?';
+      paramsEtudiants.push(filiere_id);
+    }
+    const [etudiantsConcernes] = await pool.query(sqlEtudiants, paramsEtudiants);
+
+    if (etudiantsConcernes.length > 0) {
+      const valeurs = etudiantsConcernes.map(e => [e.id, resultat.insertId]);
+      await pool.query('INSERT IGNORE INTO inscription_cours (etudiant_id, cours_id) VALUES ?', [valeurs]);
+    }
+
+    res.status(201).json({ message: "Cours ajouté au programme.", id: resultat.insertId, etudiantsInscrits: etudiantsConcernes.length });
   } catch (erreur) {
     if (erreur.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ erreur: "Ce code de cours existe déjà pour cette promotion et année." });
@@ -49,13 +98,14 @@ router.post('/', async (req, res) => {
 });
 
 // ===== PUT /api/programme/:id =====
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
-    const { code, nom, promotion, annee_academique, semestre, credits } = req.body;
+    const { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits } = req.body;
+    const { filiere_id, promotion } = await resoudreFiliereEtPromotion(niveau, faculte, filiere || null);
 
     await pool.query(
-      'UPDATE cours SET code=?, nom=?, promotion=?, annee_academique=?, semestre=?, credits=? WHERE id=?',
-      [code.toUpperCase(), nom, promotion, annee_academique, semestre, credits, req.params.id]
+      'UPDATE cours SET code=?, nom=?, faculte=?, filiere_id=?, niveau=?, promotion=?, annee_academique=?, semestre=?, credits=? WHERE id=?',
+      [code.toUpperCase(), nom, faculte, filiere_id || null, niveau, promotion, annee_academique, semestre, credits, req.params.id]
     );
 
     res.json({ message: "Cours modifié avec succès." });
@@ -65,8 +115,23 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// ===== PATCH /api/programme/:id — attribuer un professeur seulement =====
+router.patch('/:id', requireAdmin, async (req, res) => {
+  const { professeur_id } = req.body;
+  try {
+    await pool.query(
+      'UPDATE cours SET professeur_id = ? WHERE id = ?',
+      [professeur_id || null, req.params.id]
+    );
+    res.json({ message: "Professeur attribué avec succès." });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: "Erreur lors de l'attribution." });
+  }
+});
+
 // ===== DELETE /api/programme/:id =====
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM cours WHERE id = ?', [req.params.id]);
     res.json({ message: "Cours retiré du programme." });

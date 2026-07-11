@@ -1,36 +1,176 @@
+require('dotenv').config();
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
+const bcrypt  = require('bcryptjs');
+const jwt     = require('jsonwebtoken');
+const pool = require('../database');
 
-// ===== ÉTUDIANT TEST (en attendant MySQL) =====
-const etudiantTest = {
-  numeroEtudiant: "UML-2024-0012",
-  motDePasse: "uml2026",
-  nom: "Jean Kamona Netizen",
-  filiere: "Génie Logicielle",
-  niveau: "L2"
-};
+// =====================
+// AUTHENTIFICATION ADMIN — identifiants dans .env, jamais dans le frontend
+// Session gérée par un vrai JWT signé, vérifié par le middleware requireAdmin
+// sur toutes les routes sensibles (voir backend/middleware/auth.js)
+// =====================
+router.post('/admin', (req, res) => {
+  const { user, password } = req.body;
+  if (!user || !password)
+    return res.status(400).json({ erreur: 'Identifiant et mot de passe requis.' });
 
-// ===== POST /api/auth/connexion =====
-router.post('/connexion', (req, res) => {
-  const { numeroEtudiant, motDePasse } = req.body;
+  const adminUser = process.env.ADMIN_USER;
+  const adminPass = process.env.ADMIN_PASS;
 
-  if (!numeroEtudiant || !motDePasse) {
-    return res.status(400).json({ erreur: "Numéro étudiant et mot de passe requis." });
-  }
+  if (!adminUser || !adminPass || !process.env.JWT_SECRET)
+    return res.status(500).json({ erreur: 'Configuration serveur manquante.' });
 
-  if (numeroEtudiant !== etudiantTest.numeroEtudiant || motDePasse !== etudiantTest.motDePasse) {
-    return res.status(401).json({ erreur: "Numéro étudiant ou mot de passe incorrect." });
-  }
+  if (user !== adminUser || password !== adminPass)
+    return res.status(401).json({ erreur: 'Identifiant ou mot de passe incorrect.' });
 
-  res.json({
-    message: "Connexion réussie !",
-    etudiant: {
-      numeroEtudiant: etudiantTest.numeroEtudiant,
-      nom: etudiantTest.nom,
-      filiere: etudiantTest.filiere,
-      niveau: etudiantTest.niveau
+  const token = jwt.sign({ user: adminUser, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '8h' });
+  res.json({ message: 'Connexion réussie.', token });
+});
+
+// =====================
+// AUTHENTIFICATION ÉTUDIANT — mot de passe hashé avec bcrypt
+// =====================
+router.post('/etudiant', async (req, res) => {
+  const { numero, mot_de_passe } = req.body;
+  if (!numero || !mot_de_passe)
+    return res.status(400).json({ erreur: 'Numéro et mot de passe requis.' });
+
+  try {
+    const [etudiants] = await pool.query(
+      'SELECT * FROM etudiant WHERE id = ?', [numero]
+    );
+
+    if (etudiants.length === 0)
+      return res.status(401).json({ erreur: 'Numéro étudiant introuvable.' });
+
+    const etudiant = etudiants[0];
+
+    // Vérifier si le mot de passe est hashé (bcrypt commence par $2)
+    let motDePasseValide = false;
+    if (etudiant.mot_de_passe && etudiant.mot_de_passe.startsWith('$2')) {
+      // Mot de passe hashé → comparaison bcrypt
+      motDePasseValide = await bcrypt.compare(mot_de_passe, etudiant.mot_de_passe);
+    } else {
+      // Mot de passe temporaire en clair (première connexion)
+      motDePasseValide = etudiant.mot_de_passe === mot_de_passe;
+      if (motDePasseValide) {
+        // Hasher automatiquement le mot de passe temporaire
+        const hash = await bcrypt.hash(mot_de_passe, 10);
+        await pool.query('UPDATE etudiant SET mot_de_passe = ? WHERE id = ?', [hash, numero]);
+      }
     }
-  });
+
+    if (!motDePasseValide)
+      return res.status(401).json({ erreur: 'Mot de passe incorrect.' });
+
+    // Renvoyer les infos sans le mot de passe
+    const { mot_de_passe: _, ...infos } = etudiant;
+    res.json({ message: 'Connexion réussie.', etudiant: infos });
+
+  } catch (erreur) {
+    console.error('Erreur auth étudiant:', erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// =====================
+// AUTHENTIFICATION PROFESSEUR — identifiant : email, mot de passe hashé
+// =====================
+router.post('/professeur', async (req, res) => {
+  const { email, mot_de_passe } = req.body;
+  if (!email || !mot_de_passe)
+    return res.status(400).json({ erreur: 'Email et mot de passe requis.' });
+
+  try {
+    const [profs] = await pool.query('SELECT * FROM professeur WHERE email = ?', [email]);
+
+    if (profs.length === 0 || !profs[0].mot_de_passe)
+      return res.status(401).json({ erreur: 'Email introuvable ou accès non activé. Contactez l\'administration.' });
+
+    const professeur = profs[0];
+    const motDePasseValide = await bcrypt.compare(mot_de_passe, professeur.mot_de_passe);
+
+    if (!motDePasseValide)
+      return res.status(401).json({ erreur: 'Mot de passe incorrect.' });
+
+    const { mot_de_passe: _, ...infos } = professeur;
+    res.json({ message: 'Connexion réussie.', professeur: infos });
+
+  } catch (erreur) {
+    console.error('Erreur auth professeur:', erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// =====================
+// CHANGEMENT DE MOT DE PASSE PROFESSEUR
+// =====================
+router.put('/professeur/:id/password', async (req, res) => {
+  const { mot_de_passe_actuel, nouveau_mot_de_passe } = req.body;
+  if (!mot_de_passe_actuel || !nouveau_mot_de_passe)
+    return res.status(400).json({ erreur: 'Tous les champs sont requis.' });
+
+  if (nouveau_mot_de_passe.length < 6)
+    return res.status(400).json({ erreur: 'Le nouveau mot de passe doit contenir au moins 6 caractères.' });
+
+  try {
+    const [profs] = await pool.query('SELECT mot_de_passe FROM professeur WHERE id = ?', [req.params.id]);
+    if (profs.length === 0)
+      return res.status(404).json({ erreur: 'Professeur non trouvé.' });
+
+    const valide = await bcrypt.compare(mot_de_passe_actuel, profs[0].mot_de_passe || '');
+    if (!valide)
+      return res.status(401).json({ erreur: 'Mot de passe actuel incorrect.' });
+
+    const hash = await bcrypt.hash(nouveau_mot_de_passe, 10);
+    await pool.query('UPDATE professeur SET mot_de_passe = ? WHERE id = ?', [hash, req.params.id]);
+
+    res.json({ message: 'Mot de passe mis à jour avec succès.' });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// =====================
+// CHANGEMENT DE MOT DE PASSE ÉTUDIANT
+// =====================
+router.put('/etudiant/:id/password', async (req, res) => {
+  const { mot_de_passe_actuel, nouveau_mot_de_passe } = req.body;
+  if (!mot_de_passe_actuel || !nouveau_mot_de_passe)
+    return res.status(400).json({ erreur: 'Tous les champs sont requis.' });
+
+  if (nouveau_mot_de_passe.length < 6)
+    return res.status(400).json({ erreur: 'Le nouveau mot de passe doit contenir au moins 6 caractères.' });
+
+  try {
+    const [etudiants] = await pool.query(
+      'SELECT mot_de_passe FROM etudiant WHERE id = ?', [req.params.id]
+    );
+    if (etudiants.length === 0)
+      return res.status(404).json({ erreur: 'Étudiant non trouvé.' });
+
+    const actuel = etudiants[0].mot_de_passe;
+    let valide = false;
+
+    if (actuel && actuel.startsWith('$2')) {
+      valide = await bcrypt.compare(mot_de_passe_actuel, actuel);
+    } else {
+      valide = actuel === mot_de_passe_actuel;
+    }
+
+    if (!valide)
+      return res.status(401).json({ erreur: 'Mot de passe actuel incorrect.' });
+
+    const hash = await bcrypt.hash(nouveau_mot_de_passe, 10);
+    await pool.query('UPDATE etudiant SET mot_de_passe = ? WHERE id = ?', [hash, req.params.id]);
+
+    res.json({ message: 'Mot de passe mis à jour avec succès.' });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
 });
 
 module.exports = router;

@@ -1,209 +1,813 @@
-// ===== NAVIGATION SECTIONS =====
-function afficherSection(id, lien) {
-  document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  lien.classList.add('active');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+// =====================
+// DASHBOARD ÉTUDIANT — connecté à MySQL via CONFIG.API_URL
+// =====================
+
+
+function getEtudiantConnecte() {
+  const data = sessionStorage.getItem('etudiant');
+  if (!data) { window.location.href = 'login.html'; return null; }
+  return JSON.parse(data);
 }
 
-// ===== FILTRE NOTES PAR SESSION =====
-function filtrerSession(session, btn) {
-  document.querySelectorAll('.filtre-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  document.querySelectorAll('#notes-body tr').forEach(row => {
-    row.style.display = row.dataset.session === session ? '' : 'none';
+function deconnecter() {
+  sessionStorage.removeItem('etudiant');
+  window.location.href = 'login.html';
+}
+
+// =====================
+// INITIALISATION
+// =====================
+document.addEventListener('DOMContentLoaded', async () => {
+  const etudiant = getEtudiantConnecte();
+  if (!etudiant) return;
+
+  afficherProfilHeader(etudiant);
+  afficherProfilSection(etudiant);
+
+  await Promise.all([
+    chargerNotesDashboard(etudiant.id),
+    chargerHorairesDashboard(etudiant.id),
+    chargerProgrammeDashboard(etudiant.id),
+    chargerFraisDashboard(etudiant.id),
+    chargerAnnoncesDashboard(etudiant.faculte)
+  ]);
+
+  // Les deux jeux de données (notes + horaires) sont nécessaires à l'analyse IA :
+  // on ne la lance qu'une fois les deux chargements terminés.
+  genererAnalyseIA();
+
+  mettreAJourNotifications();
+  await chargerCursus();
+  initialiserNavigation();
+
+  // Fermer les panneaux déroulants (notifications, menu compte) au clic en dehors.
+  document.addEventListener('click', e => {
+    const notifWrap = document.querySelector('.dash-notif-wrap');
+    const notifPanneau = document.getElementById('notif-panneau');
+    if (notifPanneau && notifWrap && !notifWrap.contains(e.target)) notifPanneau.classList.remove('ouvert');
+
+    const menuWrap = document.querySelector('.dash-menu-wrap');
+    const menu = document.getElementById('menu-compte');
+    if (menu && menuWrap && !menuWrap.contains(e.target)) menu.classList.remove('ouvert');
+  });
+});
+
+// =====================
+// PROFIL HEADER
+// =====================
+function afficherProfilHeader(e) {
+  const nomComplet = `${e.prenom} ${e.nom}`;
+  const initiales  = `${e.prenom?.[0]||''}${e.nom?.[0]||''}`.toUpperCase();
+
+  const elNom = document.getElementById('etudiant-nom');
+  if (elNom) elNom.textContent = nomComplet;
+
+  const elId = document.getElementById('etudiant-id');
+  if (elId) elId.textContent = e.id;
+
+  const elPromo = document.getElementById('etudiant-promo');
+  if (elPromo) elPromo.textContent = `${e.niveau||'L1'} — ${e.promotion||''}`;
+
+  const elAnnee = document.getElementById('etudiant-annee');
+  if (elAnnee) elAnnee.textContent = e.annee_academique || '—';
+
+  const elAccueil = document.getElementById('etudiant-prenom-accueil');
+  if (elAccueil) elAccueil.textContent = e.prenom || '';
+
+  document.querySelectorAll('#avatar-header, #avatar-sidebar').forEach(el => {
+    if (el) el.textContent = initiales;
   });
 }
 
-// Afficher S1 par défaut
-document.addEventListener('DOMContentLoaded', () => {
-  filtrerSession('S1', document.querySelector('.filtre-btn'));
-});
+function formaterDateAffichage(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}`;
+}
 
-// ===== PROFIL EDITABLE =====
+const LIBELLES_STATUT = { actif: 'Inscrit', diplome: 'Diplômé', abandon: 'Abandon' };
+
+function afficherProfilSection(e) {
+  const champs = {
+    'profil-id':          e.id,
+    'profil-nom':         `${e.prenom} ${e.postnom||''} ${e.nom}`.trim(),
+    'profil-ddn':         formaterDateAffichage(e.date_naissance),
+    'profil-nationalite': e.nationalite || '—',
+    'profil-email':       e.email     || '—',
+    'profil-telephone':   e.telephone || '—',
+    'profil-adresse':     e.adresse   || '—',
+    'profil-faculte':     e.faculte   || '—',
+    'profil-filiere':     e.promotion || '—',
+    'profil-niveau':      e.niveau    || '—',
+    'profil-annee':       e.annee_academique || '—',
+    'profil-statut':      LIBELLES_STATUT[e.statut] || e.statut || '—',
+  };
+  Object.entries(champs).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  });
+}
+
+// =====================
+// ÉDITION DU PROFIL (informations personnelles)
+// =====================
 function toggleEdit(section) {
-  const view = document.getElementById('view-' + section);
-  const form = document.getElementById('edit-' + section);
-  const btn  = document.getElementById('btn-edit-' + section);
+  const etudiant = getEtudiantConnecte();
+  if (!etudiant) return;
 
-  const isEditing = form.style.display === 'block';
+  document.getElementById(`e-nom`).value         = `${etudiant.prenom} ${etudiant.postnom||''} ${etudiant.nom}`.trim();
+  document.getElementById(`e-ddn`).value         = etudiant.date_naissance ? etudiant.date_naissance.split('T')[0] : '';
+  document.getElementById(`e-nationalite`).value = etudiant.nationalite || '';
+  document.getElementById(`e-tel`).value         = etudiant.telephone   || '';
+  document.getElementById(`e-email`).value       = etudiant.email       || '';
+  document.getElementById(`e-adresse`).value     = etudiant.adresse     || '';
 
-  if (isEditing) {
-    annulerEdit(section);
-  } else {
-    view.style.display = 'none';
-    form.style.display = 'block';
-    btn.textContent = '✕ Annuler';
-    btn.classList.add('actif');
-  }
+  document.getElementById(`view-${section}`).style.display = 'none';
+  document.getElementById(`edit-${section}`).style.display = 'block';
 }
 
 function annulerEdit(section) {
-  const view = document.getElementById('view-' + section);
-  const form = document.getElementById('edit-' + section);
-  const btn  = document.getElementById('btn-edit-' + section);
-
-  view.style.display = 'flex';
-  form.style.display = 'none';
-  btn.textContent = '✏️ Modifier';
-  btn.classList.remove('actif');
+  document.getElementById(`view-${section}`).style.display = 'block';
+  document.getElementById(`edit-${section}`).style.display = 'none';
 }
 
 function sauvegarder(section) {
-  if (section === 'perso') {
-    document.getElementById('v-nom').textContent       = document.getElementById('e-nom').value;
-    document.getElementById('v-nationalite').textContent = document.getElementById('e-nationalite').value;
-    document.getElementById('v-tel').textContent       = document.getElementById('e-tel').value;
-    document.getElementById('v-email').textContent     = document.getElementById('e-email').value;
-    document.getElementById('v-adresse').textContent   = document.getElementById('e-adresse').value;
-
-    const ddn = document.getElementById('e-ddn').value;
-    if (ddn) {
-      const [y, m, d] = ddn.split('-');
-      document.getElementById('v-ddn').textContent = `${d}/${m}/${y}`;
-    }
-  }
-
+  afficherToast('🚧 La modification du profil sera bientôt disponible. Contactez l\'administration.', 'erreur');
   annulerEdit(section);
-  afficherToast('✅ Informations mises à jour avec succès !');
 }
 
-// ===== MODIFIER MOT DE PASSE =====
-function changerMotDePasse() {
-  const actuel  = document.getElementById('mdp-actuel').value;
-  const nouveau = document.getElementById('mdp-nouveau').value;
-  const confirm = document.getElementById('mdp-confirm').value;
+// =====================
+// NOTES
+// =====================
+let notesEtudiant = [];
+// Cursus (niveau + année) actuellement consulté. null = tout afficher.
+// Par défaut on scope au cursus courant de l'étudiant (voir chargerCursus).
+let cursusActif = null;
+
+function notesDuCursusActif() {
+  if (!cursusActif) return notesEtudiant;
+  return notesEtudiant.filter(n => n.niveau === cursusActif.niveau && n.annee_academique === cursusActif.annee_academique);
+}
+
+async function chargerNotesDashboard(id) {
+  try {
+    const r = await fetch(`${BASE_URL}/api/etudiant/${id}/notes`);
+    if (!r.ok) throw new Error();
+    notesEtudiant = await r.json();
+    // On respecte le semestre déjà sélectionné (utile en cas de retour sur
+    // cette page après avoir choisi Semestre 2, par exemple).
+    const sessionActive = document.querySelector('.filtre-session .filtre-btn.active')?.dataset.session || 'S1';
+    afficherNotesTableau(sessionActive);
+    afficherDernieresNotes();
+    afficherStatistiquesNotes();
+    mettreAJourNotifications();
+  } catch {
+    const tbody = document.getElementById('notes-body');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#999;padding:20px">⚠️ Impossible de charger les notes. Vérifiez le backend.</td></tr>`;
+  }
+}
+
+function badgeStatutNote(note) {
+  return note === null
+    ? '<span class="badge attente">En attente</span>'
+    : note >= 10
+      ? '<span class="badge reussi">Réussi</span>'
+      : '<span class="badge echec">Échec</span>';
+}
+
+function afficherNotesTableau(session = '') {
+  const tbody = document.getElementById('notes-body');
+  if (!tbody) return;
+  const base = notesDuCursusActif();
+  const liste = session ? base.filter(n => n.session === session) : base;
+
+  if (liste.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#999;padding:20px">Aucune note disponible${session?' pour ce semestre':''}.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = liste.map(n => `<tr>
+      <td>${n.code}</td>
+      <td>${n.matiere}</td>
+      <td>${n.credits}</td>
+      <td>${n.note_cc ?? '—'}</td>
+      <td>${n.note_examen ?? '—'}</td>
+      <td>${n.note !== null ? n.note+'/20' : '—'}</td>
+      <td>${n.session === 'S1' ? 'Semestre 1' : 'Semestre 2'}</td>
+      <td>${badgeStatutNote(n.note)}</td>
+    </tr>`).join('');
+}
+
+function afficherDernieresNotes() {
+  const tbody = document.getElementById('dernieres-notes-body');
+  if (!tbody) return;
+  const liste = notesDuCursusActif().slice(-4).reverse();
+
+  tbody.innerHTML = liste.length === 0
+    ? `<tr><td colspan="3" style="text-align:center;color:#999;padding:20px">Aucune note disponible.</td></tr>`
+    : liste.map(n => `<tr>
+        <td>${n.matiere}</td>
+        <td>${n.note !== null ? n.note+'/20' : '—'}</td>
+        <td>${badgeStatutNote(n.note)}</td>
+      </tr>`).join('');
+}
+
+const LIBELLES_MENTION = [
+  { min: 16, texte: 'Excellence' },
+  { min: 14, texte: 'Bien' },
+  { min: 12, texte: 'Assez bien' },
+  { min: 10, texte: 'Passable' },
+  { min: 0,  texte: 'Insuffisant' },
+];
+
+function afficherStatistiquesNotes() {
+  // Les notes viennent de colonnes MySQL DECIMAL, renvoyées en chaînes de
+  // caractères par l'API : Number() évite une concaténation de chaînes au
+  // lieu d'une addition numérique dans les reduce ci-dessous.
+  const notesCursus = notesDuCursusActif();
+  const nvn = notesCursus.filter(n => n.note !== null);
+  const moy = nvn.length ? nvn.reduce((s,n) => s+Number(n.note), 0) / nvn.length : 0;
+  const ok  = nvn.filter(n => n.note >= 10).length;
+  const enAttente = notesCursus.filter(n => n.note === null).length;
+
+  const champs = {
+    'stat-moyenne': nvn.length ? moy.toFixed(1) : '—',
+    'stat-cours':   notesCursus.length,
+    'stat-reussis': `${ok}/${nvn.length}`,
+    'stat-attente': enAttente,
+  };
+  Object.entries(champs).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.textContent = val; });
+
+  // Résumé du semestre actuellement sélectionné (section "Mes notes") —
+  // chaque semestre a sa propre moyenne, ses propres crédits validés et sa
+  // propre mention, distincts l'un de l'autre.
+  const sessionActive = document.querySelector('.filtre-session .filtre-btn.active')?.dataset.session || 'S1';
+  const notesSession = notesCursus.filter(n => n.session === sessionActive);
+  const notesSessionNotees = notesSession.filter(n => n.note !== null);
+  const moySession = notesSessionNotees.length ? notesSessionNotees.reduce((s,n) => s+Number(n.note), 0) / notesSessionNotees.length : 0;
+  const creditsValides = notesSession.filter(n => n.note !== null && n.note >= 10).reduce((s,n) => s+(n.credits||0), 0);
+  const creditsTotal   = notesSession.reduce((s,n) => s+(n.credits||0), 0);
+  const mention = notesSessionNotees.length ? LIBELLES_MENTION.find(m => moySession >= m.min).texte : '—';
+
+  document.querySelectorAll('#resume-session-label, #resume-session-label-2').forEach(el => { el.textContent = sessionActive; });
+  const resume = {
+    'resume-moyenne': notesSessionNotees.length ? `${moySession.toFixed(1)} / 20` : '—',
+    'resume-credits': `${creditsValides} / ${creditsTotal}`,
+    'resume-mention': mention,
+  };
+  Object.entries(resume).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.textContent = val; });
+}
+
+function filtrerSession(session, btn) {
+  document.querySelectorAll('.filtre-session .filtre-btn').forEach(b => b.classList.remove('active'));
+  btn?.classList.add('active');
+  afficherNotesTableau(session);
+  // La moyenne, les crédits validés et la mention sont propres à chaque semestre.
+  afficherStatistiquesNotes();
+}
+
+// =====================
+// HORAIRES
+// =====================
+let horairesEtudiant = [];
+const ORDRE_JOURS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+
+// Filtre les horaires sur l'année du cursus consulté (voir cursusActif).
+function horairesDuCursus() {
+  const annee = cursusActif?.annee_academique;
+  return annee ? horairesEtudiant.filter(h => h.annee_academique === annee) : horairesEtudiant;
+}
+
+async function chargerHorairesDashboard(id) {
+  try {
+    const r = await fetch(`${BASE_URL}/api/etudiant/${id}/horaires`);
+    if (!r.ok) throw new Error();
+    horairesEtudiant = await r.json();
+    afficherHoraires();
+    afficherCoursAujourdhui();
+    mettreAJourNotifications();
+  } catch {
+    const tbody = document.getElementById('horaires-body');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px">⚠️ Impossible de charger les horaires.</td></tr>';
+  }
+}
+
+function afficherHoraires() {
+  const tbody = document.getElementById('horaires-body');
+  if (!tbody) return;
+  const liste = horairesDuCursus();
+
+  const label = document.getElementById('horaires-promo-label');
+  if (label) label.textContent = liste[0] ? `${liste[0].promotion} — ${liste[0].annee_academique}` : 'Aucun horaire pour ce cursus.';
+
+  if (!liste.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px">Aucun horaire disponible pour ce cursus.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = liste.map(h => `
+    <tr>
+      <td><span class="jour-badge">${h.jour}</span></td>
+      <td>${formaterDateAffichage(h.date_debut)}</td>
+      <td>${h.heure_debut} – ${h.heure_fin}</td>
+      <td>${h.cours}</td>
+      <td>${h.professeur ? h.professeur+(h.grade?' ('+h.grade+')':'') : 'Non attribué'}</td>
+      <td>${h.salle}</td>
+    </tr>`).join('');
+}
+
+function afficherCoursAujourdhui() {
+  const c = document.getElementById('cours-aujourdhui');
+  if (!c) return;
+  const jours = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const auj   = jours[new Date().getDay()];
+  const cours = horairesDuCursus().filter(h => h.jour === auj);
+
+  c.innerHTML = cours.length === 0
+    ? '<p style="color:#999;font-size:13px">Pas de cours aujourd\'hui.</p>'
+    : cours.map(h => `
+        <div class="cours-item">
+          <div class="cours-heure"><span>${h.heure_debut}</span><span>${h.heure_fin}</span></div>
+          <div class="cours-detail">
+            <span class="cours-nom">${h.cours}</span>
+            <span class="cours-info">${h.professeur ? 'Prof. '+h.professeur : 'Prof. non attribué'} · ${h.salle}</span>
+          </div>
+        </div>`).join('');
+}
+
+// =====================
+// PROGRAMME ANNUEL
+// =====================
+let programmeEtudiant = [];
+
+function programmeDuCursus() {
+  const annee = cursusActif?.annee_academique;
+  return annee ? programmeEtudiant.filter(c => c.annee_academique === annee) : programmeEtudiant;
+}
+
+async function chargerProgrammeDashboard(id) {
+  try {
+    const r = await fetch(`${BASE_URL}/api/etudiant/${id}/programme`);
+    if (!r.ok) throw new Error();
+    programmeEtudiant = await r.json();
+    afficherProgramme();
+  } catch {
+    const c1 = document.getElementById('programme-s1-liste');
+    const c2 = document.getElementById('programme-s2-liste');
+    if (c1) c1.innerHTML = `<p style="color:#999;font-size:13px">⚠️ Erreur de chargement.</p>`;
+    if (c2) c2.innerHTML = '';
+  }
+}
+
+function afficherProgramme() {
+  const c1 = document.getElementById('programme-s1-liste');
+  const c2 = document.getElementById('programme-s2-liste');
+  if (!c1||!c2) return;
+
+  const cours = programmeDuCursus();
+  const label = document.getElementById('programme-label');
+  if (label) label.textContent = cours[0] ? `Cours de l'année — ${cours[0].promotion} (${cours[0].annee_academique})` : 'Aucun cours pour ce cursus.';
+
+  const s1 = cours.filter(c => c.semestre === 'S1');
+  const s2 = cours.filter(c => c.semestre === 'S2');
+
+  const items = liste => liste.length === 0
+    ? `<p style="color:#999;font-size:13px;padding:8px 0">Aucun cours.</p>`
+    : liste.map(c => `
+        <div class="prog-item">
+          <span class="prog-code">${c.code}</span>
+          <span class="prog-nom">${c.nom}</span>
+          <span class="prog-credits">${c.credits} crédits</span>
+        </div>`).join('') + `<div class="prog-total">Total : ${liste.reduce((s,c)=>s+c.credits,0)} crédits</div>`;
+
+  c1.innerHTML = items(s1);
+  c2.innerHTML = items(s2);
+}
+
+// =====================
+// MES FRAIS
+// =====================
+let paiementsEtudiant = [];
+
+async function chargerFraisDashboard(id) {
+  const tbody = document.getElementById('frais-body');
+  if (!tbody) return;
+  try {
+    const r = await fetch(`${BASE_URL}/api/etudiant/${id}/paiements`);
+    if (!r.ok) throw new Error();
+    const { paiements } = await r.json();
+    paiementsEtudiant = paiements;
+    afficherFrais();
+  } catch {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px">⚠️ Impossible de charger vos frais.</td></tr>';
+    const totalEl = document.getElementById('frais-total');
+    if (totalEl) totalEl.textContent = '—';
+  }
+}
+
+function afficherFrais() {
+  const tbody = document.getElementById('frais-body');
+  const totalEl = document.getElementById('frais-total');
+  if (!tbody) return;
+  const annee = cursusActif?.annee_academique;
+  const liste = annee ? paiementsEtudiant.filter(p => p.annee_academique === annee) : paiementsEtudiant;
+  const total = liste.reduce((s, p) => s + Number(p.montant), 0);
+
+  if (totalEl) totalEl.textContent = `${total.toFixed(2)} $`;
+  tbody.innerHTML = liste.length === 0
+    ? '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px">Aucun versement pour ce cursus.</td></tr>'
+    : liste.map(p => `<tr>
+        <td>${formaterDateAffichage(p.date_paiement)}</td>
+        <td>${Number(p.montant).toFixed(2)} $</td>
+        <td>${p.mode_paiement || '—'}</td>
+        <td>${p.reference || '—'}</td>
+      </tr>`).join('');
+}
+
+// =====================
+// ANNONCES
+// =====================
+let annoncesEtudiant = [];
+
+// Annonces de l'année du cursus consulté : on garde celles dont la date tombe
+// dans l'année académique sélectionnée (ex. "2026-2027" → 2026 ou 2027).
+function annoncesDuCursus() {
+  const annee = cursusActif?.annee_academique;
+  if (!annee) return annoncesEtudiant;
+  const [y1, y2] = annee.split('-').map(Number);
+  return annoncesEtudiant.filter(a => {
+    const y = new Date(a.date_annonce).getFullYear();
+    return y === y1 || y === y2;
+  });
+}
+
+async function chargerAnnoncesDashboard(faculte) {
+  try {
+    const params = new URLSearchParams({ actif: 'true' });
+    if (faculte) params.append('faculte', faculte);
+    const r = await fetch(`${BASE_URL}/api/annonces?${params}`);
+    if (!r.ok) throw new Error();
+    annoncesEtudiant = await r.json();
+    afficherAnnonces();
+    mettreAJourNotifications();
+  } catch {
+    const conteneur = document.getElementById('annonces-liste');
+    if (conteneur) conteneur.innerHTML = '<p class="ia-vide">⚠️ Impossible de charger les annonces.</p>';
+  }
+}
+
+function afficherAnnonces() {
+  const conteneur = document.getElementById('annonces-liste');
+  if (!conteneur) return;
+  const liste = annoncesDuCursus();
+  conteneur.innerHTML = liste.length === 0
+    ? '<p class="ia-vide">Aucune annonce pour ce cursus.</p>'
+    : liste.map(a => `
+        <div class="ia-alerte ok">
+          <span class="ia-alerte-icon">${a.icone || '📢'}</span>
+          <span class="ia-alerte-texte"><b>${a.titre}</b><br>${a.description}${a.cible_faculte ? ` <em style="color:#999">(${a.cible_faculte})</em>` : ''}</span>
+        </div>`).join('');
+}
+
+// =====================
+// NOTIFICATIONS (cloche) — nouvelles infos non encore consultées
+// L'état « vu » est mémorisé par étudiant dans localStorage : une info compte
+// comme nouvelle tant que l'étudiant n'a pas ouvert la cloche depuis sa
+// publication. Couvre : notes publiées, cours programmés, annonces, événements.
+// =====================
+function cleNotifications() {
+  const e = getEtudiantConnecte();
+  return e ? `notif_vus_${e.id}` : null;
+}
+
+function lireNotificationsVues() {
+  const base = { note: [], horaire: [], annonce: [], evenement: [] };
+  const cle = cleNotifications();
+  if (!cle) return base;
+  try { return { ...base, ...JSON.parse(localStorage.getItem(cle) || '{}') }; }
+  catch { return base; }
+}
+
+// Section du dashboard vers laquelle mène chaque type de notification.
+const NOTIF_SECTION = { note: 'mes-notes', horaire: 'horaires', annonce: 'annonces', evenement: 'annonces' };
+
+function construireNotifications() {
+  const items = [];
+  (notesEtudiant || []).forEach(n => items.push({
+    categorie: 'note', id: n.id, icone: '📝',
+    titre: n.matiere,
+    sousTitre: (n.note !== null && n.note !== undefined) ? `Note publiée : ${n.note}/20` : 'Note en cours de saisie'
+  }));
+  (horairesEtudiant || []).forEach(h => items.push({
+    categorie: 'horaire', id: h.id, icone: '📅',
+    titre: `Cours programmé : ${h.cours}`,
+    sousTitre: `${h.jour} ${h.heure_debut}–${h.heure_fin} · ${h.salle}`
+  }));
+  (annoncesEtudiant || []).forEach(a => {
+    const cat = a.type === 'evenement' ? 'evenement' : 'annonce';
+    items.push({
+      categorie: cat, id: a.id, icone: a.icone || (cat === 'evenement' ? '🎓' : '📢'),
+      titre: a.titre, sousTitre: cat === 'evenement' ? 'Nouvel événement' : 'Nouvelle annonce'
+    });
+  });
+  return items;
+}
+
+// Clic sur une notification → on ouvre directement la page correspondante.
+function ouvrirNotification(section) {
+  document.getElementById('notif-panneau')?.classList.remove('ouvert');
+  const lien = document.querySelector(`.nav-item[data-section="${section}"]`);
+  afficherSectionDashboard(section, lien);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function calculerNotificationsNouvelles() {
+  const vus = lireNotificationsVues();
+  return construireNotifications().filter(it => !vus[it.categorie].includes(it.id));
+}
+
+function mettreAJourNotifications() {
+  const nouvelles = calculerNotificationsNouvelles();
+
+  const badge = document.getElementById('notif-badge');
+  if (badge) {
+    if (nouvelles.length > 0) { badge.textContent = nouvelles.length > 99 ? '99+' : nouvelles.length; badge.style.display = ''; }
+    else badge.style.display = 'none';
+  }
+
+  const liste = document.getElementById('notif-liste');
+  if (liste) {
+    liste.innerHTML = nouvelles.length === 0
+      ? '<p class="notif-vide">Aucune nouvelle information.</p>'
+      : nouvelles.map(it => `
+          <div class="notif-item" role="button" tabindex="0" onclick="ouvrirNotification('${NOTIF_SECTION[it.categorie]}')">
+            <span class="notif-item-icone">${it.icone}</span>
+            <div>
+              <span class="notif-item-titre">${it.titre}</span>
+              <span class="notif-item-sous">${it.sousTitre}</span>
+            </div>
+          </div>`).join('');
+  }
+}
+
+function marquerNotificationsLues() {
+  const vus = { note: [], horaire: [], annonce: [], evenement: [] };
+  construireNotifications().forEach(it => vus[it.categorie].push(it.id));
+  const cle = cleNotifications();
+  if (cle) localStorage.setItem(cle, JSON.stringify(vus));
+  const badge = document.getElementById('notif-badge');
+  if (badge) badge.style.display = 'none';
+}
+
+function basculerNotifications(event) {
+  if (event) event.stopPropagation();
+  const panneau = document.getElementById('notif-panneau');
+  if (!panneau) return;
+  const ouvert = panneau.classList.toggle('ouvert');
+  // À l'ouverture, on marque tout comme lu (le badge disparaît) — la liste des
+  // nouvelles infos reste affichée pour cette consultation.
+  if (ouvert) marquerNotificationsLues();
+}
+
+// =====================
+// MENU COMPTE (hamburger) — consultation du cursus (actuel + précédents)
+// =====================
+function libelleNiveau(niveau) {
+  const map = { L1:'Licence 1', L2:'Licence 2', L3:'Licence 3', M1:'Master 1', M2:'Master 2', D1:'Doctorat 1', D2:'Doctorat 2' };
+  return map[niveau] || niveau || '—';
+}
+
+async function chargerCursus() {
+  const etudiant = getEtudiantConnecte();
+  if (!etudiant) return;
+  const prenomEl = document.getElementById('menu-prenom');
+  if (prenomEl) prenomEl.textContent = etudiant.prenom || '';
+
+  try {
+    const r = await fetch(`${BASE_URL}/api/etudiant/${etudiant.id}/cursus`);
+    if (!r.ok) throw new Error();
+    const { actuel, periodes } = await r.json();
+
+    // Par défaut, on consulte le cursus courant de l'étudiant.
+    cursusActif = { niveau: actuel.niveau, annee_academique: actuel.annee_academique };
+    // La zone profil (bleue, à gauche) reflète le cursus courant authoritatif du serveur.
+    majProfilCursus(actuel.niveau, actuel.annee_academique);
+
+    const boutonCursus = (niveau, annee, promotion, estActuel) => `
+      <button class="menu-cursus-item ${estActuel ? 'actif' : ''}"
+              onclick="selectionnerCursus('${niveau}','${annee}')">
+        ${libelleNiveau(niveau)} — ${promotion || ''}
+        <small>${annee}${estActuel ? ' · en cours' : ''}</small>
+      </button>`;
+
+    const conteneurActuel = document.getElementById('menu-cursus-actuel');
+    if (conteneurActuel) conteneurActuel.innerHTML = boutonCursus(actuel.niveau, actuel.annee_academique, actuel.promotion, true);
+
+    // Autres cursus = toutes les périodes sauf celle en cours.
+    const autres = periodes.filter(p => !(p.niveau === actuel.niveau && p.annee_academique === actuel.annee_academique));
+    const conteneurAutres = document.getElementById('menu-cursus-autres');
+    const titreAutres = document.getElementById('menu-autres-titre');
+    if (autres.length === 0) {
+      if (conteneurAutres) conteneurAutres.innerHTML = '';
+      if (titreAutres) titreAutres.style.display = 'none';
+    } else {
+      if (titreAutres) titreAutres.style.display = '';
+      if (conteneurAutres) conteneurAutres.innerHTML = autres.map(p =>
+        boutonCursus(p.niveau, p.annee_academique, actuel.promotion, false)).join('');
+    }
+
+    // Toutes les sections reflètent le cursus courant.
+    rafraichirSectionsCursus();
+  } catch { /* si le cursus ne charge pas, on garde l'affichage complet */ }
+}
+
+// Adapte la zone profil (sidebar, en haut à gauche) au cursus consulté.
+function majProfilCursus(niveau, annee_academique) {
+  const etu = getEtudiantConnecte();
+  const promoEl = document.getElementById('etudiant-promo');
+  if (promoEl) promoEl.textContent = `${niveau} — ${etu?.promotion || ''}`;
+  const anneeEl = document.getElementById('etudiant-annee');
+  if (anneeEl) anneeEl.textContent = annee_academique || '—';
+}
+
+// Titre "Mes notes" indiquant l'année du cursus consulté.
+function majTitreNotes() {
+  const el = document.getElementById('mes-notes-sous-titre');
+  if (el) el.textContent = `Résultats académiques — Année ${cursusActif?.annee_academique || '—'}`;
+}
+
+// Réaffiche toutes les sections filtrées sur le cursus courant.
+function rafraichirSectionsCursus() {
+  const sessionActive = document.querySelector('.filtre-session .filtre-btn.active')?.dataset.session || 'S1';
+  afficherNotesTableau(sessionActive);
+  afficherStatistiquesNotes();
+  afficherDernieresNotes();
+  afficherHoraires();
+  afficherCoursAujourdhui();
+  afficherProgramme();
+  afficherFrais();
+  afficherAnnonces();
+  majTitreNotes();
+}
+
+function selectionnerCursus(niveau, annee_academique) {
+  cursusActif = { niveau, annee_academique };
+  document.getElementById('menu-compte')?.classList.remove('ouvert');
+  // Met en évidence le cursus choisi dans le menu.
+  document.querySelectorAll('.menu-cursus-item').forEach(b => b.classList.remove('actif'));
+  document.querySelectorAll('.menu-cursus-item').forEach(b => {
+    if (b.getAttribute('onclick') === `selectionnerCursus('${niveau}','${annee_academique}')`) b.classList.add('actif');
+  });
+  // La zone profil (bleue, en haut à gauche) reflète le cursus sélectionné.
+  majProfilCursus(niveau, annee_academique);
+  // Toutes les sections (notes, horaires, programme, frais, annonces) suivent.
+  rafraichirSectionsCursus();
+  // Bascule sur "Mes notes".
+  const lien = document.querySelector('.nav-item[data-section="mes-notes"]');
+  afficherSectionDashboard('mes-notes', lien);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function ouvrirDepuisMenuCompte(section) {
+  document.getElementById('menu-compte')?.classList.remove('ouvert');
+  const lien = document.querySelector(`.nav-item[data-section="${section}"]`);
+  afficherSectionDashboard(section, lien);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function basculerMenuCompte(event) {
+  if (event) event.stopPropagation();
+  document.getElementById('menu-compte')?.classList.toggle('ouvert');
+}
+
+// =====================
+// BLOC IA
+// =====================
+function genererAnalyseIA() {
+  const c = document.getElementById('ia-alertes');
+  if (!c) return;
+  const alertes = [];
+
+  notesEtudiant.filter(n=>n.note!==null&&n.note<10).forEach(n => {
+    alertes.push({ type:'danger', icone:'⚠️', texte:`<b>${n.matiere}</b> — ${n.note}/20, en dessous du seuil de réussite (10/20).` });
+  });
+
+  const parJour = {};
+  horairesEtudiant.forEach(h => { parJour[h.jour]=(parJour[h.jour]||0)+1; });
+  Object.entries(parJour).filter(([,nb])=>nb>=2).forEach(([jour,nb]) => {
+    alertes.push({ type:'warn', icone:'⏰', texte:`Charge élevée le <b>${jour}</b> : ${nb} cours programmés.` });
+  });
+
+  notesEtudiant.filter(n=>n.note!==null&&n.note>=15).forEach(n => {
+    alertes.push({ type:'ok', icone:'📈', texte:`Excellente performance en <b>${n.matiere}</b> : ${n.note}/20 !` });
+  });
+
+  if (!alertes.length) {
+    c.innerHTML = '<p class="ia-vide">✅ Aucune alerte — tout va bien ce semestre !</p>';
+  } else {
+    c.innerHTML = alertes.map(a=>`
+      <div class="ia-alerte ${a.type==='danger'?'':a.type}">
+        <span class="ia-alerte-icon">${a.icone}</span>
+        <span class="ia-alerte-texte">${a.texte}</span>
+      </div>`).join('');
+  }
+
+  const el = document.getElementById('ia-heure');
+  if (el) {
+    const now = new Date();
+    el.textContent = `Mise à jour ${String(now.getHours()).padStart(2,'0')}h${String(now.getMinutes()).padStart(2,'0')}`;
+  }
+}
+
+// =====================
+// NAVIGATION DASHBOARD
+// =====================
+function initialiserNavigation() {
+  document.querySelectorAll('.nav-item').forEach(lien => {
+    lien.addEventListener('click', e => {
+      e.preventDefault();
+      const cible = lien.getAttribute('data-section');
+      if (!cible) return;
+      afficherSectionDashboard(cible, lien);
+    });
+  });
+}
+
+async function afficherSectionDashboard(id, lien) {
+  document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const section = document.getElementById(id);
+  if (section) section.classList.add('active');
+  if (lien) lien.classList.add('active');
+
+  // Les informations affichées sont réactualisées à chaque changement de page,
+  // pas seulement au premier chargement du dashboard.
+  const etudiant = getEtudiantConnecte();
+  if (!etudiant) return;
+
+  if (id === 'tableau-de-bord') {
+    await Promise.all([chargerNotesDashboard(etudiant.id), chargerHorairesDashboard(etudiant.id)]);
+    genererAnalyseIA();
+  }
+  if (id === 'mes-notes')  chargerNotesDashboard(etudiant.id);
+  if (id === 'horaires')   chargerHorairesDashboard(etudiant.id);
+  if (id === 'programme')  chargerProgrammeDashboard(etudiant.id);
+  if (id === 'frais')      chargerFraisDashboard(etudiant.id);
+  if (id === 'annonces')   chargerAnnoncesDashboard(etudiant.faculte);
+}
+
+// Alias de compatibilité
+const afficherSection = afficherSectionDashboard;
+
+// =====================
+// CHANGEMENT MOT DE PASSE
+// =====================
+async function changerMotDePasse() {
+  const etudiant = getEtudiantConnecte();
+  if (!etudiant) return;
+
+  const actuel  = document.getElementById('mdp-actuel')?.value;
+  const nouveau = document.getElementById('mdp-nouveau')?.value;
+  const confirm = document.getElementById('mdp-confirm')?.value;
+  const erreur  = document.getElementById('mdp-erreur');
+  const succes  = document.getElementById('mdp-succes');
+
+  if (erreur) erreur.style.display = 'none';
+  if (succes) succes.style.display = 'none';
 
   if (!actuel || !nouveau || !confirm) {
-    afficherToast('⚠️ Veuillez remplir tous les champs.', true);
+    if (erreur) { erreur.textContent = '⚠️ Tous les champs sont requis.'; erreur.style.display = 'block'; }
     return;
   }
 
   if (nouveau !== confirm) {
-    afficherToast('⚠️ Les mots de passe ne correspondent pas.', true);
+    if (erreur) { erreur.textContent = '❌ Les deux nouveaux mots de passe ne correspondent pas.'; erreur.style.display = 'block'; }
     return;
   }
 
   if (nouveau.length < 6) {
-    afficherToast('⚠️ Le mot de passe doit contenir au moins 6 caractères.', true);
+    if (erreur) { erreur.textContent = '❌ Le mot de passe doit contenir au moins 6 caractères.'; erreur.style.display = 'block'; }
     return;
   }
 
-  document.getElementById('mdp-actuel').value  = '';
-  document.getElementById('mdp-nouveau').value = '';
-  document.getElementById('mdp-confirm').value = '';
-
-  afficherToast('✅ Mot de passe modifié avec succès !');
-}
-
-// ===== TOAST NOTIFICATION =====
-function afficherToast(message, erreur = false) {
-  let toast = document.getElementById('toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'toast';
-    toast.className = 'toast';
-    document.body.appendChild(toast);
-  }
-
-  toast.textContent = message;
-  toast.className = 'toast' + (erreur ? ' erreur' : '');
-
-  setTimeout(() => toast.classList.add('visible'), 10);
-  setTimeout(() => toast.classList.remove('visible'), 3500);
-}
-// =====================
-// IA — ANALYSE DU SEMESTRE (basée sur les données réelles)
-// =====================
-
-// Mêmes données que celles affichées dans le tableau "Mes notes"
-const notesEtudiant = [
-  { matiere: "Algorithmique avancée",   note: 15, precedente: 11 },
-  { matiere: "Base de données",          note: 12, precedente: 12 },
-  { matiere: "Réseaux & Télécom",        note: 8,  precedente: 9  },
-  { matiere: "Programmation Web",        note: 16, precedente: 12 },
-  { matiere: "Système d'exploitation",   note: 11, precedente: 11 }
-];
-
-// Cours du jeudi (exemple basé sur vos horaires)
-const chargeJeudi = [
-  { matiere: "Base de données", heure: "10h00" },
-  { matiere: "Intelligence artificielle", heure: "10h00" }
-];
-
-const SEUIL_REUSSITE = 10;
-const SEUIL_PROGRES = 3; // points de progression jugés significatifs
-
-function genererAnalyseIA() {
-  const conteneur = document.getElementById('ia-alertes');
-  const alertes = [];
-
-  // 1. Détection des matières en échec
-  const matieresFaibles = notesEtudiant.filter(n => n.note < SEUIL_REUSSITE);
-  matieresFaibles.forEach(m => {
-    alertes.push({
-      type: 'danger',
-      icone: '⚠️',
-      texte: `<b>${m.matiere}</b> — ${m.note}/20, en dessous du seuil de réussite (10/20).`
+  try {
+    const r = await fetch(`${BASE_URL}/api/auth/etudiant/${etudiant.id}/password`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mot_de_passe_actuel: actuel, nouveau_mot_de_passe: nouveau })
     });
-  });
 
-  // 2. Détection de charge de travail élevée (2+ évaluations le même jour)
-  if (chargeJeudi.length >= 2) {
-    const liste = chargeJeudi.map(c => c.matiere).join(' et ');
-    alertes.push({
-      type: 'warn',
-      icone: '⏰',
-      texte: `Charge de travail élevée <b>jeudi</b> : ${chargeJeudi.length} évaluations le même jour (${liste}).`
-    });
-  }
-
-  // 3. Détection de progression positive
-  notesEtudiant.forEach(m => {
-    const progres = m.note - m.precedente;
-    if (progres >= SEUIL_PROGRES) {
-      alertes.push({
-        type: 'ok',
-        icone: '📈',
-        texte: `Progression constante en <b>${m.matiere}</b> : +${progres} points depuis le dernier contrôle.`
-      });
+    const d = await r.json();
+    if (!r.ok) {
+      if (erreur) { erreur.textContent = '❌ ' + d.erreur; erreur.style.display = 'block'; }
+      return;
     }
-  });
 
-  // Affichage
-  if (alertes.length === 0) {
-    conteneur.innerHTML = '<p class="ia-vide">Aucune alerte particulière — tout va bien ce semestre ! ✅</p>';
-    return;
+    if (succes) { succes.textContent = '✅ Mot de passe changé avec succès !'; succes.style.display = 'block'; }
+    ['mdp-actuel','mdp-nouveau','mdp-confirm'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+
+  } catch {
+    if (erreur) { erreur.textContent = '⚠️ Impossible de contacter le serveur.'; erreur.style.display = 'block'; }
   }
-
-  conteneur.innerHTML = alertes.map(a => `
-    <div class="ia-alerte ${a.type === 'danger' ? '' : a.type}">
-      <span class="ia-alerte-icon">${a.icone}</span>
-      <span class="ia-alerte-texte">${a.texte}</span>
-    </div>
-  `).join('') + `
-    <div class="ia-actions">
-      <button class="ia-action-btn" onclick="afficherSection('horaires', document.querySelectorAll('.nav-item')[2])">
-        📅 Voir mes horaires
-      </button>
-      <button class="ia-action-btn" onclick="afficherSection('mes-notes', document.querySelectorAll('.nav-item')[1])">
-        📝 Voir mes notes
-      </button>
-    </div>
-  `;
 }
-
-// Heure de mise à jour affichée
-function afficherHeureIA() {
-  const maintenant = new Date();
-  const heures = String(maintenant.getHours()).padStart(2, '0');
-  const minutes = String(maintenant.getMinutes()).padStart(2, '0');
-  document.getElementById('ia-heure').textContent = `Mise à jour ${heures}h${minutes}`;
-}
-
-// Lancement au chargement de la page
-document.addEventListener('DOMContentLoaded', () => {
-  genererAnalyseIA();
-  afficherHeureIA();
-});
