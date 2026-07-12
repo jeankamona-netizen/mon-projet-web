@@ -77,7 +77,9 @@ async function chargerAnnoncesPubliques() {
   try {
     const r = await fetch(`${BASE_URL}/api/annonces?actif=true`);
     if (!r.ok) throw new Error();
-    const annonces = await r.json();
+    // Les communiqués sont internes (comptes étudiants/enseignants) : on les
+    // exclut du site public (bandeau d'actualités + galerie d'événements).
+    const annonces = (await r.json()).filter(a => a.type !== 'communique');
 
     if (ticker) {
       if (annonces.length === 0) {

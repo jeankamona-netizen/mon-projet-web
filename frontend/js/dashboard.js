@@ -29,7 +29,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     chargerHorairesDashboard(etudiant.id),
     chargerProgrammeDashboard(etudiant.id),
     chargerFraisDashboard(etudiant.id),
-    chargerAnnoncesDashboard(etudiant.faculte)
+    chargerAnnoncesDashboard(etudiant.faculte),
+    chargerCommuniquesEtudiant()
   ]);
 
   // Les deux jeux de données (notes + horaires) sont nécessaires à l'analyse IA :
@@ -448,7 +449,9 @@ async function chargerAnnoncesDashboard(faculte) {
     if (faculte) params.append('faculte', faculte);
     const r = await fetch(`${BASE_URL}/api/annonces?${params}`);
     if (!r.ok) throw new Error();
-    annoncesEtudiant = await r.json();
+    // Les communiqués (type='communique') n'apparaissent PAS dans la liste
+    // publique des annonces : ils sont réservés à la cloche « Infos ».
+    annoncesEtudiant = (await r.json()).filter(a => a.type !== 'communique');
     afficherAnnonces();
     mettreAJourNotifications();
   } catch {
@@ -457,17 +460,46 @@ async function chargerAnnoncesDashboard(faculte) {
   }
 }
 
+// Communiqués de l'administration destinés aux étudiants → affichés dans la
+// cloche sous la catégorie « Infos » (ne dépendent pas du cursus consulté).
+let communiquesEtudiant = [];
+
+async function chargerCommuniquesEtudiant() {
+  try {
+    const r = await fetch(`${BASE_URL}/api/annonces?type=communique&role=etudiant&actif=true`);
+    if (!r.ok) throw new Error();
+    communiquesEtudiant = await r.json();
+    mettreAJourNotifications();
+    afficherAnnonces();
+  } catch { /* silencieux : la cloche reste fonctionnelle sans communiqués */ }
+}
+
+// Carte « communiqué » : mise en avant (accent jaune + libellé) et affichée en
+// tête de la page Annonces tant que l'admin ne l'a pas désactivée (actif=0).
+function carteCommunique(c) {
+  return `
+    <div class="ia-alerte" style="border-left:4px solid var(--jaune);background:rgba(245,181,32,0.08)">
+      <span class="ia-alerte-icon">📣</span>
+      <span class="ia-alerte-texte">
+        <span style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--jaune);text-transform:uppercase">Communiqué de l'administration</span><br>
+        <b>${c.titre}</b><br>${c.description || ''}
+      </span>
+    </div>`;
+}
+
 function afficherAnnonces() {
   const conteneur = document.getElementById('annonces-liste');
   if (!conteneur) return;
+  // Les communiqués restent affichés (indépendamment du cursus) jusqu'à leur
+  // désactivation par l'admin ; les actualités/événements suivent le cursus.
+  const communiques = (communiquesEtudiant || []).map(carteCommunique).join('');
   const liste = annoncesDuCursus();
-  conteneur.innerHTML = liste.length === 0
-    ? '<p class="ia-vide">Aucune annonce pour ce cursus.</p>'
-    : liste.map(a => `
+  const actualites = liste.map(a => `
         <div class="ia-alerte ok">
           <span class="ia-alerte-icon">${a.icone || '📢'}</span>
           <span class="ia-alerte-texte"><b>${a.titre}</b><br>${a.description}${a.cible_faculte ? ` <em style="color:#999">(${a.cible_faculte})</em>` : ''}</span>
         </div>`).join('');
+  conteneur.innerHTML = (communiques + actualites) || '<p class="ia-vide">Aucune annonce pour le moment.</p>';
 }
 
 // =====================
@@ -482,7 +514,7 @@ function cleNotifications() {
 }
 
 function lireNotificationsVues() {
-  const base = { note: [], horaire: [], annonce: [], evenement: [] };
+  const base = { note: [], horaire: [], annonce: [], evenement: [], info: [] };
   const cle = cleNotifications();
   if (!cle) return base;
   try { return { ...base, ...JSON.parse(localStorage.getItem(cle) || '{}') }; }
@@ -490,7 +522,7 @@ function lireNotificationsVues() {
 }
 
 // Section du dashboard vers laquelle mène chaque type de notification.
-const NOTIF_SECTION = { note: 'mes-notes', horaire: 'horaires', annonce: 'annonces', evenement: 'annonces' };
+const NOTIF_SECTION = { note: 'mes-notes', horaire: 'horaires', annonce: 'annonces', evenement: 'annonces', info: 'annonces' };
 
 function construireNotifications() {
   const items = [];
@@ -511,6 +543,10 @@ function construireNotifications() {
       titre: a.titre, sousTitre: cat === 'evenement' ? 'Nouvel événement' : 'Nouvelle annonce'
     });
   });
+  (communiquesEtudiant || []).forEach(c => items.push({
+    categorie: 'info', id: c.id, icone: '📣',
+    titre: c.titre, sousTitre: c.description || 'Communiqué de l\'administration'
+  }));
   return items;
 }
 
@@ -552,7 +588,7 @@ function mettreAJourNotifications() {
 }
 
 function marquerNotificationsLues() {
-  const vus = { note: [], horaire: [], annonce: [], evenement: [] };
+  const vus = { note: [], horaire: [], annonce: [], evenement: [], info: [] };
   construireNotifications().forEach(it => vus[it.categorie].push(it.id));
   const cle = cleNotifications();
   if (cle) localStorage.setItem(cle, JSON.stringify(vus));

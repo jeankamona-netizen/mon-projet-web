@@ -60,8 +60,9 @@ function afficherSectionProf(id, lien) {
   // Les informations affichées sont réactualisées à chaque changement de page.
   const professeur = getProfesseurConnecte();
   if (!professeur) return;
-  if (id === 'prof-horaire') chargerHoraireProf(professeur.id);
-  if (id === 'prof-notes')   chargerCoursProf();
+  if (id === 'prof-horaire')  chargerHoraireProf(professeur.id);
+  if (id === 'prof-notes')    chargerCoursProf();
+  if (id === 'prof-annonces') chargerAnnoncesProf();
 }
 
 // =====================
@@ -86,26 +87,68 @@ function afficherProfilProf(p) {
 // =====================
 // MON HORAIRE
 // =====================
+let horaireProfCache = [];
+
 async function chargerHoraireProf(id) {
   const tbody = document.getElementById('prof-horaire-body');
   if (!tbody) return;
   try {
     const r = await fetch(`${BASE_URL}/api/professeur/${id}/horaires`);
     if (!r.ok) throw new Error();
-    const horaires = await r.json();
-    tbody.innerHTML = horaires.length === 0
-      ? '<tr><td colspan="5" class="admin-vide">Aucun cours programmé pour le moment.</td></tr>'
-      : horaires.map(h => `
-          <tr>
-            <td><span class="jour-badge">${h.jour}</span></td>
-            <td>${h.heure_debut} – ${h.heure_fin}</td>
-            <td>${h.cours} <span style="color:#999;font-size:11px">(${h.code})</span></td>
-            <td>${h.promotion}</td>
-            <td>${h.salle}</td>
-          </tr>`).join('');
+    horaireProfCache = await r.json();
+    remplirFiltreAnneeHoraireProf();
+    filtrerHoraireProf();
   } catch {
-    tbody.innerHTML = '<tr><td colspan="5" class="admin-vide">⚠️ Impossible de charger votre horaire.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="admin-vide">⚠️ Impossible de charger votre horaire.</td></tr>';
   }
+}
+
+function formaterDateHoraire(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}/${d.getUTCFullYear()}`;
+}
+
+// Le sélecteur d'année n'est peuplé qu'avec les années où le professeur a
+// effectivement des cours programmés (pas la liste globale des années académiques).
+function remplirFiltreAnneeHoraireProf() {
+  const sel = document.getElementById('horaire-filtre-annee');
+  if (!sel) return;
+  const anneeChoisie = sel.value;
+  const annees = [...new Set(horaireProfCache.map(h => h.annee_academique))].sort();
+  sel.innerHTML = '<option value="">Toutes les années</option>' +
+    annees.map(a => `<option value="${a}">${a}</option>`).join('');
+  if (annees.includes(anneeChoisie)) sel.value = anneeChoisie;
+}
+
+function filtrerHoraireProf() {
+  const tbody = document.getElementById('prof-horaire-body');
+  if (!tbody) return;
+
+  const jour  = document.getElementById('horaire-filtre-jour')?.value || '';
+  const mois  = document.getElementById('horaire-filtre-mois')?.value || '';
+  const annee = document.getElementById('horaire-filtre-annee')?.value || '';
+
+  let horaires = horaireProfCache;
+  if (jour)  horaires = horaires.filter(h => h.jour === jour);
+  if (annee) horaires = horaires.filter(h => h.annee_academique === annee);
+  // Le mois est déduit de la date de début du créneau hebdomadaire (pas de
+  // colonne "mois" dédiée : l'horaire est un créneau récurrent, pas une date unique).
+  if (mois !== '') horaires = horaires.filter(h => h.date_debut && new Date(h.date_debut).getUTCMonth() === Number(mois));
+
+  tbody.innerHTML = horaires.length === 0
+    ? '<tr><td colspan="7" class="admin-vide">Aucun cours ne correspond à ces filtres.</td></tr>'
+    : horaires.map(h => `
+        <tr>
+          <td><span class="jour-badge">${h.jour}</span></td>
+          <td>${formaterDateHoraire(h.date_debut)}</td>
+          <td>${h.heure_debut} – ${h.heure_fin}</td>
+          <td>${h.cours} <span style="color:#999;font-size:11px">(${h.code})</span></td>
+          <td>${h.promotion}</td>
+          <td>${h.salle}</td>
+          <td>${h.nb_etudiants ?? 0}</td>
+        </tr>`).join('');
 }
 
 // =====================
@@ -284,6 +327,124 @@ document.addEventListener('DOMContentLoaded', () => {
     if (professeur) {
       afficherProfilProf(professeur);
       chargerHoraireProf(professeur.id);
+      chargerCommuniquesProf();
     }
   }
+
+  // Fermer le panneau de la cloche au clic en dehors.
+  document.addEventListener('click', e => {
+    const wrap = document.querySelector('.dash-notif-wrap');
+    const panneau = document.getElementById('prof-notif-panneau');
+    if (panneau && wrap && !wrap.contains(e.target)) panneau.classList.remove('ouvert');
+  });
 });
+
+// =====================
+// CLOCHE — communiqués de l'administration destinés aux enseignants
+// L'état « vu » est mémorisé par professeur dans localStorage : un communiqué
+// compte comme nouveau tant que l'enseignant n'a pas ouvert la cloche.
+// =====================
+let communiquesProf = [];
+
+async function chargerCommuniquesProf() {
+  try {
+    const r = await fetch(`${BASE_URL}/api/annonces?type=communique&role=professeur&actif=true`);
+    if (!r.ok) throw new Error();
+    communiquesProf = await r.json();
+    majNotifsProf();
+  } catch { /* silencieux */ }
+}
+
+// Page « Annonces » de l'enseignant : reprend les communiqués (destinés aux
+// enseignants) ET les actualités générales de l'UML (annonces + événements).
+let actualitesProf = [];
+
+async function chargerAnnoncesProf() {
+  try {
+    const [ra, rc] = await Promise.all([
+      fetch(`${BASE_URL}/api/annonces?actif=true`),
+      fetch(`${BASE_URL}/api/annonces?type=communique&role=professeur&actif=true`)
+    ]);
+    actualitesProf = ra.ok ? (await ra.json()).filter(a => a.type !== 'communique') : [];
+    communiquesProf = rc.ok ? await rc.json() : communiquesProf;
+    majNotifsProf(); // garde la cloche synchronisée
+  } catch { /* silencieux */ }
+  afficherAnnoncesProf();
+}
+
+function afficherAnnoncesProf() {
+  const zone = document.getElementById('prof-annonces-liste');
+  if (!zone) return;
+  const communiques = (communiquesProf || []).map(c => `
+    <div class="ia-alerte" style="border-left:4px solid var(--jaune);background:rgba(245,181,32,0.08)">
+      <span class="ia-alerte-icon">📣</span>
+      <span class="ia-alerte-texte">
+        <span style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--jaune);text-transform:uppercase">Communiqué de l'administration</span><br>
+        <b>${c.titre}</b><br>${c.description || ''}
+      </span>
+    </div>`).join('');
+  const actualites = (actualitesProf || []).map(a => `
+    <div class="ia-alerte ok">
+      <span class="ia-alerte-icon">${a.icone || '📢'}</span>
+      <span class="ia-alerte-texte"><b>${a.titre}</b><br>${a.description || ''}${a.cible_faculte ? ` <em style="color:#999">(${a.cible_faculte})</em>` : ''}</span>
+    </div>`).join('');
+  zone.innerHTML = (communiques + actualites) || '<p class="ia-vide">Aucune annonce pour le moment.</p>';
+}
+
+function cleNotifsProf() {
+  const p = getProfesseurConnecte();
+  return p ? `notif_vus_prof_${p.id}` : null;
+}
+
+function lireNotifsProfVus() {
+  const cle = cleNotifsProf();
+  if (!cle) return [];
+  try { return JSON.parse(localStorage.getItem(cle) || '[]'); } catch { return []; }
+}
+
+function majNotifsProf() {
+  const vus = lireNotifsProfVus();
+  const nouvelles = communiquesProf.filter(c => !vus.includes(c.id));
+
+  const badge = document.getElementById('prof-notif-badge');
+  if (badge) {
+    if (nouvelles.length > 0) { badge.textContent = nouvelles.length > 99 ? '99+' : nouvelles.length; badge.style.display = ''; }
+    else badge.style.display = 'none';
+  }
+
+  const liste = document.getElementById('prof-notif-liste');
+  if (liste) {
+    liste.innerHTML = communiquesProf.length === 0
+      ? '<p class="notif-vide">Aucune information pour le moment.</p>'
+      : communiquesProf.map(c => `
+          <div class="notif-item" role="button" tabindex="0" onclick="ouvrirAnnoncesProfDepuisCloche()">
+            <span class="notif-item-icone">📣</span>
+            <div>
+              <span class="notif-item-titre">${c.titre}</span>
+              <span class="notif-item-sous">${c.description || ''}</span>
+            </div>
+          </div>`).join('');
+  }
+}
+
+// Clic sur une info dans la cloche → ouverture de la page « Annonces ».
+function ouvrirAnnoncesProfDepuisCloche() {
+  document.getElementById('prof-notif-panneau')?.classList.remove('ouvert');
+  const lien = document.querySelector('.nav-item[onclick*="prof-annonces"]');
+  afficherSectionProf('prof-annonces', lien);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function basculerNotifsProf(event) {
+  if (event) event.stopPropagation();
+  const panneau = document.getElementById('prof-notif-panneau');
+  if (!panneau) return;
+  const ouvert = panneau.classList.toggle('ouvert');
+  // À l'ouverture, tout est marqué comme lu (le badge disparaît).
+  if (ouvert) {
+    const cle = cleNotifsProf();
+    if (cle) localStorage.setItem(cle, JSON.stringify(communiquesProf.map(c => c.id)));
+    const badge = document.getElementById('prof-notif-badge');
+    if (badge) badge.style.display = 'none';
+  }
+}

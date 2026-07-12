@@ -14,7 +14,8 @@ router.get('/', async (req, res) => {
     let sql = `
       SELECT h.id, h.promotion, h.annee_academique, h.jour, h.date_debut,
        h.heure_debut, h.heure_fin, h.salle, h.professeur_id, h.cours_id,
-       c.nom AS cours, p.nom AS professeur
+       c.nom AS cours, p.nom AS professeur, p.prenom AS professeur_prenom,
+       (SELECT COUNT(*) FROM inscription_cours ic WHERE ic.cours_id = c.id) AS nb_etudiants
       FROM horaire h
       JOIN cours c ON h.cours_id = c.id
       LEFT JOIN professeur p ON h.professeur_id = p.id

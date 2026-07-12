@@ -74,6 +74,7 @@ CREATE TABLE etudiant (
   faculte           VARCHAR(150), -- dénormalisé : utilisé par le filtrage admin (server.js)
   annee_academique  VARCHAR(20),  -- ex. "2025-2026"
   statut            VARCHAR(30) DEFAULT 'actif', -- 'actif' | 'diplome' | 'abandon'
+  photo             VARCHAR(255) DEFAULT NULL, -- chemin relatif (uploads/xxx) de la photo pour la carte étudiant
   FOREIGN KEY (filiere_id) REFERENCES filiere(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -203,14 +204,17 @@ CREATE TABLE preinscription (
 -- =====================================================================
 CREATE TABLE annonce (
   id             INT AUTO_INCREMENT PRIMARY KEY,
-  type           ENUM('annonce','evenement') NOT NULL,
+  type           ENUM('annonce','evenement','communique') NOT NULL,
   titre          VARCHAR(200) NOT NULL,
   description    TEXT,
   date_annonce   DATE NOT NULL,
   icone          VARCHAR(10),
   image          VARCHAR(255),
   actif          TINYINT(1) DEFAULT 1,
-  cible_faculte  VARCHAR(150) -- NULL = visible par tous ; sinon restreint à une faculté
+  cible_faculte  VARCHAR(150), -- NULL = visible par tous ; sinon restreint à une faculté
+  -- Destinataire d'un communiqué : 'etudiant', 'professeur' ou 'tous'.
+  -- NULL pour les annonces/événements classiques (non concernés).
+  cible_role     VARCHAR(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================================
@@ -235,9 +239,27 @@ CREATE TABLE paiement (
   montant              DECIMAL(10,2) NOT NULL,
   date_paiement        DATE NOT NULL,
   mode_paiement        VARCHAR(50),  -- ex. Espèces, Virement, Mobile Money
+  rubrique             VARCHAR(100), -- motif du versement (ex. Minerval, Frais de connexion)
   reference            VARCHAR(100),
   commentaire          VARCHAR(255),
   annee_academique     VARCHAR(20),
+  agent_id             INT,          -- caissier ayant encaissé (voir table agent)
   date_enregistrement  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (etudiant_id) REFERENCES etudiant(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================================
+-- AGENT — personnel de l'UML. La colonne `fonction` détermine à quelles
+-- interfaces l'agent a accès (caissier → caisse, administrateur_budget →
+-- consultation/rapports, etc.).
+-- =====================================================================
+CREATE TABLE agent (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  matricule     VARCHAR(30) UNIQUE NOT NULL,
+  noms          VARCHAR(100) NOT NULL,
+  prenom        VARCHAR(100),
+  email         VARCHAR(150),
+  telephone     VARCHAR(30),
+  fonction      VARCHAR(50) NOT NULL, -- 'caissier' | 'administrateur_budget' | ...
+  mot_de_passe  VARCHAR(255) NOT NULL -- hash bcrypt
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

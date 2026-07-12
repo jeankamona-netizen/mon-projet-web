@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Espace Caisse — UML</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/admin.css">
+  <link rel="icon" href="img/logo.png" type="image/png">
+</head>
+<body class="dashboard-body">
+
+  <!-- HEADER -->
+  <header class="dash-header admin-header">
+    <div class="dash-header-left">
+      <img src="img/logo.png" alt="Logo UML" class="dash-logo">
+      <div>
+        <span class="dash-brand">Université Méthodiste de Lubumbashi</span>
+        <span class="dash-brand-sub admin-badge-header">Espace Caisse</span>
+      </div>
+    </div>
+    <div class="dash-header-right">
+      <span id="caisse-agent-nom" style="font-size:13px;color:var(--bleu);font-weight:600;margin-right:14px"></span>
+      <a href="caisse.html" class="dash-deconnexion" onclick="deconnecterCaisse()">Déconnexion</a>
+    </div>
+  </header>
+
+  <!-- LAYOUT -->
+  <div class="dash-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="dash-sidebar">
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" onclick="afficherSectionCaisse('caisse-accueil', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+          Vue d'ensemble
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSectionCaisse('caisse-frais', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><circle cx="12" cy="15" r="1.5"/></svg>
+          Frais &amp; versements
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSectionCaisse('caisse-rapports', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Rapports
+        </a>
+      </nav>
+    </aside>
+
+    <!-- CONTENU -->
+    <main class="dash-main">
+
+      <!-- ===== VUE D'ENSEMBLE ===== -->
+      <section id="caisse-accueil" class="dash-section active">
+        <h2>Vue d'ensemble</h2>
+        <p class="dash-sous-titre">Synthèse des encaissements de l'UML</p>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-icon vert"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+            <span class="stat-valeur" id="cpt-total">—</span>
+            <span class="stat-label">Total encaissé ($)</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon bleu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+            <span class="stat-valeur" id="cpt-versements">—</span>
+            <span class="stat-label">Versements enregistrés</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon jaune"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
+            <span class="stat-valeur" id="cpt-payeurs">—</span>
+            <span class="stat-label">Étudiants ayant payé</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon rouge"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/></svg></span>
+            <span class="stat-valeur" id="cpt-restants">—</span>
+            <span class="stat-label">Sans aucun versement</span>
+          </div>
+        </div>
+
+        <div class="dash-card" style="margin-top:20px">
+          <h3>Encaissements par année académique</h3>
+          <table class="dash-table">
+            <thead><tr><th>Année académique</th><th>Nombre de versements</th><th>Total ($)</th></tr></thead>
+            <tbody id="caisse-par-annee"><tr><td colspan="3" class="admin-vide">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="dash-card" style="margin-top:20px">
+          <h3>Derniers versements</h3>
+          <table class="dash-table">
+            <thead><tr><th>Date</th><th>Étudiant</th><th>Mode</th><th>Montant ($)</th></tr></thead>
+            <tbody id="caisse-recents"><tr><td colspan="4" class="admin-vide">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== FRAIS & VERSEMENTS ===== -->
+      <section id="caisse-frais" class="dash-section">
+        <h2>Frais &amp; versements</h2>
+        <p class="dash-sous-titre">Enregistrez et suivez les paiements des étudiants</p>
+
+        <div class="admin-toolbar" style="flex-wrap:wrap;gap:8px">
+          <input type="text" class="admin-recherche" id="caisse-recherche" placeholder="Rechercher (nom, matricule)..." oninput="chargerEtudiantsCaisse()" style="flex:1 1 220px">
+          <select class="admin-recherche" id="caisse-filtre-annee" onchange="chargerEtudiantsCaisse()" style="flex:0 0 170px"><option value="">Toutes les années</option></select>
+          <select class="admin-recherche" id="caisse-filtre-faculte" onchange="chargerEtudiantsCaisse()" style="flex:0 0 220px">
+            <option value="">Toutes les facultés</option>
+            <option value="Faculté de Théologie">Faculté de Théologie</option>
+            <option value="Sciences Informatiques">Sciences Informatiques</option>
+            <option value="Sciences Économiques">Sciences Économiques</option>
+            <option value="Sciences de l'Éducation & Psychologie">Sciences de l'Éducation & Psychologie</option>
+          </select>
+          <select class="admin-recherche" id="caisse-filtre-niveau" onchange="chargerEtudiantsCaisse()" style="flex:0 0 130px">
+            <option value="">Tous niveaux</option>
+            <option value="L1">L1</option><option value="L2">L2</option><option value="L3">L3</option>
+            <option value="M1">M1</option><option value="M2">M2</option>
+          </select>
+        </div>
+
+        <div class="dash-card">
+          <table class="dash-table">
+            <thead>
+              <tr><th>Matricule</th><th>Étudiant</th><th>Faculté</th><th>Niveau</th><th>Année</th><th>Total versé</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="caisse-etudiants-body"><tr><td colspan="7" class="admin-vide">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== RAPPORTS ===== -->
+      <section id="caisse-rapports" class="dash-section">
+        <h2>Rapports</h2>
+        <p class="dash-sous-titre">Rapports d'encaissement journaliers, mensuels et annuels</p>
+
+        <div class="admin-toolbar" style="flex-wrap:wrap;gap:8px">
+          <select class="admin-recherche" id="rapport-type" onchange="basculerChampRapport()" style="flex:0 0 160px">
+            <option value="jour">Journalier</option>
+            <option value="mois">Mensuel</option>
+            <option value="annee">Annuel</option>
+          </select>
+          <input type="date" class="admin-recherche" id="rapport-jour" style="flex:0 0 180px">
+          <input type="month" class="admin-recherche" id="rapport-mois" style="flex:0 0 180px;display:none">
+          <select class="admin-recherche" id="rapport-annee" style="flex:0 0 140px;display:none"></select>
+          <button class="btn-ajouter" onclick="genererRapport()">Générer</button>
+          <button class="btn-ajouter" id="btn-imprimer-rapport" style="background:var(--bleu);display:none" onclick="imprimerRapport()">🖨️ Imprimer</button>
+        </div>
+
+        <div id="rapport-resultat"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL PAIEMENTS -->
+  <div class="admin-modal-overlay" id="modal-paiements">
+    <div class="admin-modal" style="max-width:560px">
+      <div class="admin-modal-header">
+        <h3>Frais de scolarité — <span id="paiements-nom-etudiant"></span></h3>
+        <button class="admin-modal-close" onclick="fermerModalPaiements()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="paiements-etudiant-id">
+
+      <div style="background:var(--gris,#f2f4f7);border-radius:8px;padding:12px 16px;margin-bottom:16px;text-align:center">
+        <span style="font-size:12px;color:#888">Total versé</span>
+        <div style="font-size:22px;font-weight:700;color:var(--bleu)" id="paiements-total">0 $</div>
+      </div>
+
+      <table class="dash-table" style="margin-bottom:16px">
+        <thead><tr><th>Date</th><th>Montant</th><th>Mode</th><th></th></tr></thead>
+        <tbody id="paiements-body"><tr><td colspan="4" class="admin-vide">Chargement...</td></tr></tbody>
+      </table>
+
+      <div id="paiement-saisie">
+      <p class="form-sous-section">Enregistrer un nouveau versement</p>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Montant ($)</label>
+          <input type="number" min="0" step="0.01" id="paiement-montant">
+        </div>
+        <div class="form-group-dash">
+          <label>Date</label>
+          <input type="date" id="paiement-date">
+        </div>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Motif / Rubrique</label>
+          <select id="paiement-rubrique">
+            <option value="Minerval">Minerval</option>
+            <option value="Frais d'inscription">Frais d'inscription</option>
+            <option value="Frais académiques">Frais académiques</option>
+            <option value="Frais de connexion">Frais de connexion</option>
+            <option value="Frais de laboratoire">Frais de laboratoire</option>
+            <option value="Frais de session">Frais de session</option>
+            <option value="Autre">Autre</option>
+          </select>
+        </div>
+        <div class="form-group-dash">
+          <label>Mode de paiement</label>
+          <select id="paiement-mode">
+            <option>Espèces</option>
+            <option>Virement</option>
+            <option>Mobile Money</option>
+            <option>Chèque</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Référence (optionnel)</label>
+        <input type="text" id="paiement-reference">
+      </div>
+
+      <div class="admin-modal-actions" id="paiement-actions">
+        <button class="btn-sauvegarder" onclick="ajouterPaiementCaisse()">✅ Enregistrer &amp; imprimer le reçu</button>
+      </div>
+      </div><!-- fin #paiement-saisie -->
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/caisse.js"></script>
+</body>
+</html>

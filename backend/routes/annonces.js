@@ -16,7 +16,7 @@ router.post('/image', requireAdmin, upload.single('image'), upload.verifierConte
 // ===== GET /api/annonces — toutes les annonces (avec filtres type/actif/faculté) =====
 router.get('/', async (req, res) => {
   try {
-    const { type, actif, faculte } = req.query;
+    const { type, actif, faculte, role } = req.query;
 
     let sql = 'SELECT * FROM annonce WHERE 1=1';
     const params = [];
@@ -25,6 +25,8 @@ router.get('/', async (req, res) => {
     if (actif !== undefined) { sql += ' AND actif = ?'; params.push(actif === 'true' ? 1 : 0); }
     // faculte fourni → annonces visibles par tous (cible_faculte NULL) OU ciblant cette faculté
     if (faculte) { sql += ' AND (cible_faculte IS NULL OR cible_faculte = ?)'; params.push(faculte); }
+    // role fourni (communiqués) → destinés à ce rôle OU à « tous »
+    if (role) { sql += " AND (cible_role = 'tous' OR cible_role = ?)"; params.push(role); }
 
     sql += ' ORDER BY date_annonce DESC';
 
@@ -39,15 +41,15 @@ router.get('/', async (req, res) => {
 // ===== POST /api/annonces — créer une annonce =====
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { type, titre, description, date_annonce, icone, image, actif, cible_faculte } = req.body;
+    const { type, titre, description, date_annonce, icone, image, actif, cible_faculte, cible_role } = req.body;
 
     if (!type || !titre || !description || !date_annonce) {
       return res.status(400).json({ erreur: "Champs obligatoires manquants." });
     }
 
     const [resultat] = await pool.query(
-      'INSERT INTO annonce (type, titre, description, date_annonce, icone, image, actif, cible_faculte) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [type, titre, description, date_annonce, icone || '📢', image || '', actif !== false, cible_faculte || null]
+      'INSERT INTO annonce (type, titre, description, date_annonce, icone, image, actif, cible_faculte, cible_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [type, titre, description, date_annonce, icone || '📢', image || '', actif !== false, cible_faculte || null, cible_role || null]
     );
 
     res.status(201).json({ message: "Annonce publiée avec succès.", id: resultat.insertId });
@@ -60,11 +62,11 @@ router.post('/', requireAdmin, async (req, res) => {
 // ===== PUT /api/annonces/:id — modifier =====
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
-    const { type, titre, description, date_annonce, icone, image, actif, cible_faculte } = req.body;
+    const { type, titre, description, date_annonce, icone, image, actif, cible_faculte, cible_role } = req.body;
 
     await pool.query(
-      'UPDATE annonce SET type=?, titre=?, description=?, date_annonce=?, icone=?, image=?, actif=?, cible_faculte=? WHERE id=?',
-      [type, titre, description, date_annonce, icone, image, actif, cible_faculte || null, req.params.id]
+      'UPDATE annonce SET type=?, titre=?, description=?, date_annonce=?, icone=?, image=?, actif=?, cible_faculte=?, cible_role=? WHERE id=?',
+      [type, titre, description, date_annonce, icone, image, actif, cible_faculte || null, cible_role || null, req.params.id]
     );
 
     res.json({ message: "Annonce modifiée avec succès." });

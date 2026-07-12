@@ -1,16 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../database');
-const { requireAdmin } = require('../middleware/auth');
-
-// Toutes les routes paiements (gestion) sont réservées à l'admin
-router.use(requireAdmin);
+const { requireFinance, requireCaissier } = require('../middleware/auth');
 
 // ===== GET /api/paiements/etudiant/:id — historique des paiements d'un étudiant =====
-router.get('/etudiant/:id', async (req, res) => {
+// Consultation ouverte aux finances (caisse, budget, admin).
+router.get('/etudiant/:id', requireFinance, async (req, res) => {
   try {
     const [paiements] = await pool.query(
-      'SELECT * FROM paiement WHERE etudiant_id = ? ORDER BY date_paiement DESC',
+      `SELECT p.*, a.noms AS agent_noms, a.prenom AS agent_prenom
+       FROM paiement p LEFT JOIN agent a ON p.agent_id = a.id
+       WHERE p.etudiant_id = ? ORDER BY p.date_paiement DESC, p.id DESC`,
       [req.params.id]
     );
     res.json(paiements);
@@ -19,9 +19,9 @@ router.get('/etudiant/:id', async (req, res) => {
   }
 });
 
-// ===== POST /api/paiements — enregistrer un paiement =====
-router.post('/', async (req, res) => {
-  const { etudiant_id, montant, date_paiement, mode_paiement, reference, commentaire, annee_academique } = req.body;
+// ===== POST /api/paiements — enregistrer un paiement (caissier/admin) =====
+router.post('/', requireCaissier, async (req, res) => {
+  const { etudiant_id, montant, date_paiement, mode_paiement, rubrique, reference, commentaire, annee_academique } = req.body;
 
   if (!etudiant_id || !montant || !date_paiement) {
     return res.status(400).json({ erreur: 'Étudiant, montant et date sont obligatoires.' });
@@ -31,10 +31,12 @@ router.post('/', async (req, res) => {
   }
 
   try {
+    // agent_id vient du token (caissier connecté), jamais du corps de la requête.
+    const agentId = req.utilisateur && req.utilisateur.agent_id ? req.utilisateur.agent_id : null;
     const [r] = await pool.query(
-      `INSERT INTO paiement (etudiant_id, montant, date_paiement, mode_paiement, reference, commentaire, annee_academique)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [etudiant_id, montant, date_paiement, mode_paiement || null, reference || null, commentaire || null, annee_academique || null]
+      `INSERT INTO paiement (etudiant_id, montant, date_paiement, mode_paiement, rubrique, reference, commentaire, annee_academique, agent_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [etudiant_id, montant, date_paiement, mode_paiement || null, rubrique || null, reference || null, commentaire || null, annee_academique || null, agentId]
     );
     res.status(201).json({ message: 'Paiement enregistré.', id: r.insertId });
   } catch (erreur) {
@@ -42,8 +44,8 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ===== DELETE /api/paiements/:id — supprimer un paiement =====
-router.delete('/:id', async (req, res) => {
+// ===== DELETE /api/paiements/:id — supprimer un paiement (caissier/admin) =====
+router.delete('/:id', requireCaissier, async (req, res) => {
   try {
     await pool.query('DELETE FROM paiement WHERE id = ?', [req.params.id]);
     res.json({ message: 'Paiement supprimé.' });

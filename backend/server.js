@@ -9,6 +9,7 @@ const pool      = require('./database');
 const { requireAdmin } = require('./middleware/auth');
 const { journaliserActionsAdmin } = require('./middleware/audit');
 const { genererBulletinPDF } = require('./bulletin');
+const upload    = require('./upload');
 const app       = express();
 
 // =====================
@@ -95,6 +96,8 @@ const paiementsRoutes     = require('./routes/paiements');
 const inscriptionsRoutes  = require('./routes/inscriptions');
 const reinscriptionsRoutes = require('./routes/reinscriptions');
 const anneesRoutes        = require('./routes/annees');
+const caisseRoutes        = require('./routes/caisse');
+const agentsRoutes        = require('./routes/agents');
 
 app.use('/api/auth',           authRoutes);
 app.use('/api/facultes',       facultesRoutes);
@@ -108,6 +111,8 @@ app.use('/api/paiements',      paiementsRoutes);
 app.use('/api/inscriptions',   inscriptionsRoutes);
 app.use('/api/reinscriptions', reinscriptionsRoutes);
 app.use('/api/annees',         anneesRoutes);
+app.use('/api/caisse',         caisseRoutes);
+app.use('/api/agents',         agentsRoutes);
 
 // =====================
 // STATISTIQUES (vue d'ensemble admin)
@@ -224,6 +229,18 @@ app.put('/api/etudiants/:id', requireAdmin, async (req, res) => {
        telephone||null, faculte||null, promotion||null, filiere_id, niveau||null, annee_academique||null, statut||'actif', req.params.id]
     );
     res.json({ message: 'Étudiant mis à jour.' });
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+// Photo de l'étudiant (pour la carte) : téléversée depuis le disque par l'admin,
+// stockée dans frontend/uploads. Chemin relatif enregistré dans etudiant.photo.
+app.post('/api/etudiants/:id/photo', requireAdmin, upload.single('photo'), upload.verifierContenuFichiers, async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ erreur: 'Aucune photo reçue.' });
+    const chemin = 'uploads/' + req.file.filename;
+    const [r] = await pool.query('UPDATE etudiant SET photo = ? WHERE id = ?', [chemin, req.params.id]);
+    if (r.affectedRows === 0) return res.status(404).json({ erreur: 'Étudiant introuvable.' });
+    res.status(201).json({ chemin });
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });
 
@@ -375,8 +392,9 @@ app.get('/api/etudiant/:id/programme', async (req, res) => {
 app.get('/api/professeur/:id/horaires', async (req, res) => {
   try {
     const [horaires] = await pool.query(`
-      SELECT h.id, h.jour, h.heure_debut, h.heure_fin, h.salle, h.promotion, h.annee_academique,
-             c.id AS cours_id, c.nom AS cours, c.code
+      SELECT h.id, h.jour, h.date_debut, h.heure_debut, h.heure_fin, h.salle, h.promotion, h.annee_academique,
+             c.id AS cours_id, c.nom AS cours, c.code,
+             (SELECT COUNT(*) FROM inscription_cours ic WHERE ic.cours_id = c.id) AS nb_etudiants
       FROM horaire h
       JOIN cours c ON h.cours_id = c.id
       WHERE h.professeur_id = ?

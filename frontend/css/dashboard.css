@@ -407,6 +407,65 @@
   font-weight: 600;
 }
 
+/* SOUS-MENU DEROULANT (ex: Gérer les Inscrits) */
+.nav-item-toggle {
+  cursor: pointer;
+}
+
+.nav-chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.nav-item-groupe.open .nav-chevron {
+  transform: rotate(180deg);
+}
+
+.nav-sous-menu {
+  display: none;
+  flex-direction: column;
+  background: #f8f9fc;
+}
+
+.nav-item-groupe.open .nav-sous-menu {
+  display: flex;
+}
+
+.nav-sous-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px 9px 42px;
+  font-size: 12.5px;
+  color: #666;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.nav-sous-item svg {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.nav-sous-item:hover svg,
+.nav-sous-item.active svg {
+  opacity: 1;
+}
+
+.nav-sous-item:hover {
+  background: var(--gris);
+  color: var(--bleu);
+}
+
+.nav-sous-item.active {
+  background: #eef2ff;
+  color: var(--bleu);
+  border-left-color: var(--bleu);
+  font-weight: 600;
+}
+
 /* MAIN */
 .dash-main {
   flex: 1;
@@ -463,6 +522,15 @@
 .stat-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-md);
+}
+
+.stat-card-clickable {
+  cursor: pointer;
+}
+
+.stat-card-clickable:focus-visible {
+  outline: 2px solid var(--bleu);
+  outline-offset: 2px;
 }
 
 .stat-icon {
@@ -666,6 +734,68 @@
 /* HORAIRE TABLE */
 .horaire-table td:first-child {
   white-space: nowrap;
+}
+
+/* Table « Gérer les horaires » (admin) : largeurs fixes pilotées par le
+   <colgroup> pour que les colonnes à faible contenu (année, jour, date,
+   inscrits, actions) restent compactes et laissent la place aux colonnes
+   à texte long ou variable (promotion, heure, cours, professeur, salle).
+   overflow-wrap: break-word est réappliqué en filet de sécurité — un mot
+   isolé trop long (ex. "Amphithéâtre") ne déborde plus sur la colonne
+   suivante ; il est sans effet sur les colonnes nowrap ci-dessous, qui
+   restent toujours sur une seule ligne (white-space:nowrap prime). */
+.horaires-admin-table {
+  table-layout: fixed;
+}
+
+.horaires-admin-table th,
+.horaires-admin-table td {
+  overflow-wrap: break-word;
+}
+
+.horaires-admin-table th:nth-child(2), .horaires-admin-table td:nth-child(2),
+.horaires-admin-table th:nth-child(3), .horaires-admin-table td:nth-child(3),
+.horaires-admin-table th:nth-child(4), .horaires-admin-table td:nth-child(4),
+.horaires-admin-table th:nth-child(9), .horaires-admin-table td:nth-child(9),
+.horaires-admin-table th:nth-child(10), .horaires-admin-table td:nth-child(10) {
+  white-space: nowrap;
+}
+
+/* Espacement supplémentaire entre certaines paires de colonnes trop collées :
+   Année/Jour, Date/Heure, Professeur/Salle */
+.horaires-admin-table th:nth-child(2), .horaires-admin-table td:nth-child(2),
+.horaires-admin-table th:nth-child(4), .horaires-admin-table td:nth-child(4) {
+  padding-right: 22px;
+}
+
+.horaires-admin-table th:nth-child(7), .horaires-admin-table td:nth-child(7) {
+  padding-right: 30px;
+  /* Le nom du professeur ne doit jamais être coupé en syllabes (ex.
+     "MULUMBWA") : seul un retour à la ligne entre prénom et nom est
+     autorisé, jamais une coupure au milieu d'un mot. */
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+/* Heure/Cours : resserrés (pas besoin de la même respiration que les autres) */
+.horaires-admin-table th:nth-child(5), .horaires-admin-table td:nth-child(5) {
+  padding-right: 4px;
+}
+
+.horaires-admin-table th:nth-child(6), .horaires-admin-table td:nth-child(6) {
+  padding-left: 4px;
+}
+
+/* Jour / Année : texte simple sans pastille, même taille que Promotion */
+.horaires-admin-table td:nth-child(3),
+.horaires-admin-table td:nth-child(9) {
+  font-size: 13px;
+  color: #333;
+}
+
+/* Actions bien centrées dans leur colonne */
+.horaires-admin-table .admin-actions-cell {
+  justify-content: center;
 }
 
 .jour-badge {
@@ -1034,6 +1164,20 @@
   .nav-item.active {
     border-left-color: transparent;
     border-bottom-color: var(--bleu);
+  }
+
+  .nav-item-groupe {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .nav-sous-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 200px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    z-index: 20;
   }
 
   .dash-row {

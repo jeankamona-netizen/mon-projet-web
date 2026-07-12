@@ -29,6 +29,74 @@ router.post('/admin', (req, res) => {
 });
 
 // =====================
+// AUTHENTIFICATION CAISSE — identifiants dédiés dans .env (CAISSE_USER/CAISSE_PASS)
+// Rôle 'caisse' : accès au tableau de bord des finances uniquement.
+// =====================
+router.post('/caisse', (req, res) => {
+  const { user, password } = req.body;
+  if (!user || !password)
+    return res.status(400).json({ erreur: 'Identifiant et mot de passe requis.' });
+
+  const caisseUser = process.env.CAISSE_USER;
+  const caissePass = process.env.CAISSE_PASS;
+
+  if (!caisseUser || !caissePass || !process.env.JWT_SECRET)
+    return res.status(500).json({ erreur: 'Configuration caisse manquante côté serveur.' });
+
+  if (user !== caisseUser || password !== caissePass)
+    return res.status(401).json({ erreur: 'Identifiant ou mot de passe incorrect.' });
+
+  const token = jwt.sign({ user: caisseUser, role: 'caisse' }, process.env.JWT_SECRET, { expiresIn: '8h' });
+  res.json({ message: 'Connexion réussie.', token });
+});
+
+// =====================
+// AUTHENTIFICATION AGENT — personnel de l'UML (table agent)
+// La `fonction` détermine le rôle/accès : caissier → caisse, administrateur du
+// budget → consultation/rapports. Connexion par matricule + mot de passe.
+// =====================
+const ROLE_PAR_FONCTION = {
+  caissier: 'caisse',
+  administrateur_budget: 'budget',
+};
+
+router.post('/agent', async (req, res) => {
+  const { matricule, mot_de_passe } = req.body;
+  if (!matricule || !mot_de_passe)
+    return res.status(400).json({ erreur: 'Matricule et mot de passe requis.' });
+  if (!process.env.JWT_SECRET)
+    return res.status(500).json({ erreur: 'Configuration serveur manquante.' });
+
+  try {
+    const [agents] = await pool.query('SELECT * FROM agent WHERE matricule = ?', [matricule]);
+    if (agents.length === 0)
+      return res.status(401).json({ erreur: 'Matricule introuvable.' });
+
+    const agent = agents[0];
+    const valide = await bcrypt.compare(mot_de_passe, agent.mot_de_passe || '');
+    if (!valide)
+      return res.status(401).json({ erreur: 'Mot de passe incorrect.' });
+
+    const role = ROLE_PAR_FONCTION[agent.fonction];
+    if (!role)
+      return res.status(403).json({ erreur: "Votre fonction ne donne accès à aucune interface." });
+
+    const token = jwt.sign(
+      { role, fonction: agent.fonction, agent_id: agent.id, matricule: agent.matricule,
+        nom: `${agent.prenom || ''} ${agent.noms}`.trim() },
+      process.env.JWT_SECRET, { expiresIn: '8h' }
+    );
+    res.json({
+      message: 'Connexion réussie.', token,
+      agent: { id: agent.id, matricule: agent.matricule, noms: agent.noms, prenom: agent.prenom, fonction: agent.fonction, role }
+    });
+  } catch (erreur) {
+    console.error('Erreur auth agent:', erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// =====================
 // AUTHENTIFICATION ÉTUDIANT — mot de passe hashé avec bcrypt
 // =====================
 router.post('/etudiant', async (req, res) => {

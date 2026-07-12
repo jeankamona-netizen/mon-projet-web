@@ -52,30 +52,54 @@
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           Gérer les horaires
         </a>
-        <a href="#" class="nav-item" onclick="afficherSection('admin-annonces', this)">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
-          Annonces & événements
-        </a>
+        <div class="nav-item-groupe">
+          <a href="#" class="nav-item nav-item-toggle" id="nav-inscrits-groupe" onclick="toggleSousMenu(event, this)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Gérer les inscrits
+            <svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </a>
+          <div class="nav-sous-menu">
+            <a href="#" class="nav-sous-item" data-cible="admin-inscrits" onclick="afficherOngletInscrits('admin-inscrits')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Inscrits
+            </a>
+            <a href="#" class="nav-sous-item" data-cible="admin-reinscriptions" onclick="afficherOngletInscrits('admin-reinscriptions')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg> Réinscriptions
+            </a>
+            <a href="#" class="nav-sous-item" data-cible="admin-preinscriptions" onclick="afficherOngletInscrits('admin-preinscriptions')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> Préinscriptions
+            </a>
+          </div>
+        </div>
+        <div class="nav-item-groupe">
+          <a href="#" class="nav-item nav-item-toggle" id="nav-annonces-groupe" onclick="toggleSousMenu(event, this)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+            Partager des informations
+            <svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </a>
+          <div class="nav-sous-menu">
+            <a href="#" class="nav-sous-item" data-cible="annonces-onglet-public" onclick="afficherOngletAnnonces('annonces-onglet-public')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg> Annonces & événements
+            </a>
+            <a href="#" class="nav-sous-item" data-cible="annonces-onglet-communiques" onclick="afficherOngletAnnonces('annonces-onglet-communiques')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> Communiqués
+            </a>
+          </div>
+        </div>
         <a href="#" class="nav-item" onclick="afficherSection('admin-programme', this)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           Programme annuel
         </a>
-        <a href="#" class="nav-item" onclick="afficherSection('admin-preinscriptions', this)">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-          Pré-inscriptions
-        </a>
-        <a href="#" class="nav-item" onclick="afficherSection('admin-inscrits', this)">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Gérer les inscrits
-        </a>
-        <a href="#" class="nav-item" onclick="afficherSection('admin-reinscriptions', this)">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
-          Réinscriptions
-        </a>
+        
         <a href="#" class="nav-item" onclick="afficherSection('admin-attributions', this)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           Attributions des cours
         </a>
+        
+        <a href="#" class="nav-item" onclick="afficherSection('admin-agents', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M5 18a4 4 0 0 1 8 0"/><line x1="15" y1="9" x2="19" y2="9"/><line x1="15" y1="13" x2="19" y2="13"/></svg>
+          Agents (personnel)
+        </a>
+
         <a href="#" class="nav-item" onclick="afficherSection('admin-audit', this)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><polyline points="14 2 14 7 19 7"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
           Journal d'audit
@@ -92,22 +116,30 @@
         <p class="dash-sous-titre">Résumé de l'activité de la plateforme UML</p>
 
         <div class="stats-grid">
-          <div class="stat-card">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="afficherOngletInscrits('admin-inscrits')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
             <span class="stat-icon bleu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
             <span class="stat-valeur" id="cpt-etudiants">—</span>
             <span class="stat-label">Étudiants inscrits</span>
           </div>
-          <div class="stat-card">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="afficherOngletInscrits('admin-preinscriptions')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
             <span class="stat-icon rouge"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></span>
             <span class="stat-valeur" id="cpt-preinscriptions">—</span>
             <span class="stat-label">Pré-inscriptions en attente</span>
           </div>
-          <div class="stat-card">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="allerVersSection('admin-programme')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
             <span class="stat-icon jaune"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
             <span class="stat-valeur" id="cpt-cours">—</span>
             <span class="stat-label">Cours programmés</span>
           </div>
-          <div class="stat-card">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="afficherOngletAnnonces('annonces-onglet-public')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
             <span class="stat-icon vert"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></span>
             <span class="stat-valeur" id="cpt-annonces">—</span>
             <span class="stat-label">Annonces actives</span>
@@ -117,6 +149,7 @@
         <div class="dash-card" style="margin-top:20px">
           <h3>Répartition des étudiants par faculté et filière</h3>
           <canvas id="graphique-facultes" height="110"></canvas>
+          <div id="stats-facultes"></div>
         </div>
 
         <div class="dash-row" style="margin-top:20px">
@@ -257,17 +290,30 @@
         </div>
 
         <div class="dash-card">
-          <table class="dash-table">
+          <table class="dash-table horaires-admin-table">
+            <colgroup>
+              <col style="width:14%">
+              <col style="width:6%">
+              <col style="width:7%">
+              <col style="width:10%">
+              <col style="width:8%">
+              <col style="width:13%">
+              <col style="width:17%">
+              <col style="width:9%">
+              <col style="width:9%">
+              <col style="width:7%">
+            </colgroup>
             <thead>
               <tr>
                 <th>Promotion</th>
-                <th>Année</th>
+                <th>N°</th>
                 <th>Jour</th>
-                <th>Date de début</th>
+                <th>Date</th>
                 <th>Heure</th>
                 <th>Cours</th>
                 <th>Professeur</th>
                 <th>Salle</th>
+                <th>Année</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -281,29 +327,61 @@
         <h2>Annonces & événements</h2>
         <p class="dash-sous-titre">Ce contenu alimente le bandeau d'actualités et la galerie du site public</p>
 
-        <div class="admin-toolbar">
-          <select class="admin-recherche" id="filtre-type-annonce" style="flex:0 0 180px">
-            <option value="">Tous les types</option>
-            <option value="annonce">Annonce</option>
-            <option value="evenement">Événement</option>
-          </select>
-          <button class="btn-ajouter" onclick="ouvrirModalAnnonce()">+ Nouvelle annonce</button>
+        <!-- ONGLET 1 : ANNONCES & ÉVÉNEMENTS (site public) -->
+        <div class="notes-onglet-contenu active" id="annonces-onglet-public">
+          <div class="admin-toolbar">
+            <select class="admin-recherche" id="filtre-type-annonce" style="flex:0 0 180px" onchange="chargerAnnonces()">
+              <option value="">Tous les types</option>
+              <option value="annonce">Annonce</option>
+              <option value="evenement">Événement</option>
+            </select>
+            <button class="btn-ajouter" onclick="ouvrirModalAnnonce()">+ Nouvelle annonce</button>
+          </div>
+
+          <div class="dash-card">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>Titre</th>
+                  <th>Type</th>
+                  <th>Date</th>
+                  <th>Cible</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-annonces-body"></tbody>
+            </table>
+          </div>
         </div>
 
-        <div class="dash-card">
-          <table class="dash-table">
-            <thead>
-              <tr>
-                <th>Titre</th>
-                <th>Type</th>
-                <th>Date</th>
-                <th>Cible</th>
-                <th>Statut</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="admin-annonces-body"></tbody>
-          </table>
+        <!-- ONGLET 2 : COMMUNIQUÉS (comptes étudiants / enseignants) -->
+        <div class="notes-onglet-contenu" id="annonces-onglet-communiques">
+          <p class="dash-sous-titre" style="margin-top:0">Messages internes affichés dans la cloche de notifications des étudiants et des enseignants</p>
+          <div class="admin-toolbar">
+            <select class="admin-recherche" id="filtre-role-communique" style="flex:0 0 220px" onchange="chargerCommuniques()">
+              <option value="">Tous les destinataires</option>
+              <option value="etudiant">Étudiants</option>
+              <option value="professeur">Enseignants</option>
+              <option value="tous">Tout le monde</option>
+            </select>
+            <button class="btn-ajouter" onclick="ouvrirModalCommunique()">+ Nouveau communiqué</button>
+          </div>
+
+          <div class="dash-card">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>Titre</th>
+                  <th>Destinataires</th>
+                  <th>Date</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-communiques-body"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -396,7 +474,7 @@
 
       <!-- ==================== PRE-INSCRIPTIONS ==================== -->
       <section id="admin-preinscriptions" class="dash-section">
-        <h2>Pré-inscriptions reçues</h2>
+        <h2>Gérer les Pré-Inscrits</h2>
         <p class="dash-sous-titre">Dossiers soumis par les candidats depuis le site public</p>
 
         <div class="admin-toolbar">
@@ -433,7 +511,7 @@
 
       <!-- ==================== GERER LES INSCRITS ==================== -->
       <section id="admin-inscrits" class="dash-section">
-        <h2>Gérer les étudiants inscrits</h2>
+        <h2>Gérer les Inscrits</h2>
         <p class="dash-sous-titre">Consultez et modifiez les informations des étudiants inscrits</p>
 
         <div class="admin-toolbar">
@@ -485,7 +563,7 @@
 
       <!-- ==================== RÉINSCRIPTIONS ==================== -->
       <section id="admin-reinscriptions" class="dash-section">
-        <h2>Réinscriptions</h2>
+        <h2>Gérer les Inscrits</h2>
         <p class="dash-sous-titre">Faire monter un étudiant de promotion, ou inscrire un nouvel étudiant directement à un niveau supérieur</p>
 
         <div class="reins-sous-onglets">
@@ -688,10 +766,87 @@
         </div>
       </section>
 
+      <!-- ==================== AGENTS (PERSONNEL) ==================== -->
+      <section id="admin-agents" class="dash-section">
+        <h2>Agents (personnel)</h2>
+        <p class="dash-sous-titre">La fonction de chaque agent détermine les interfaces auxquelles il accède</p>
+
+        <div class="admin-toolbar">
+          <button class="btn-ajouter" onclick="ouvrirModalAgent()">+ Nouvel agent</button>
+        </div>
+
+        <div class="dash-card">
+          <table class="dash-table">
+            <thead>
+              <tr><th>Matricule</th><th>Noms &amp; prénom</th><th>Fonction</th><th>Email</th><th>Téléphone</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="admin-agents-body"><tr><td colspan="6" class="admin-vide">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
     </main>
   </div>
 
   <!-- ==================== MODALS ==================== -->
+
+  <!-- MODAL AGENT -->
+  <div class="admin-modal-overlay" id="modal-agent">
+    <div class="admin-modal" style="max-width:480px">
+      <div class="admin-modal-header">
+        <h3 id="modal-agent-titre">Nouvel agent</h3>
+        <button class="admin-modal-close" onclick="fermerModalAgent()" aria-label="Fermer">✕</button>
+      </div>
+      <input type="hidden" id="agent-id-edit">
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Matricule <span style="color:var(--rouge)">*</span></label>
+          <input type="text" id="agent-matricule" placeholder="ex : CAI-002">
+        </div>
+        <div class="form-group-dash">
+          <label>Fonction <span style="color:var(--rouge)">*</span></label>
+          <select id="agent-fonction">
+            <option value="caissier">Caissier</option>
+            <option value="administrateur_budget">Administrateur du budget</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Noms <span style="color:var(--rouge)">*</span></label>
+          <input type="text" id="agent-noms" placeholder="Nom de famille">
+        </div>
+        <div class="form-group-dash">
+          <label>Prénom</label>
+          <input type="text" id="agent-prenom" placeholder="Prénom">
+        </div>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Email</label>
+          <input type="email" id="agent-email" placeholder="agent@uml.cd">
+        </div>
+        <div class="form-group-dash">
+          <label>Téléphone</label>
+          <input type="tel" id="agent-telephone" placeholder="+243...">
+        </div>
+      </div>
+
+      <div class="form-group-dash">
+        <label id="agent-mdp-label">Mot de passe <span style="color:var(--rouge)">*</span></label>
+        <input type="password" id="agent-mot-de-passe" placeholder="Min. 6 caractères">
+        <p class="form-aide" id="agent-mdp-aide" style="font-size:.8rem;color:#888;margin:.3rem 0 0;display:none">Laissez vide pour conserver le mot de passe actuel.</p>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalAgent()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="sauvegarderAgent()">✅ Enregistrer</button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL AJOUT/MODIFICATION NOTE -->
   <div class="admin-modal-overlay" id="modal-note">
@@ -1001,6 +1156,50 @@
     </div>
   </div>
 
+  <!-- MODAL COMMUNIQUÉ (comptes étudiants / enseignants) -->
+  <div class="admin-modal-overlay" id="modal-communique">
+    <div class="admin-modal">
+      <h3 id="modal-communique-titre">Nouveau communiqué</h3>
+      <input type="hidden" id="communique-id-edit">
+
+      <div class="form-group-dash">
+        <label>Titre <span style="color:var(--rouge)">*</span></label>
+        <input type="text" id="communique-titre" placeholder="Ex : Suspension des cours vendredi">
+      </div>
+
+      <div class="form-group-dash">
+        <label>Message <span style="color:var(--rouge)">*</span></label>
+        <textarea id="communique-message" rows="4" placeholder="Contenu du communiqué..."></textarea>
+      </div>
+
+      <div class="form-row-dash">
+        <div class="form-group-dash">
+          <label>Destinataires <span style="color:var(--rouge)">*</span></label>
+          <select id="communique-role">
+            <option value="etudiant">Étudiants</option>
+            <option value="professeur">Enseignants</option>
+            <option value="tous">Étudiants et enseignants</option>
+          </select>
+        </div>
+        <div class="form-group-dash">
+          <label>Date</label>
+          <input type="date" id="communique-date">
+        </div>
+      </div>
+
+      <div class="form-group-dash">
+        <label class="checkbox-label">
+          <input type="checkbox" id="communique-actif" checked> Visible sur les comptes (actif)
+        </label>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalCommunique()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="sauvegarderCommunique()">📣 Diffuser</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL AJOUT/MODIFICATION PROGRAMME -->
   <div class="admin-modal-overlay" id="modal-programme">
     <div class="admin-modal">
@@ -1028,6 +1227,14 @@
             <option value="">— Toute la faculté (cours commun) —</option>
           </select>
         </div>
+      </div>
+
+      <!-- Programmation multi-facultés : on ajoute plusieurs couples faculté/filière ;
+           le cours est créé (et les étudiants inscrits) pour chacun. -->
+      <div id="prog-cibles-bloc" class="form-group-dash">
+        <button type="button" class="btn-ajouter" style="background:var(--vert)" onclick="ajouterCibleProgramme()">+ Programmer aussi pour cette faculté/filière</button>
+        <p class="info" style="margin:6px 0 0">Le cours sera programmé pour chaque faculté/filière listée ci-dessous, ainsi que pour la sélection ci-dessus. Utile pour un cours commun à plusieurs facultés.</p>
+        <div id="prog-cibles-liste" class="prog-cibles" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
       </div>
 
       <div class="form-row-admin">
@@ -1271,6 +1478,14 @@
         </select>
       </div>
 
+      <div class="form-group-dash">
+        <label>Photo (pour la carte étudiant)</label>
+        <input type="file" id="inscrit-photo-fichier" accept="image/jpeg,image/png,.jpg,.jpeg,.png" onchange="apercuPhotoInscrit(this)">
+        <input type="hidden" id="inscrit-photo">
+        <p class="form-aide" style="font-size:.8rem;color:#888;margin:.3rem 0 0">JPG ou PNG, 5 Mo max. Laissez vide pour conserver la photo actuelle.</p>
+        <div id="inscrit-photo-apercu" style="margin-top:.5rem"></div>
+      </div>
+
       <div class="admin-modal-actions">
         <button class="btn-annuler" onclick="fermerModalInscrit()">Annuler</button>
         <button class="btn-sauvegarder" onclick="sauvegarderInscrit()">✅ Enregistrer</button>
@@ -1420,6 +1635,7 @@
   <script src="js/icons.js"></script>
   <script src="js/ui.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
   <script src="js/login.js"></script>
   <script src="js/admin.js"></script>
 </body>

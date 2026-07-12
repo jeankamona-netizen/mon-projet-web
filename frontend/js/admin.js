@@ -124,7 +124,8 @@ async function chargerAnnees() {
 // =====================
 function afficherSection(id, lien) {
   document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.nav-item, .nav-sous-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.nav-item-groupe.open').forEach(g => g.classList.remove('open'));
   document.getElementById(id)?.classList.add('active');
   lien?.classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -133,11 +134,60 @@ function afficherSection(id, lien) {
   if (id === 'admin-notes')           { chargerNotes(); chargerResumeBulletins(); }
   if (id === 'admin-horaires')        chargerHoraires();
   if (id === 'admin-programme')       chargerProgramme();
-  if (id === 'admin-annonces')        chargerAnnonces();
   if (id === 'admin-preinscriptions') chargerPreinscriptions();
   if (id === 'admin-inscrits')        chargerInscrits();
   if (id === 'admin-attributions')    chargerAttributions();
   if (id === 'admin-audit')           chargerAuditLog();
+  if (id === 'admin-agents')          chargerAgents();
+}
+
+// Sous-menu déroulant « Gérer les Inscrits » : Inscriptions / Réinscriptions /
+// Préinscriptions. On réutilise les 3 sections existantes ; l'item de menu
+// latéral « Gérer les Inscrits » reste actif et ouvert quel que soit l'onglet.
+// Utilisé par les cartes-statistiques cliquables de la Vue d'ensemble pour
+// rejoindre une section dont le lien de menu latéral est un <a> simple.
+function allerVersSection(id) {
+  const lien = document.querySelector(`.nav-item[onclick*="'${id}'"]`);
+  afficherSection(id, lien);
+}
+
+function toggleSousMenu(event, lien) {
+  event.preventDefault();
+  const groupe = lien.closest('.nav-item-groupe');
+  const etaitOuvert = groupe?.classList.contains('open');
+  document.querySelectorAll('.nav-item-groupe.open').forEach(g => g.classList.remove('open'));
+  if (!etaitOuvert) groupe?.classList.add('open');
+}
+
+function afficherOngletInscrits(id) {
+  document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item, .nav-sous-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id)?.classList.add('active');
+  document.getElementById('nav-inscrits-groupe')?.classList.add('active');
+  document.getElementById('nav-inscrits-groupe')?.closest('.nav-item-groupe')?.classList.add('open');
+  document.querySelector(`.nav-sous-item[data-cible="${id}"]`)?.classList.add('active');
+  if (id === 'admin-inscrits')        chargerInscrits();
+  if (id === 'admin-preinscriptions') chargerPreinscriptions();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Sous-menu déroulant « Annonces & événements » : Annonces / Communiqués.
+// Les deux onglets vivent dans la même section admin-annonces ; seul le
+// contenu interne (.notes-onglet-contenu) bascule.
+function afficherOngletAnnonces(id) {
+  document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item, .nav-sous-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('admin-annonces')?.classList.add('active');
+  document.getElementById('nav-annonces-groupe')?.classList.add('active');
+  document.getElementById('nav-annonces-groupe')?.closest('.nav-item-groupe')?.classList.add('open');
+  document.querySelector(`.nav-sous-item[data-cible="${id}"]`)?.classList.add('active');
+
+  document.querySelectorAll('#admin-annonces .notes-onglet-contenu').forEach(el => el.classList.remove('active'));
+  document.getElementById(id)?.classList.add('active');
+
+  if (id === 'annonces-onglet-public')      chargerAnnonces();
+  if (id === 'annonces-onglet-communiques') chargerCommuniques();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // =====================
@@ -205,12 +255,50 @@ async function chargerGraphiqueFacultes() {
       stack: 'etudiants',
     }));
 
+    // Totaux par faculté (affichés en chiffres au-dessus de chaque colonne).
+    const totauxFac = facultes.map(fac => Object.values(parFacFil[fac]).reduce((s, n) => s + n, 0));
+    const totalGeneral = totauxFac.reduce((s, n) => s + n, 0);
+
+    // Plugin inline : écrit le total de chaque faculté au sommet de sa barre,
+    // et le nombre de chaque segment de filière (si assez de place).
+    const pluginChiffres = {
+      id: 'chiffresFacultes',
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        ctx.save();
+        ctx.textAlign = 'center';
+        // Nombre par segment de filière.
+        ctx.font = '600 10px Segoe UI, Arial';
+        chart.data.datasets.forEach((ds, di) => {
+          const meta = chart.getDatasetMeta(di);
+          meta.data.forEach((bar, i) => {
+            const v = ds.data[i];
+            if (!v) return;
+            const h = Math.abs(bar.base - bar.y);
+            if (h < 14) return; // segment trop fin pour un chiffre lisible
+            ctx.fillStyle = '#fff';
+            ctx.fillText(v, bar.x, (bar.y + bar.base) / 2 + 3);
+          });
+        });
+        // Total de la faculté au-dessus de la colonne.
+        ctx.font = '800 12px Segoe UI, Arial';
+        ctx.fillStyle = '#1a3a6b';
+        const meta0 = chart.getDatasetMeta(0);
+        meta0.data.forEach((bar, i) => {
+          const yTop = chart.scales.y.getPixelForValue(totauxFac[i]);
+          ctx.fillText(totauxFac[i], bar.x, yTop - 5);
+        });
+        ctx.restore();
+      }
+    };
+
     if (graphiqueFacultes) graphiqueFacultes.destroy();
     graphiqueFacultes = new Chart(canvas, {
       type: 'bar',
       data: { labels: facultes, datasets },
       options: {
         responsive: true,
+        layout: { padding: { top: 18 } },
         plugins: {
           legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 }, padding: 8 } },
           tooltip: { callbacks: { label: ctx => `${ctx.dataset.label} : ${ctx.parsed.y} étudiant(s)` } }
@@ -219,11 +307,49 @@ async function chargerGraphiqueFacultes() {
           x: { stacked: true, ticks: { font: { size: 10 } } },
           y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
         }
-      }
+      },
+      plugins: [pluginChiffres]
     });
+
+    // Tableau de statistiques (chiffres) sous le graphique.
+    afficherStatsFacultes(parFacFil, facultes, totauxFac, totalGeneral, filieres.length);
   } catch (erreur) {
     console.error('chargerGraphiqueFacultes:', erreur);
   }
+}
+
+// Tableau récapitulatif : nombre d'étudiants par filière au sein de chaque
+// faculté, sous-total par faculté, et total général.
+function afficherStatsFacultes(parFacFil, facultes, totauxFac, totalGeneral, nbFilieres) {
+  const zone = document.getElementById('stats-facultes');
+  if (!zone) return;
+  if (!totalGeneral) { zone.innerHTML = '<p class="admin-vide" style="margin-top:12px">Aucun étudiant inscrit.</p>'; return; }
+
+  const blocs = facultes.map((fac, i) => {
+    const filieres = Object.entries(parFacFil[fac]).sort((a, b) => b[1] - a[1]);
+    const lignes = filieres.map(([fil, n]) => {
+      const pct = Math.round((n / totalGeneral) * 100);
+      return `<tr><td style="padding-left:22px">${fil}</td><td style="text-align:right">${n}</td><td style="text-align:right;color:#888">${pct}%</td></tr>`;
+    }).join('');
+    return `
+      <tr style="background:var(--gris,#f2f4f7)">
+        <td><strong>${fac}</strong></td>
+        <td style="text-align:right"><strong>${totauxFac[i]}</strong></td>
+        <td style="text-align:right;color:#888">${Math.round((totauxFac[i] / totalGeneral) * 100)}%</td>
+      </tr>${lignes}`;
+  }).join('');
+
+  zone.innerHTML = `
+    <p class="dash-sous-titre" style="margin:16px 0 8px">
+      ${totalGeneral} étudiant(s) inscrits · ${facultes.length} faculté(s) · ${nbFilieres} filière(s)
+    </p>
+    <table class="dash-table">
+      <thead><tr><th>Faculté / Filière</th><th style="text-align:right">Étudiants</th><th style="text-align:right">%</th></tr></thead>
+      <tbody>
+        ${blocs}
+        <tr style="border-top:2px solid var(--bleu)"><td><strong>Total général</strong></td><td style="text-align:right"><strong>${totalGeneral}</strong></td><td style="text-align:right">100%</td></tr>
+      </tbody>
+    </table>`;
 }
 
 let graphiqueEvolution = null;
@@ -634,7 +760,7 @@ let horairesAdmin = [];
 async function chargerHoraires() {
   const tbody = document.getElementById('admin-horaires-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="10" class="admin-vide">Chargement...</td></tr>`;
   try {
     const annee  = document.getElementById('filtre-annee')?.value  || '';
     const niveau = document.getElementById('filtre-niveau')?.value || '';
@@ -647,23 +773,24 @@ async function chargerHoraires() {
     if (!r.ok) throw new Error();
     horairesAdmin = await r.json();
     afficherTableauHoraires();
-  } catch { tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">⚠️ Impossible de charger les horaires.</td></tr>`; }
+  } catch { tbody.innerHTML = `<tr><td colspan="10" class="admin-vide">⚠️ Impossible de charger les horaires.</td></tr>`; }
 }
 
 function afficherTableauHoraires(liste = horairesAdmin) {
   const tbody = document.getElementById('admin-horaires-body');
   if (!tbody) return;
-  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">Aucun cours programmé.</td></tr>`; return; }
+  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="10" class="admin-vide">Aucun cours programmé.</td></tr>`; return; }
   tbody.innerHTML = liste.map(h => `
     <tr>
       <td><strong>${h.promotion}</strong></td>
-      <td><span class="annee-badge">${h.annee_academique}</span></td>
-      <td><span class="jour-badge">${h.jour}</span></td>
+      <td>${h.nb_etudiants ?? 0}</td>
+      <td>${h.jour}</td>
       <td>${formaterDate(h.date_debut)}</td>
-      <td>${h.heure_debut} – ${h.heure_fin}</td>
+      <td>${h.heure_debut.slice(0,5)}<br>${h.heure_fin.slice(0,5)}</td>
       <td>${h.cours}</td>
-      <td>${h.professeur||'—'}${h.grade?' ('+h.grade+')':''}</td>
+      <td>${h.professeur ? (h.professeur_prenom ? h.professeur_prenom+' ' : '')+h.professeur : '—'}</td>
       <td>${h.salle}</td>
+      <td>${h.annee_academique}</td>
       <td class="admin-actions-cell">
         <button class="btn-icone" onclick="modifierHoraire(${h.id})" aria-label="Modifier">${icone('crayon')}</button>
         <button class="btn-icone danger" onclick="supprimerHoraire(${h.id})" aria-label="Supprimer">${icone('corbeille')}</button>
@@ -962,6 +1089,36 @@ function chargerFilieresPourProgramme() {
   sel.innerHTML = '<option value="">— Toute la faculté (cours commun) —</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join('');
 }
 
+// Cibles supplémentaires (faculté + filière) pour programmer un même cours dans
+// plusieurs facultés/filières d'un coup. Vidé à chaque ouverture du modal.
+let ciblesProgramme = [];
+
+function afficherCiblesProgramme() {
+  const zone = document.getElementById('prog-cibles-liste');
+  if (!zone) return;
+  zone.innerHTML = ciblesProgramme.map((c, i) => `
+    <span class="annee-badge" style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px">
+      🎯 ${c.faculte}${c.filiere ? ' · ' + c.filiere : ' · toute la faculté'}
+      <button type="button" onclick="retirerCibleProgramme(${i})" aria-label="Retirer" style="border:none;background:none;cursor:pointer;color:var(--rouge);font-weight:bold">✕</button>
+    </span>`).join('');
+}
+
+function ajouterCibleProgramme() {
+  const faculte = document.getElementById('prog-faculte')?.value || '';
+  const filiere = document.getElementById('prog-filiere')?.value || '';
+  if (!faculte) { afficherToast('⚠️ Choisissez d\'abord une faculté.', 'erreur'); return; }
+  if (ciblesProgramme.some(c => c.faculte === faculte && (c.filiere || '') === filiere)) {
+    afficherToast('ℹ️ Cette faculté/filière est déjà dans la liste.', 'erreur'); return;
+  }
+  ciblesProgramme.push({ faculte, filiere: filiere || null });
+  afficherCiblesProgramme();
+}
+
+function retirerCibleProgramme(i) {
+  ciblesProgramme.splice(i, 1);
+  afficherCiblesProgramme();
+}
+
 function ouvrirModalProgramme() {
   document.getElementById('modal-programme-titre').textContent = 'Ajouter un cours';
   ['prog-id-edit','prog-code','prog-credits','prog-nom'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
@@ -970,6 +1127,9 @@ function ouvrirModalProgramme() {
   document.getElementById('prog-niveau').value='L1';
   document.getElementById('prog-annee').value='2025-2026';
   document.getElementById('prog-semestre').value='S1';
+  ciblesProgramme = [];
+  afficherCiblesProgramme();
+  const bloc = document.getElementById('prog-cibles-bloc'); if (bloc) bloc.style.display = ''; // visible en création
   document.getElementById('modal-programme')?.classList.add('active');
 }
 
@@ -987,6 +1147,10 @@ function modifierProgramme(id) {
   document.getElementById('prog-niveau').value   = p.niveau || 'L1';
   document.getElementById('prog-annee').value    = p.annee_academique;
   document.getElementById('prog-semestre').value = p.semestre;
+  // En modification, on ne touche qu'à ce cours : le multi-cibles est masqué.
+  ciblesProgramme = [];
+  afficherCiblesProgramme();
+  const bloc = document.getElementById('prog-cibles-bloc'); if (bloc) bloc.style.display = 'none';
   document.getElementById('modal-programme')?.classList.add('active');
 }
 
@@ -1003,12 +1167,22 @@ async function sauvegarderProgramme() {
   const annee_academique = document.getElementById('prog-annee').value;
   const semestre = document.getElementById('prog-semestre').value;
   if (!code||!nom||!faculte||isNaN(credits)||credits<1) { afficherToast('⚠️ Remplissez tous les champs, dont la faculté.', 'erreur'); return; }
+  // En création, on programme le cours pour la sélection courante PLUS toutes les
+  // cibles ajoutées à la liste (une ou plusieurs facultés/filières à la fois).
+  const cibles = [{ faculte, filiere: filiere || null }, ...ciblesProgramme]
+    .filter((c, i, arr) => arr.findIndex(x => x.faculte === c.faculte && (x.filiere||'') === (c.filiere||'')) === i);
+  const corps = idEdit
+    ? { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits }
+    : { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits, cibles };
   try {
     const r = await fetchAdmin(idEdit?`${BASE_URL}/api/programme/${idEdit}`:`${BASE_URL}/api/programme`,
-      { method:idEdit?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({code,nom,faculte,filiere,niveau,annee_academique,semestre,credits}) });
+      { method:idEdit?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(corps) });
     const d = await r.json();
     if (!r.ok) { afficherToast('⚠️ '+d.erreur, 'erreur'); return; }
-    afficherToast(idEdit?'✅ Modifié !':`✅ Ajouté ! (${d.etudiantsInscrits||0} étudiant(s) inscrit(s) automatiquement)`);
+    const msgDup = d.doublons && d.doublons.length ? ` — déjà existant pour : ${d.doublons.join(', ')}` : '';
+    afficherToast(idEdit
+      ? '✅ Modifié !'
+      : `✅ Programmé pour ${d.coursCrees||1} faculté(s)/filière(s) ! (${d.etudiantsInscrits||0} étudiant(s) inscrit(s))${msgDup}`);
     // On aligne les filtres sur le cours ajouté/modifié pour qu'il soit
     // immédiatement visible (sinon il resterait masqué derrière le message).
     vueGroupeeProgramme = false;
@@ -1150,7 +1324,9 @@ async function chargerAnnonces() {
     const params = new URLSearchParams();
     if (type) params.append('type',type);
     const r = await fetch(`${BASE_URL}/api/annonces?${params}`);
-    annoncesAdmin = await r.json();
+    // Les communiqués (destinés aux comptes internes) ont leur propre onglet :
+    // on ne les mélange pas au contenu public annonces/événements.
+    annoncesAdmin = (await r.json()).filter(a => a.type !== 'communique');
     afficherTableauAnnonces();
   } catch { tbody.innerHTML=`<tr><td colspan="5" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
@@ -1272,6 +1448,96 @@ async function toggleActifAnnonce(id) {
 async function supprimerAnnonce(id) {
   if (!await confirmerAction('Supprimer cette annonce ? Cette action est irréversible.', { titre: 'Supprimer l\'annonce', texteConfirmer: 'Supprimer' })) return;
   try { await fetchAdmin(`${BASE_URL}/api/annonces/${id}`,{method:'DELETE'}); afficherToast('🗑️ Supprimée.'); chargerAnnonces(); chargerStats(); }
+  catch (err) { console.error(err); }
+}
+
+// =====================
+// COMMUNIQUÉS (comptes étudiants / enseignants)
+// Réutilisent la table annonce (type='communique', cible_role='etudiant'|'professeur'|'tous').
+// =====================
+let communiquesAdmin = [];
+const LIBELLE_ROLE = { etudiant: 'Étudiants', professeur: 'Enseignants', tous: 'Tout le monde' };
+
+async function chargerCommuniques() {
+  const tbody = document.getElementById('admin-communiques-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const role = document.getElementById('filtre-role-communique')?.value || '';
+    const params = new URLSearchParams({ type: 'communique' });
+    if (role) params.append('role', role);
+    const r = await fetch(`${BASE_URL}/api/annonces?${params}`);
+    communiquesAdmin = await r.json();
+    afficherTableauCommuniques();
+  } catch { tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+}
+
+function afficherTableauCommuniques(liste = communiquesAdmin) {
+  const tbody = document.getElementById('admin-communiques-body');
+  if (!tbody) return;
+  if (!liste.length) { tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Aucun communiqué.</td></tr>`; return; }
+  tbody.innerHTML = liste.map(c => `
+    <tr>
+      <td>📣 ${c.titre}</td>
+      <td><span class="annee-badge">${LIBELLE_ROLE[c.cible_role] || 'Étudiants'}</span></td>
+      <td>${formatDateAffichage(c.date_annonce)}</td>
+      <td><span class="badge ${c.actif?'actif':'inactif'}">${c.actif?'Actif':'Masqué'}</span></td>
+      <td class="admin-actions-cell">
+        <button class="btn-icone" onclick="toggleActifAnnonce(${c.id}); setTimeout(chargerCommuniques,150)" aria-label="${c.actif?'Masquer':'Afficher'}">${icone(c.actif?'oeil':'oeil-barre')}</button>
+        <button class="btn-icone" onclick="modifierCommunique(${c.id})" aria-label="Modifier">${icone('crayon')}</button>
+        <button class="btn-icone danger" onclick="supprimerCommunique(${c.id})" aria-label="Supprimer">${icone('corbeille')}</button>
+      </td>
+    </tr>`).join('');
+}
+
+function ouvrirModalCommunique() {
+  document.getElementById('modal-communique-titre').textContent = 'Nouveau communiqué';
+  document.getElementById('communique-id-edit').value = '';
+  document.getElementById('communique-titre').value = '';
+  document.getElementById('communique-message').value = '';
+  document.getElementById('communique-role').value = 'etudiant';
+  document.getElementById('communique-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('communique-actif').checked = true;
+  document.getElementById('modal-communique')?.classList.add('active');
+}
+
+function modifierCommunique(id) {
+  const c = communiquesAdmin.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('modal-communique-titre').textContent = 'Modifier le communiqué';
+  document.getElementById('communique-id-edit').value = c.id;
+  document.getElementById('communique-titre').value = c.titre;
+  document.getElementById('communique-message').value = c.description;
+  document.getElementById('communique-role').value = c.cible_role || 'etudiant';
+  document.getElementById('communique-date').value = (c.date_annonce || '').split('T')[0];
+  document.getElementById('communique-actif').checked = !!c.actif;
+  document.getElementById('modal-communique')?.classList.add('active');
+}
+
+function fermerModalCommunique() { document.getElementById('modal-communique')?.classList.remove('active'); }
+
+async function sauvegarderCommunique() {
+  const idEdit = document.getElementById('communique-id-edit').value;
+  const titre = document.getElementById('communique-titre').value.trim();
+  const description = document.getElementById('communique-message').value.trim();
+  const cible_role = document.getElementById('communique-role').value;
+  const date_annonce = document.getElementById('communique-date').value;
+  const actif = document.getElementById('communique-actif').checked;
+  if (!titre || !description || !date_annonce) { afficherToast('⚠️ Champs obligatoires manquants.', 'erreur'); return; }
+  const corps = { type: 'communique', titre, description, date_annonce, icone: '📣', image: '', actif, cible_faculte: null, cible_role };
+  try {
+    const r = await fetchAdmin(idEdit ? `${BASE_URL}/api/annonces/${idEdit}` : `${BASE_URL}/api/annonces`,
+      { method: idEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('⚠️ ' + d.erreur, 'erreur'); return; }
+    afficherToast(idEdit ? '✅ Communiqué modifié !' : '📣 Communiqué diffusé !');
+    fermerModalCommunique(); chargerCommuniques();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function supprimerCommunique(id) {
+  if (!await confirmerAction('Supprimer ce communiqué ?', { titre: 'Supprimer le communiqué', texteConfirmer: 'Supprimer' })) return;
+  try { await fetchAdmin(`${BASE_URL}/api/annonces/${id}`, { method: 'DELETE' }); afficherToast('🗑️ Supprimé.'); chargerCommuniques(); }
   catch (err) { console.error(err); }
 }
 
@@ -1440,8 +1706,8 @@ async function chargerInscrits() {
         <td>${e.annee_academique||'—'}</td>
         <td><span class="badge ${e.statut==='actif'?'reussi':e.statut==='diplome'?'attente':'echec'}">${e.statut||'actif'}</span></td>
         <td class="admin-actions-cell">
-          <button class="btn-icone" onclick="ouvrirModalPaiements('${e.id}','${e.nom} ${e.prenom}')" aria-label="Frais de scolarité" title="Frais de scolarité">${icone('argent')}</button>
           <button class="btn-icone" onclick="telechargerBulletin('${e.id}')" aria-label="Télécharger le bulletin" title="Télécharger le bulletin">${icone('notes')}</button>
+          <button class="btn-icone" onclick="imprimerCarteEtudiant('${e.id}')" aria-label="Imprimer la carte étudiant" title="Imprimer la carte étudiant">${icone('carte')}</button>
           <button class="btn-icone" onclick="modifierInscrit('${e.id}')" aria-label="Modifier">${icone('crayon')}</button>
           <button class="btn-icone danger" onclick="supprimerInscrit('${e.id}')" aria-label="Supprimer">${icone('corbeille')}</button>
         </td>
@@ -1469,6 +1735,140 @@ async function telechargerBulletin(etudiantId) {
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); return false; }
 }
 
+// =====================
+// CARTE D'ÉTUDIANT — impression (identité + photo + QR code)
+// Le QR encode un condensé vérifiable (matricule, nom, faculté, promotion, année).
+// =====================
+function imprimerCarteEtudiant(id) {
+  const e = inscritsAdmin.find(x => x.id === id);
+  if (!e) { afficherToast('⚠️ Étudiant non trouvé. Actualisez.', 'erreur'); return; }
+  if (typeof qrcode === 'undefined') { afficherToast('⚠️ Générateur de QR indisponible (vérifiez la connexion).', 'erreur'); return; }
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const nomComplet = `${e.nom || ''} ${e.postnom || ''} ${e.prenom || ''}`.replace(/\s+/g, ' ').trim();
+  const ddn = e.date_naissance ? new Date(e.date_naissance).toLocaleDateString('fr-FR') : '—';
+
+  // QR : condensé texte lisible par n'importe quel lecteur.
+  const payload = `UML | Matricule: ${e.id} | ${nomComplet} | ${e.faculte || ''} | ${e.promotion || ''} | ${e.annee_academique || ''}`;
+  const qr = qrcode(0, 'M'); qr.addData(payload); qr.make();
+  const qrSrc = qr.createDataURL(4, 6);
+
+  const initiales = `${(e.prenom || '')[0] || ''}${(e.nom || '')[0] || ''}`.toUpperCase() || 'ET';
+  const photoHTML = e.photo
+    ? `<img class="r-photo" src="${BASE_URL}/${esc(e.photo)}" alt="Photo">`
+    : `<div class="r-photo r-photo-vide">${esc(initiales)}</div>`;
+
+  const naissance = `${ddn}${e.lieu_naissance ? ' à ' + esc(e.lieu_naissance) : ''}`;
+  const prenomNom = `${e.prenom || ''} ${e.nom || ''}`.replace(/\s+/g, ' ').trim();
+
+  // Verso : vignettes mensuelles de validation (comme les timbres de la carte modèle).
+  const MOIS = ['Sep', 'Oct', 'Nov', 'Déc', 'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'];
+  const cellulesMois = MOIS.map(m => `<div class="v-mois"><div class="v-case"></div><span>${m}</span></div>`).join('');
+
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Carte étudiant ${esc(e.id)}</title>
+<style>
+  :root { --bleu:#1a3a6b; --bleu2:#24508f; --jaune:#f0c020; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #e9edf2; padding: 24px; color: #1a1a1a; }
+  .barre { text-align: center; margin-bottom: 18px; }
+  .barre button { font-size: 14px; padding: 9px 20px; border: none; border-radius: 6px; background: var(--bleu); color: #fff; cursor: pointer; }
+  .carte { width: 340px; height: 214px; margin: 0 auto 22px; border-radius: 12px; overflow: hidden;
+           box-shadow: 0 6px 18px rgba(0,0,0,.18); position: relative; }
+
+  /* ---------- RECTO ---------- */
+  .recto { background: linear-gradient(135deg, #14294b 0%, var(--bleu) 55%, var(--bleu2) 100%); color: #fff; }
+  .r-annee { position: absolute; top: 0; right: 0; width: 112px; padding: 6px 10px 8px; text-align: center;
+             background: var(--jaune); color: var(--bleu); border-bottom-left-radius: 16px; }
+  .r-annee small { display: block; font-size: 7px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; }
+  .r-annee b { font-size: 11px; }
+  .r-top { display: flex; align-items: center; gap: 8px; padding: 9px 12px 4px; }
+  .r-top .u { font-size: 11px; font-weight: 800; line-height: 1.12; letter-spacing: .3px; }
+  .r-fac { padding: 2px 12px 6px; color: var(--jaune); font-size: 9.5px; font-weight: 700; }
+  .r-body { display: flex; padding: 0 12px; gap: 10px; }
+  .r-infos { flex: 1 1 auto; min-width: 0; }
+  .r-nom { font-size: 12px; font-weight: 800; text-transform: uppercase; line-height: 1.15; }
+  .r-nom span { display: block; font-size: 10px; font-weight: 600; text-transform: none; }
+  .r-sub { font-size: 8px; color: #cdd8ea; margin: 3px 0 5px; }
+  .r-infos p { font-size: 8.5px; line-height: 1.5; }
+  .r-infos p b { color: var(--jaune); font-weight: 600; }
+  .r-photo { width: 88px; height: 104px; object-fit: cover; border-radius: 4px; border: 2px solid var(--jaune); flex: 0 0 auto; }
+  .r-photo-vide { display: flex; align-items: center; justify-content: center; background: #0e1f3a; color: var(--jaune); font-size: 32px; font-weight: 800; }
+  .r-pied { position: absolute; left: 0; right: 0; bottom: 0; background: var(--jaune); color: var(--bleu);
+            font-size: 7.5px; font-weight: 600; padding: 3px 12px; display: flex; justify-content: space-between; }
+
+  /* ---------- VERSO ---------- */
+  .verso { background: linear-gradient(135deg, #f4f6f9, #e3e8ef); color: var(--bleu); }
+  .v-top { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px;
+           border-bottom: 2px solid var(--jaune); }
+  .v-top .n { font-size: 10px; font-weight: 800; }
+  .v-top .a { font-size: 8.5px; font-weight: 700; }
+  .v-top .a small { color: #6a768a; }
+  .v-corps { display: flex; gap: 10px; padding: 9px 12px 4px; }
+  .v-qr { text-align: center; flex: 0 0 auto; }
+  .v-qr img { width: 78px; height: 78px; }
+  .v-qr span { display: block; font-size: 6.5px; color: #6a768a; margin-top: 2px; }
+  .v-grille { flex: 1 1 auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px 6px; align-content: start; }
+  .v-mois { text-align: center; }
+  .v-case { height: 24px; border: 1px solid var(--bleu); border-radius: 4px; background: rgba(240,192,32,.10); }
+  .v-mois span { font-size: 6.5px; color: var(--bleu); }
+  .v-pied { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-size: 6.5px;
+            color: #6a768a; padding: 2px; border-top: 1px solid #d4dae3; }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .barre { display: none; }
+    .carte { box-shadow: none; margin: 0 auto; }
+    .verso { page-break-before: always; }
+    @page { size: auto; margin: 10mm; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style></head><body>
+  <div class="barre"><button onclick="window.print()">🖨️ Imprimer la carte (recto / verso)</button></div>
+
+  <!-- RECTO -->
+  <div class="carte recto">
+    <div class="r-annee"><small>Année académique</small><b>${esc(e.annee_academique || '—')}</b></div>
+    <div class="r-top">
+      <div class="u">UNIVERSITÉ MÉTHODISTE<br>DE LUBUMBASHI</div>
+    </div>
+    <div class="r-fac">${esc(e.faculte || 'Université Méthodiste de Lubumbashi')}</div>
+    <div class="r-body">
+      <div class="r-infos">
+        <div class="r-nom">${esc(`${e.nom || ''} ${e.postnom || ''}`.trim())}<span>${esc(e.prenom || '')}</span></div>
+        <div class="r-sub">Né(e) le ${naissance}</div>
+        <p>Étudiant(e)</p>
+        <p>Niveau : <b>${esc(e.niveau || '—')}</b></p>
+        <p>Matricule : <b>${esc(e.id)}</b></p>
+        <p>Classe : <b>${esc(e.promotion || '—')}</b></p>
+      </div>
+      ${photoHTML}
+    </div>
+    <div class="r-pied"><span>Lubumbashi — R.D. Congo</span><span>Carte strictement personnelle</span></div>
+  </div>
+
+  <!-- VERSO -->
+  <div class="carte verso">
+    <div class="v-top">
+      <span class="n">${esc(prenomNom)}</span>
+      <span class="a"><small>Année académique</small> ${esc(e.annee_academique || '—')}</span>
+    </div>
+    <div class="v-corps">
+      <div class="v-qr"><img src="${qrSrc}" alt="QR"><span>Vérification</span></div>
+      <div class="v-grille">${cellulesMois}</div>
+    </div>
+    <div class="v-pied">En cas de perte, prière de la remettre à l'Université Méthodiste de Lubumbashi</div>
+  </div>
+
+<script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 500); });<\/script>
+</body></html>`;
+
+  const w = window.open('', '_blank', 'width=760,height=560');
+  if (!w) { afficherToast('⚠️ Autorisez les pop-ups pour imprimer la carte.', 'erreur'); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
 function modifierInscrit(id) {
   const e=inscritsAdmin.find(x=>x.id===id);
   if (!e) { afficherToast('⚠️ Étudiant non trouvé. Actualisez.', 'erreur'); return; }
@@ -1491,10 +1891,24 @@ function modifierInscrit(id) {
     if (!ok) { const opt=document.createElement('option'); opt.value=e.promotion; opt.textContent=e.promotion; sel.appendChild(opt); }
     sel.value=e.promotion;
   }
+  // Photo : champ fichier remis à zéro, aperçu de la photo déjà enregistrée.
+  document.getElementById('inscrit-photo').value = e.photo || '';
+  const fch=document.getElementById('inscrit-photo-fichier'); if(fch) fch.value='';
+  const ap=document.getElementById('inscrit-photo-apercu');
+  if(ap) ap.innerHTML = e.photo ? `<img src="${BASE_URL}/${e.photo}" alt="" style="max-width:90px;border-radius:6px">` : '<span style="color:#999;font-size:12px">Aucune photo</span>';
   document.getElementById('modal-inscrit')?.classList.add('active');
 }
 
 function fermerModalInscrit() { document.getElementById('modal-inscrit')?.classList.remove('active'); }
+
+// Aperçu local (sans téléversement) de la photo choisie sur le disque.
+function apercuPhotoInscrit(input) {
+  const zone=document.getElementById('inscrit-photo-apercu');
+  if (!zone) return;
+  const f=input.files?.[0];
+  if (!f) { zone.innerHTML=''; return; }
+  zone.innerHTML=`<img src="${URL.createObjectURL(f)}" alt="" style="max-width:90px;border-radius:6px">`;
+}
 
 async function sauvegarderInscrit() {
   const id=document.getElementById('inscrit-id-edit').value;
@@ -1517,6 +1931,13 @@ async function sauvegarderInscrit() {
     const r=await fetchAdmin(`${BASE_URL}/api/etudiants/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(corps)});
     const d=await r.json();
     if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
+    // Si une nouvelle photo a été choisie, on la téléverse après la mise à jour.
+    const fichierPhoto=document.getElementById('inscrit-photo-fichier')?.files?.[0];
+    if (fichierPhoto) {
+      const fd=new FormData(); fd.append('photo', fichierPhoto);
+      const rp=await fetchAdmin(`${BASE_URL}/api/etudiants/${id}/photo`, { method:'POST', body:fd });
+      if (!rp.ok) { const dp=await rp.json(); afficherToast('⚠️ '+(dp.erreur||"Échec de l'envoi de la photo."), 'erreur'); }
+    }
     afficherToast('✅ Mis à jour !'); fermerModalInscrit(); chargerInscrits(); chargerStats();
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
@@ -1529,6 +1950,92 @@ async function supprimerInscrit(id) {
     if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
     afficherToast('🗑️ Supprimé.'); chargerInscrits(); chargerStats();
   } catch (err) { console.error(err); }
+}
+
+// =====================
+// AGENTS (PERSONNEL) — la fonction détermine l'accès aux interfaces
+// =====================
+let agentsAdmin = [];
+const LIBELLE_FONCTION = { caissier: 'Caissier', administrateur_budget: 'Administrateur du budget' };
+
+async function chargerAgents() {
+  const tbody = document.getElementById('admin-agents-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/agents`);
+    agentsAdmin = await r.json();
+    if (!agentsAdmin.length) { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Aucun agent.</td></tr>`; return; }
+    tbody.innerHTML = agentsAdmin.map(a => `
+      <tr>
+        <td><code style="font-size:11px">${a.matricule}</code></td>
+        <td><strong>${a.noms}</strong> ${a.prenom || ''}</td>
+        <td><span class="annee-badge">${LIBELLE_FONCTION[a.fonction] || a.fonction}</span></td>
+        <td>${a.email || '—'}</td>
+        <td>${a.telephone || '—'}</td>
+        <td class="admin-actions-cell">
+          <button class="btn-icone" onclick="modifierAgent(${a.id})" aria-label="Modifier">${icone('crayon')}</button>
+          <button class="btn-icone danger" onclick="supprimerAgent(${a.id})" aria-label="Supprimer">${icone('corbeille')}</button>
+        </td>
+      </tr>`).join('');
+  } catch { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+}
+
+function ouvrirModalAgent() {
+  document.getElementById('modal-agent-titre').textContent = 'Nouvel agent';
+  ['agent-id-edit','agent-matricule','agent-noms','agent-prenom','agent-email','agent-telephone','agent-mot-de-passe'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('agent-fonction').value = 'caissier';
+  document.getElementById('agent-mdp-aide').style.display = 'none';
+  document.getElementById('agent-mdp-label').innerHTML = 'Mot de passe <span style="color:var(--rouge)">*</span>';
+  document.getElementById('modal-agent')?.classList.add('active');
+}
+
+function modifierAgent(id) {
+  const a = agentsAdmin.find(x => x.id === id);
+  if (!a) return;
+  document.getElementById('modal-agent-titre').textContent = 'Modifier l\'agent';
+  document.getElementById('agent-id-edit').value = a.id;
+  document.getElementById('agent-matricule').value = a.matricule;
+  document.getElementById('agent-noms').value = a.noms;
+  document.getElementById('agent-prenom').value = a.prenom || '';
+  document.getElementById('agent-email').value = a.email || '';
+  document.getElementById('agent-telephone').value = a.telephone || '';
+  document.getElementById('agent-fonction').value = a.fonction;
+  document.getElementById('agent-mot-de-passe').value = '';
+  document.getElementById('agent-mdp-aide').style.display = '';
+  document.getElementById('agent-mdp-label').innerHTML = 'Nouveau mot de passe';
+  document.getElementById('modal-agent')?.classList.add('active');
+}
+
+function fermerModalAgent() { document.getElementById('modal-agent')?.classList.remove('active'); }
+
+async function sauvegarderAgent() {
+  const idEdit = document.getElementById('agent-id-edit').value;
+  const corps = {
+    matricule: document.getElementById('agent-matricule').value.trim(),
+    noms: document.getElementById('agent-noms').value.trim(),
+    prenom: document.getElementById('agent-prenom').value.trim(),
+    email: document.getElementById('agent-email').value.trim(),
+    telephone: document.getElementById('agent-telephone').value.trim(),
+    fonction: document.getElementById('agent-fonction').value,
+    mot_de_passe: document.getElementById('agent-mot-de-passe').value,
+  };
+  if (!corps.matricule || !corps.noms) { afficherToast('⚠️ Matricule et noms obligatoires.', 'erreur'); return; }
+  if (!idEdit && !corps.mot_de_passe) { afficherToast('⚠️ Le mot de passe est obligatoire.', 'erreur'); return; }
+  try {
+    const r = await fetchAdmin(idEdit ? `${BASE_URL}/api/agents/${idEdit}` : `${BASE_URL}/api/agents`,
+      { method: idEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('⚠️ ' + d.erreur, 'erreur'); return; }
+    afficherToast(idEdit ? '✅ Agent modifié !' : '✅ Agent créé !');
+    fermerModalAgent(); chargerAgents();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function supprimerAgent(id) {
+  if (!await confirmerAction('Supprimer cet agent ? Il ne pourra plus se connecter.', { titre: 'Supprimer l\'agent', texteConfirmer: 'Supprimer' })) return;
+  try { await fetchAdmin(`${BASE_URL}/api/agents/${id}`, { method: 'DELETE' }); afficherToast('🗑️ Agent supprimé.'); chargerAgents(); }
+  catch (err) { console.error(err); }
 }
 
 // =====================

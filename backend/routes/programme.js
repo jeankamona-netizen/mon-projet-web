@@ -54,44 +54,85 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Crée un cours pour UNE cible (faculté + filière) et inscrit automatiquement
+// les étudiants concernés : toute la faculté+niveau si aucune filière précise
+// (cours commun, ex. Educit), sinon seulement les étudiants de la filière.
+async function creerCoursPourCible(champs, faculte, nomFiliere) {
+  const { code, nom, niveau, annee_academique, semestre, credits } = champs;
+  const { filiere_id, promotion } = await resoudreFiliereEtPromotion(niveau, faculte, nomFiliere || null);
+
+  const [resultat] = await pool.query(
+    'INSERT INTO cours (code, nom, faculte, filiere_id, niveau, promotion, annee_academique, semestre, credits) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [code.toUpperCase(), nom, faculte, filiere_id || null, niveau, promotion, annee_academique, semestre, credits]
+  );
+
+  let sqlEtudiants = 'SELECT id FROM etudiant WHERE faculte = ? AND niveau = ?';
+  const paramsEtudiants = [faculte, niveau];
+  if (filiere_id) { sqlEtudiants += ' AND filiere_id = ?'; paramsEtudiants.push(filiere_id); }
+  const [etudiantsConcernes] = await pool.query(sqlEtudiants, paramsEtudiants);
+
+  if (etudiantsConcernes.length > 0) {
+    const valeurs = etudiantsConcernes.map(e => [e.id, resultat.insertId]);
+    await pool.query('INSERT IGNORE INTO inscription_cours (etudiant_id, cours_id) VALUES ?', [valeurs]);
+  }
+
+  return { id: resultat.insertId, etudiantsInscrits: etudiantsConcernes.length };
+}
+
 // ===== POST /api/programme — ajouter un cours au programme =====
+// Un même cours peut être programmé pour PLUSIEURS facultés/filières à la fois
+// (champ `cibles`) : on crée alors une ligne cours par cible et on inscrit les
+// étudiants de chacune, pour qu'il apparaisse dans le programme de chaque
+// faculté/filière et chez chaque étudiant. Rétro-compatible : sans `cibles`,
+// on retombe sur la faculté/filière unique du corps.
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits } = req.body;
+    const { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits, cibles } = req.body;
 
-    if (!code || !nom || !faculte || !niveau || !annee_academique || !semestre || !credits) {
-      return res.status(400).json({ erreur: "Champs obligatoires manquants (code, nom, faculté, niveau, année, semestre, crédits)." });
+    if (!code || !nom || !niveau || !annee_academique || !semestre || !credits) {
+      return res.status(400).json({ erreur: "Champs obligatoires manquants (code, nom, niveau, année, semestre, crédits)." });
     }
 
-    const { filiere_id, promotion } = await resoudreFiliereEtPromotion(niveau, faculte, filiere || null);
-
-    const [resultat] = await pool.query(
-      'INSERT INTO cours (code, nom, faculte, filiere_id, niveau, promotion, annee_academique, semestre, credits) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [code.toUpperCase(), nom, faculte, filiere_id || null, niveau, promotion, annee_academique, semestre, credits]
-    );
-
-    // Inscrit automatiquement les étudiants concernés : toute la faculté+niveau
-    // si aucune filière précise n'est choisie (cours commun, ex. Educit), sinon
-    // seulement les étudiants de la filière ciblée. L'admin peut ensuite ajouter
-    // des étudiants supplémentaires (rattrapage) depuis "Programme annuel".
-    let sqlEtudiants = 'SELECT id FROM etudiant WHERE faculte = ? AND niveau = ?';
-    const paramsEtudiants = [faculte, niveau];
-    if (filiere_id) {
-      sqlEtudiants += ' AND filiere_id = ?';
-      paramsEtudiants.push(filiere_id);
-    }
-    const [etudiantsConcernes] = await pool.query(sqlEtudiants, paramsEtudiants);
-
-    if (etudiantsConcernes.length > 0) {
-      const valeurs = etudiantsConcernes.map(e => [e.id, resultat.insertId]);
-      await pool.query('INSERT IGNORE INTO inscription_cours (etudiant_id, cours_id) VALUES ?', [valeurs]);
+    const listeCibles = (Array.isArray(cibles) && cibles.length)
+      ? cibles
+      : (faculte ? [{ faculte, filiere: filiere || null }] : []);
+    if (!listeCibles.length) {
+      return res.status(400).json({ erreur: "Aucune faculté cible sélectionnée." });
     }
 
-    res.status(201).json({ message: "Cours ajouté au programme.", id: resultat.insertId, etudiantsInscrits: etudiantsConcernes.length });
+    const champs = { code, nom, niveau, annee_academique, semestre, credits };
+    const crees = [];
+    const doublons = [];
+    let totalInscrits = 0;
+
+    for (const cible of listeCibles) {
+      if (!cible || !cible.faculte) continue;
+      try {
+        const r = await creerCoursPourCible(champs, cible.faculte, cible.filiere);
+        crees.push(r);
+        totalInscrits += r.etudiantsInscrits;
+      } catch (e) {
+        if (e.code === 'ER_DUP_ENTRY') {
+          doublons.push(cible.faculte + (cible.filiere ? ' / ' + cible.filiere : ''));
+        } else {
+          throw e;
+        }
+      }
+    }
+
+    if (!crees.length) {
+      return res.status(409).json({ erreur: "Ce cours existe déjà pour : " + doublons.join(', ') });
+    }
+
+    res.status(201).json({
+      message: "Cours ajouté au programme.",
+      coursCrees: crees.length,
+      etudiantsInscrits: totalInscrits,
+      doublons,
+      // Rétro-compat : certains appels lisent encore `id`/`etudiantsInscrits` (1re cible).
+      id: crees[0].id
+    });
   } catch (erreur) {
-    if (erreur.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ erreur: "Ce code de cours existe déjà pour cette promotion et année." });
-    }
     console.error(erreur);
     res.status(500).json({ erreur: "Erreur lors de l'ajout du cours." });
   }
