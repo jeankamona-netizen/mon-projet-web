@@ -29,28 +29,6 @@ router.post('/admin', (req, res) => {
 });
 
 // =====================
-// AUTHENTIFICATION CAISSE — identifiants dédiés dans .env (CAISSE_USER/CAISSE_PASS)
-// Rôle 'caisse' : accès au tableau de bord des finances uniquement.
-// =====================
-router.post('/caisse', (req, res) => {
-  const { user, password } = req.body;
-  if (!user || !password)
-    return res.status(400).json({ erreur: 'Identifiant et mot de passe requis.' });
-
-  const caisseUser = process.env.CAISSE_USER;
-  const caissePass = process.env.CAISSE_PASS;
-
-  if (!caisseUser || !caissePass || !process.env.JWT_SECRET)
-    return res.status(500).json({ erreur: 'Configuration caisse manquante côté serveur.' });
-
-  if (user !== caisseUser || password !== caissePass)
-    return res.status(401).json({ erreur: 'Identifiant ou mot de passe incorrect.' });
-
-  const token = jwt.sign({ user: caisseUser, role: 'caisse' }, process.env.JWT_SECRET, { expiresIn: '8h' });
-  res.json({ message: 'Connexion réussie.', token });
-});
-
-// =====================
 // AUTHENTIFICATION AGENT — personnel de l'UML (table agent)
 // La `fonction` détermine le rôle/accès : caissier → caisse, administrateur du
 // budget → consultation/rapports. Connexion par matricule + mot de passe.

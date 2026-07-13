@@ -383,8 +383,17 @@ function afficherHoraires() {
   if (!conteneur) return;
   const liste = horairesDuCursus();
 
+  // Reflète toujours le cursus propre à l'étudiant (niveau + promotion +
+  // année consultés), jamais le libellé "promotion" d'un cours particulier
+  // (ex. un cours d'ensemble affiche "L1: INFO, ECO, THEO, SCP", ce qui ne
+  // décrit pas l'étudiant lui-même).
   const label = document.getElementById('horaires-promo-label');
-  if (label) label.textContent = liste[0] ? `${liste[0].promotion} — ${liste[0].annee_academique}` : 'Aucun horaire pour ce cursus.';
+  if (label) {
+    const etu = getEtudiantConnecte();
+    const niveau = cursusActif?.niveau || etu?.niveau || '';
+    const annee = cursusActif?.annee_academique || etu?.annee_academique || '';
+    label.textContent = `${niveau} ${etu?.promotion || ''}`.trim() + (annee ? ` — ${annee}` : '');
+  }
 
   const lundi = lundiSemaine(semaineHorairesDecalage);
   const vendredi = new Date(lundi);
@@ -476,18 +485,30 @@ function afficherProgramme() {
   if (!c1||!c2) return;
 
   const cours = programmeDuCursus();
+  // Reflète le cursus de l'étudiant lui-même, pas le libellé "promotion" du
+  // premier cours de la liste (qui peut être un cours d'ensemble avec un
+  // libellé du type "L1: INFO, ECO, THEO, SCP").
   const label = document.getElementById('programme-label');
-  if (label) label.textContent = cours[0] ? `Cours de l'année — ${cours[0].promotion} (${cours[0].annee_academique})` : 'Aucun cours pour ce cursus.';
+  if (label) {
+    const etu = getEtudiantConnecte();
+    const niveau = cursusActif?.niveau || etu?.niveau || '';
+    const annee = cursusActif?.annee_academique || etu?.annee_academique || '';
+    label.textContent = `Cours de l'année — ${niveau} ${etu?.promotion || ''}`.trim() + (annee ? ` (${annee})` : '');
+  }
 
   const s1 = cours.filter(c => c.semestre === 'S1');
   const s2 = cours.filter(c => c.semestre === 'S2');
 
+  const heuresUE = (v) => v == null ? '—' : `${v}h`;
   const items = liste => liste.length === 0
     ? `<p style="color:#999;font-size:13px;padding:8px 0">Aucun cours.</p>`
     : liste.map(c => `
         <div class="prog-item">
           <span class="prog-code">${c.code}</span>
-          <span class="prog-nom">${c.nom}</span>
+          <div class="prog-nom">
+            <span class="prog-nom-titre">${c.nom}</span>
+            <span class="prog-heures">CMI ${heuresUE(c.cmi)} · TD ${heuresUE(c.td)} · TP ${heuresUE(c.tp)}</span>
+          </div>
           <span class="prog-credits">${c.credits} crédits</span>
         </div>`).join('') + `<div class="prog-total">Total : ${liste.reduce((s,c)=>s+c.credits,0)} crédits</div>`;
 
@@ -499,6 +520,7 @@ function afficherProgramme() {
 // MES FRAIS
 // =====================
 let paiementsEtudiant = [];
+let soldeEtudiant = { montant_attendu: null, solde: null };
 
 async function chargerFraisDashboard(id) {
   const tbody = document.getElementById('frais-body');
@@ -506,25 +528,32 @@ async function chargerFraisDashboard(id) {
   try {
     const r = await fetch(`${BASE_URL}/api/etudiant/${id}/paiements`);
     if (!r.ok) throw new Error();
-    const { paiements } = await r.json();
+    const { paiements, montant_attendu, solde } = await r.json();
     paiementsEtudiant = paiements;
+    soldeEtudiant = { montant_attendu, solde };
     afficherFrais();
   } catch {
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px">⚠️ Impossible de charger vos frais.</td></tr>';
     const totalEl = document.getElementById('frais-total');
     if (totalEl) totalEl.textContent = '—';
+    const soldeEl = document.getElementById('frais-solde');
+    if (soldeEl) soldeEl.textContent = '—';
   }
 }
 
 function afficherFrais() {
   const tbody = document.getElementById('frais-body');
   const totalEl = document.getElementById('frais-total');
+  const soldeEl = document.getElementById('frais-solde');
   if (!tbody) return;
   const annee = cursusActif?.annee_academique;
   const liste = annee ? paiementsEtudiant.filter(p => p.annee_academique === annee) : paiementsEtudiant;
   const total = liste.reduce((s, p) => s + Number(p.montant), 0);
 
   if (totalEl) totalEl.textContent = `${total.toFixed(2)} $`;
+  if (soldeEl) {
+    soldeEl.textContent = soldeEtudiant.solde === null ? 'Non défini' : `${Number(soldeEtudiant.solde).toFixed(2)} $`;
+  }
   tbody.innerHTML = liste.length === 0
     ? '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px">Aucun versement pour ce cursus.</td></tr>'
     : liste.map(p => `<tr>
@@ -533,6 +562,50 @@ function afficherFrais() {
         <td>${p.mode_paiement || '—'}</td>
         <td>${p.reference || '—'}</td>
       </tr>`).join('');
+}
+
+// =====================
+// PRÉSENCES
+// =====================
+const LIBELLES_STATUT_PRESENCE = { present: '✅ Présent', retard: '🕒 Retard', absent: '❌ Absent' };
+
+async function chargerPresencesDashboard(id) {
+  const resumeBody = document.getElementById('presences-resume-body');
+  const histoBody = document.getElementById('presences-historique-body');
+  if (!resumeBody || !histoBody) return;
+  resumeBody.innerHTML = '<tr><td colspan="5" class="admin-vide">Chargement...</td></tr>';
+  histoBody.innerHTML = '<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>';
+  try {
+    const r = await fetch(`${BASE_URL}/api/etudiant/${id}/presences`);
+    if (!r.ok) throw new Error();
+    const parCours = await r.json();
+
+    resumeBody.innerHTML = parCours.length === 0
+      ? '<tr><td colspan="5" class="admin-vide">Aucune présence enregistrée pour l\'instant.</td></tr>'
+      : parCours.map(c => `
+        <tr>
+          <td><strong>${c.cours}</strong> <span style="color:#999">(${c.code})</span></td>
+          <td>${c.present}</td>
+          <td>${c.retard}</td>
+          <td>${c.absent}</td>
+          <td><strong style="color:${c.taux_presence >= 75 ? 'var(--vert)' : 'var(--rouge,#c0392b)'}">${c.taux_presence}%</strong></td>
+        </tr>`).join('');
+
+    const seances = parCours.flatMap(c => c.seances.map(s => ({ ...s, cours: c.cours, code: c.code })))
+      .sort((a, b) => new Date(b.date_seance) - new Date(a.date_seance));
+    histoBody.innerHTML = seances.length === 0
+      ? '<tr><td colspan="4" class="admin-vide">Aucune séance enregistrée pour l\'instant.</td></tr>'
+      : seances.map(s => `
+        <tr>
+          <td>${formaterDateAffichage(s.date_seance)}</td>
+          <td>${s.cours} <span style="color:#999">(${s.code})</span></td>
+          <td>${s.heure_debut?.slice(0,5)}-${s.heure_fin?.slice(0,5)}</td>
+          <td>${LIBELLES_STATUT_PRESENCE[s.statut] || s.statut}</td>
+        </tr>`).join('');
+  } catch {
+    resumeBody.innerHTML = '<tr><td colspan="5" class="admin-vide">⚠️ Impossible de charger vos présences.</td></tr>';
+    histoBody.innerHTML = '<tr><td colspan="4" class="admin-vide">⚠️ Erreur.</td></tr>';
+  }
 }
 
 // =====================
@@ -724,7 +797,7 @@ function basculerNotifications(event) {
 // MENU COMPTE (hamburger) — consultation du cursus (actuel + précédents)
 // =====================
 function libelleNiveau(niveau) {
-  const map = { L1:'Licence 1', L2:'Licence 2', L3:'Licence 3', M1:'Master 1', M2:'Master 2', D1:'Doctorat 1', D2:'Doctorat 2' };
+  const map = { 'Pré-U':'Pré-Universitaire', L1:'Licence 1', L2:'Licence 2', L3:'Licence 3', M1:'Master 1', M2:'Master 2', D1:'Doctorat 1', D2:'Doctorat 2' };
   return map[niveau] || niveau || '—';
 }
 
@@ -932,13 +1005,11 @@ async function afficherSectionDashboard(id, lien) {
   }
   if (id === 'mes-notes')  chargerNotesDashboard(etudiant.id);
   if (id === 'horaires')   chargerHorairesDashboard(etudiant.id);
+  if (id === 'presences')  chargerPresencesDashboard(etudiant.id);
   if (id === 'programme')  chargerProgrammeDashboard(etudiant.id);
   if (id === 'frais')      chargerFraisDashboard(etudiant.id);
   if (id === 'annonces')   chargerAnnoncesDashboard(etudiant.faculte);
 }
-
-// Alias de compatibilité
-const afficherSection = afficherSectionDashboard;
 
 // =====================
 // CHANGEMENT MOT DE PASSE

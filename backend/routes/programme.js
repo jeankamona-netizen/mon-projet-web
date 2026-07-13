@@ -2,6 +2,29 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
+const { inscrireEtudiantsAuCours } = require('../models/inscriptionAuto');
+
+// Abréviations affichées sur le libellé "promotion" d'un cours commun, dans
+// cet ordre d'affichage fixe.
+const ABREVIATION_FACULTE = [
+  ['Sciences Informatiques', 'INFO'],
+  ['Sciences Économiques', 'ECO'],
+  ['Faculté de Théologie', 'THEO'],
+  ["Sciences de l'Éducation & Psychologie", 'SCP'],
+];
+
+// Construit le libellé "promotion" d'un cours commun à partir des facultés
+// qui ont effectivement des étudiants à ce niveau/année (ex. "L1: INFO, ECO,
+// THEO, SCP") — pas un libellé générique "Cours commun".
+async function libellePromotionCommun(niveau, annee_academique) {
+  const [rows] = await pool.query(
+    'SELECT DISTINCT faculte FROM etudiant WHERE niveau = ? AND annee_academique = ? AND faculte IS NOT NULL',
+    [niveau, annee_academique]
+  );
+  const presentes = new Set(rows.map(r => r.faculte));
+  const abbrs = ABREVIATION_FACULTE.filter(([nom]) => presentes.has(nom)).map(([, abbr]) => abbr);
+  return abbrs.length > 0 ? `${niveau || ''}: ${abbrs.join(', ')}`.trim() : `${niveau || ''} — Cours commun`.trim();
+}
 
 // Résout le nom de filière envoyé par le formulaire vers son id réel (scopé à
 // la faculté choisie), et construit le libellé de rattachement horaire
@@ -39,7 +62,11 @@ router.get('/', async (req, res) => {
     if (annee)     { sql += ' AND c.annee_academique = ?'; params.push(annee); }
     if (promotion) { sql += ' AND c.promotion = ?'; params.push(promotion); }
     if (semestre)  { sql += ' AND c.semestre = ?'; params.push(semestre); }
-    if (faculte)   { sql += ' AND c.faculte = ?'; params.push(faculte); }
+    // "TOUTES" = uniquement les cours de tronc commun (faculte NULL), pas tous
+    // les cours de toutes les facultés. Sinon, un cours commun reste visible
+    // en plus des cours propres à la faculté choisie dans le filtre.
+    if (faculte === 'TOUTES') { sql += ' AND c.faculte IS NULL'; }
+    else if (faculte)         { sql += ' AND (c.faculte = ? OR c.faculte IS NULL)'; params.push(faculte); }
     if (niveau)    { sql += ' AND c.niveau = ?'; params.push(niveau); }
     // Filière précise choisie, ou cours commun à toute la faculté (filiere_id NULL)
     if (filiere)   { sql += ' AND (f.nom = ? OR c.filiere_id IS NULL)'; params.push(filiere); }
@@ -58,12 +85,12 @@ router.get('/', async (req, res) => {
 // les étudiants concernés : toute la faculté+niveau si aucune filière précise
 // (cours commun, ex. Educit), sinon seulement les étudiants de la filière.
 async function creerCoursPourCible(champs, faculte, nomFiliere) {
-  const { code, nom, niveau, annee_academique, semestre, credits } = champs;
+  const { code, nom, niveau, annee_academique, semestre, credits, cmi, td, tp } = champs;
   const { filiere_id, promotion } = await resoudreFiliereEtPromotion(niveau, faculte, nomFiliere || null);
 
   const [resultat] = await pool.query(
-    'INSERT INTO cours (code, nom, faculte, filiere_id, niveau, promotion, annee_academique, semestre, credits) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [code.toUpperCase(), nom, faculte, filiere_id || null, niveau, promotion, annee_academique, semestre, credits]
+    'INSERT INTO cours (code, nom, faculte, filiere_id, niveau, promotion, annee_academique, semestre, credits, cmi, td, tp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [code.toUpperCase(), nom, faculte, filiere_id || null, niveau, promotion, annee_academique, semestre, credits, cmi ?? null, td ?? null, tp ?? null]
   );
 
   let sqlEtudiants = 'SELECT id FROM etudiant WHERE faculte = ? AND niveau = ?';
@@ -79,59 +106,81 @@ async function creerCoursPourCible(champs, faculte, nomFiliere) {
   return { id: resultat.insertId, etudiantsInscrits: etudiantsConcernes.length };
 }
 
+// Cours commun : UNE seule fiche partagée (faculte = NULL, filiere_id = NULL,
+// promotion générique "<niveau> — Cours commun"), plutôt qu'une fiche par
+// faculté ciblée. Un seul horaire suffit donc à le programmer pour tout le
+// monde — structurellement impossible d'oublier de programmer une des
+// facultés, puisqu'elle n'a plus de fiche séparée à programmer.
+// Inscrit TOUS les étudiants du niveau/année (pas seulement les facultés
+// cochées à la création) : c'est la même règle que pour tout cours commun
+// (faculte NULL = concerne tout le monde à ce niveau, voir inscriptionAuto.js)
+// — les cibles ne servent qu'à basculer en mode "cours commun" au moins 2
+// facultés sélectionnées.
+async function creerCoursCommun(champs) {
+  const { code, nom, niveau, annee_academique, semestre, credits, cmi, td, tp } = champs;
+  const promotion = await libellePromotionCommun(niveau, annee_academique);
+
+  const [resultat] = await pool.query(
+    'INSERT INTO cours (code, nom, faculte, filiere_id, niveau, promotion, annee_academique, semestre, credits, cmi, td, tp) VALUES (?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [code.toUpperCase(), nom, niveau, promotion, annee_academique, semestre, credits, cmi ?? null, td ?? null, tp ?? null]
+  );
+  const coursId = resultat.insertId;
+
+  const etudiantsInscrits = await inscrireEtudiantsAuCours(coursId, null, niveau, null, annee_academique);
+  return { id: coursId, etudiantsInscrits };
+}
+
 // ===== POST /api/programme — ajouter un cours au programme =====
-// Un même cours peut être programmé pour PLUSIEURS facultés/filières à la fois
-// (champ `cibles`) : on crée alors une ligne cours par cible et on inscrit les
-// étudiants de chacune, pour qu'il apparaisse dans le programme de chaque
-// faculté/filière et chez chaque étudiant. Rétro-compatible : sans `cibles`,
-// on retombe sur la faculté/filière unique du corps.
+// Une seule faculté ciblée : fiche dédiée à cette faculté/filière (comportement
+// historique, inchangé). Plusieurs facultés ciblées à la fois (champ `cibles`) =
+// cours commun : UNE seule fiche partagée pour toutes (voir creerCoursCommun),
+// pas une fiche par cible — évite d'oublier de programmer l'horaire de l'une
+// d'entre elles.
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits, cibles } = req.body;
+    const { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits, cmi, td, tp, cibles } = req.body;
 
     if (!code || !nom || !niveau || !annee_academique || !semestre || !credits) {
       return res.status(400).json({ erreur: "Champs obligatoires manquants (code, nom, niveau, année, semestre, crédits)." });
     }
 
-    const listeCibles = (Array.isArray(cibles) && cibles.length)
+    const listeCibles = ((Array.isArray(cibles) && cibles.length)
       ? cibles
-      : (faculte ? [{ faculte, filiere: filiere || null }] : []);
+      : (faculte ? [{ faculte, filiere: filiere || null }] : [])
+    ).filter(c => c && c.faculte);
     if (!listeCibles.length) {
       return res.status(400).json({ erreur: "Aucune faculté cible sélectionnée." });
     }
 
-    const champs = { code, nom, niveau, annee_academique, semestre, credits };
-    const crees = [];
-    const doublons = [];
-    let totalInscrits = 0;
+    const champs = { code, nom, niveau, annee_academique, semestre, credits, cmi: cmi || null, td: td || null, tp: tp || null };
 
-    for (const cible of listeCibles) {
-      if (!cible || !cible.faculte) continue;
+    if (listeCibles.length === 1) {
       try {
-        const r = await creerCoursPourCible(champs, cible.faculte, cible.filiere);
-        crees.push(r);
-        totalInscrits += r.etudiantsInscrits;
+        const r = await creerCoursPourCible(champs, listeCibles[0].faculte, listeCibles[0].filiere);
+        return res.status(201).json({
+          message: "Cours ajouté au programme.",
+          coursCrees: 1, facultes: 1, etudiantsInscrits: r.etudiantsInscrits, doublons: [], id: r.id
+        });
       } catch (e) {
         if (e.code === 'ER_DUP_ENTRY') {
-          doublons.push(cible.faculte + (cible.filiere ? ' / ' + cible.filiere : ''));
-        } else {
-          throw e;
+          return res.status(409).json({ erreur: "Ce cours existe déjà pour : " + listeCibles[0].faculte + (listeCibles[0].filiere ? ' / ' + listeCibles[0].filiere : '') });
         }
+        throw e;
       }
     }
 
-    if (!crees.length) {
-      return res.status(409).json({ erreur: "Ce cours existe déjà pour : " + doublons.join(', ') });
+    try {
+      const r = await creerCoursCommun(champs);
+      res.status(201).json({
+        message: "Cours commun ajouté au programme.",
+        coursCrees: 1, facultes: listeCibles.length, etudiantsInscrits: r.etudiantsInscrits, doublons: [], id: r.id
+      });
+    } catch (e) {
+      if (e.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ erreur: "Ce cours commun existe déjà pour ce niveau et cette année académique." });
+      }
+      throw e;
     }
-
-    res.status(201).json({
-      message: "Cours ajouté au programme.",
-      coursCrees: crees.length,
-      etudiantsInscrits: totalInscrits,
-      doublons,
-      // Rétro-compat : certains appels lisent encore `id`/`etudiantsInscrits` (1re cible).
-      id: crees[0].id
-    });
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: "Erreur lors de l'ajout du cours." });
@@ -141,13 +190,17 @@ router.post('/', requireAdmin, async (req, res) => {
 // ===== PUT /api/programme/:id =====
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
-    const { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits } = req.body;
+    const { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits, cmi, td, tp } = req.body;
     const { filiere_id, promotion } = await resoudreFiliereEtPromotion(niveau, faculte, filiere || null);
 
     await pool.query(
-      'UPDATE cours SET code=?, nom=?, faculte=?, filiere_id=?, niveau=?, promotion=?, annee_academique=?, semestre=?, credits=? WHERE id=?',
-      [code.toUpperCase(), nom, faculte, filiere_id || null, niveau, promotion, annee_academique, semestre, credits, req.params.id]
+      'UPDATE cours SET code=?, nom=?, faculte=?, filiere_id=?, niveau=?, promotion=?, annee_academique=?, semestre=?, credits=?, cmi=?, td=?, tp=? WHERE id=?',
+      [code.toUpperCase(), nom, faculte, filiere_id || null, niveau, promotion, annee_academique, semestre, credits, cmi || null, td || null, tp || null, req.params.id]
     );
+
+    // Si la cible (faculté/niveau/filière/année) du cours a changé, les
+    // étudiants qui y correspondent désormais doivent l'avoir ipso facto.
+    await inscrireEtudiantsAuCours(req.params.id, faculte, niveau, filiere_id, annee_academique);
 
     res.json({ message: "Cours modifié avec succès." });
   } catch (erreur) {

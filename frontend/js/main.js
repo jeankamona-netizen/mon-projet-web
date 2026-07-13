@@ -10,6 +10,41 @@ function basculerMenuMobile() {
 }
 
 // =====================
+// FACULTÉS — vitrine de la page d'accueil, chargée depuis la base (jamais
+// codée en dur) pour ne jamais afficher une filière renommée/supprimée.
+// =====================
+const STYLE_FACULTE = {
+  'Faculté de Théologie':                    'theologie',
+  'Sciences Informatiques':                  'informatique',
+  'Sciences Économiques':                    'economie',
+  "Sciences de l'Éducation & Psychologie":  'education',
+};
+
+async function chargerFacultesAccueil() {
+  const grille = document.getElementById('facultes-grid');
+  if (!grille) return;
+  try {
+    await chargerFacultesDB();
+    if (facultesDB.length === 0) { grille.innerHTML = '<p style="text-align:center;color:#888;grid-column:1/-1">Aucune faculté enregistrée.</p>'; return; }
+    grille.innerHTML = facultesDB.map(f => {
+      const style = STYLE_FACULTE[f.nom] || 'theologie';
+      const filieres = (f.filieres && f.filieres.length > 0)
+        ? f.filieres.map(nom => `<li>✓ ${nom}</li>`).join('')
+        : '<li>✓ Programme non subdivisé en filières</li>';
+      const badge = f.master_disponible ? '<div class="master-badge">Master disponible</div>' : '';
+      return `
+        <div class="faculte-card">
+          <div class="faculte-header ${style}"><h3>${f.nom}</h3></div>
+          <ul class="filieres">${filieres}</ul>
+          ${badge}
+        </div>`;
+    }).join('');
+  } catch {
+    grille.innerHTML = '<p style="text-align:center;color:#888;grid-column:1/-1">⚠️ Impossible de charger les facultés.</p>';
+  }
+}
+
+// =====================
 // GALERIE — LIGHTBOX
 // =====================
 let photosGalerie = [];
@@ -125,6 +160,7 @@ async function chargerAnnoncesPubliques() {
 document.addEventListener('DOMContentLoaded', () => {
   initialiserLightbox();
   chargerAnnoncesPubliques();
+  chargerFacultesAccueil();
 
   const lightbox = document.getElementById('lightbox');
   lightbox?.addEventListener('click', e => { if (e.target === lightbox) fermerLightbox(); });

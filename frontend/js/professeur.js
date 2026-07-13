@@ -277,12 +277,84 @@ function filtrerHoraireProf() {
                   <div class="cal-evenement-corps">
                     <span class="cours-nom">${h.cours} <span style="color:#999;font-weight:400">(${h.code})</span></span>
                     <span class="cours-info">${h.promotion}</span>
-                    <span class="cours-info">${h.salle} · ${h.nb_etudiants ?? 0} étudiant(s) inscrit(s)</span>
+                    <span class="cours-info">${h.salle} · ${h.nb_etudiants ?? 0} étudiant(s)</span>
+                    <button class="btn-icone" style="margin-top:6px;width:100%" onclick="ouvrirModalPresences(${h.id}, '${(h.cours + ' (' + h.code + ')').replace(/'/g, "\\'")}', '${dateColonne.toISOString().slice(0,10)}')">📋 Présences</button>
                   </div>
                 </div>`).join('')}
         </div>
       </div>`;
   }).join('');
+}
+
+// =====================
+// PRÉSENCES D'UNE SÉANCE
+// =====================
+let presencesModalCache = [];
+
+function ouvrirModalPresences(horaireId, coursLibelle, dateSeance) {
+  document.getElementById('presences-horaire-id').value = horaireId;
+  document.getElementById('presences-cours-nom').textContent = coursLibelle;
+  document.getElementById('presences-date').value = dateSeance;
+  document.getElementById('modal-presences')?.classList.add('active');
+  chargerPresencesModal();
+}
+
+function fermerModalPresences() {
+  document.getElementById('modal-presences')?.classList.remove('active');
+}
+
+async function chargerPresencesModal() {
+  const professeur = getProfesseurConnecte();
+  if (!professeur) return;
+  const horaireId = document.getElementById('presences-horaire-id')?.value;
+  const date = document.getElementById('presences-date')?.value;
+  const tbody = document.getElementById('presences-body');
+  if (!tbody || !horaireId || !date) return;
+  tbody.innerHTML = '<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>';
+  try {
+    const r = await fetch(`${BASE_URL}/api/professeur/${professeur.id}/horaires/${horaireId}/presences?date=${date}`);
+    if (!r.ok) throw new Error();
+    presencesModalCache = await r.json();
+    if (presencesModalCache.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="admin-vide">Aucun étudiant inscrit à ce cours.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = presencesModalCache.map(e => {
+      const statut = e.statut || 'present'; // par défaut : présent tant que rien n'est saisi
+      return `<tr data-etudiant-id="${e.id}">
+        <td>${e.nom} ${e.postnom || ''} ${e.prenom}</td>
+        <td style="text-align:center"><input type="radio" name="presence-${e.id}" value="present" ${statut === 'present' ? 'checked' : ''}></td>
+        <td style="text-align:center"><input type="radio" name="presence-${e.id}" value="retard" ${statut === 'retard' ? 'checked' : ''}></td>
+        <td style="text-align:center"><input type="radio" name="presence-${e.id}" value="absent" ${statut === 'absent' ? 'checked' : ''}></td>
+      </tr>`;
+    }).join('');
+  } catch {
+    tbody.innerHTML = '<tr><td colspan="4" class="admin-vide">⚠️ Erreur de chargement.</td></tr>';
+  }
+}
+
+async function enregistrerPresences() {
+  const professeur = getProfesseurConnecte();
+  if (!professeur) return;
+  const horaireId = document.getElementById('presences-horaire-id')?.value;
+  const date_seance = document.getElementById('presences-date')?.value;
+  if (!horaireId || !date_seance || presencesModalCache.length === 0) return;
+
+  const presences = presencesModalCache.map(e => ({
+    etudiant_id: e.id,
+    statut: document.querySelector(`input[name="presence-${e.id}"]:checked`)?.value || 'present',
+  }));
+
+  try {
+    const r = await fetch(`${BASE_URL}/api/professeur/${professeur.id}/horaires/${horaireId}/presences`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date_seance, presences })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    afficherToast('✅ Présences enregistrées.');
+    fermerModalPresences();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
 // =====================
@@ -456,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const champPass = document.getElementById('prof-pass');
   if (champPass) champPass.addEventListener('keypress', e => { if (e.key === 'Enter') connexionProfesseur(); });
 
-  if (document.getElementById('prof-horaire-body')) {
+  if (document.getElementById('prof-horaire-calendrier')) {
     const professeur = getProfesseurConnecte();
     if (professeur) {
       afficherProfilProf(professeur);

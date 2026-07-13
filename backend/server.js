@@ -9,6 +9,8 @@ const pool      = require('./database');
 const { requireAdmin } = require('./middleware/auth');
 const { journaliserActionsAdmin } = require('./middleware/audit');
 const { genererBulletinPDF } = require('./bulletin');
+const { genererReleveNotesCumulatifPDF } = require('./releveNotes');
+const { inscrireAuxCoursDuNiveau } = require('./models/inscriptionAuto');
 const upload    = require('./upload');
 const app       = express();
 
@@ -98,6 +100,7 @@ const reinscriptionsRoutes = require('./routes/reinscriptions');
 const anneesRoutes        = require('./routes/annees');
 const caisseRoutes        = require('./routes/caisse');
 const agentsRoutes        = require('./routes/agents');
+const fraisScolariteRoutes = require('./routes/fraisScolarite');
 
 app.use('/api/auth',           authRoutes);
 app.use('/api/facultes',       facultesRoutes);
@@ -113,6 +116,7 @@ app.use('/api/reinscriptions', reinscriptionsRoutes);
 app.use('/api/annees',         anneesRoutes);
 app.use('/api/caisse',         caisseRoutes);
 app.use('/api/agents',         agentsRoutes);
+app.use('/api/frais-scolarite', fraisScolariteRoutes);
 
 // =====================
 // STATISTIQUES (vue d'ensemble admin)
@@ -291,6 +295,12 @@ app.put('/api/etudiants/:id', requireAdmin, async (req, res) => {
       [nom, postnom||null, prenom, date_naissance||null, sexe||null, email||null,
        telephone||null, faculte||null, promotion||null, filiere_id, niveau||null, annee_academique||null, statut||'actif', req.params.id]
     );
+
+    // Une correction manuelle de faculté/niveau/année doit aussi ramener les
+    // cours déjà programmés pour ce nouveau profil — même logique que la
+    // création/promotion (voir models/inscriptionAuto.js).
+    await inscrireAuxCoursDuNiveau(req.params.id, faculte, niveau, filiere_id, annee_academique);
+
     res.json({ message: 'Étudiant mis à jour.' });
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });
@@ -369,15 +379,30 @@ app.get('/api/etudiant/:id/cursus', async (req, res) => {
 // =====================
 app.get('/api/etudiant/:id/paiements', async (req, res) => {
   try {
-    const [etudiants] = await pool.query('SELECT id FROM etudiant WHERE id = ?', [req.params.id]);
+    const [etudiants] = await pool.query('SELECT id, niveau, annee_academique FROM etudiant WHERE id = ?', [req.params.id]);
     if (etudiants.length === 0) return res.status(404).json({ erreur: 'Étudiant non trouvé.' });
+    const etu = etudiants[0];
 
     const [paiements] = await pool.query(
       'SELECT id, montant, date_paiement, mode_paiement, reference, annee_academique FROM paiement WHERE etudiant_id = ? ORDER BY date_paiement DESC',
       [req.params.id]
     );
     const total = paiements.reduce((s, p) => s + Number(p.montant), 0);
-    res.json({ paiements, total });
+
+    // Solde restant = barème (frais_scolarite) du niveau/année courant de
+    // l'étudiant − ses versements pour cette même année. null si aucun
+    // barème n'a encore été défini pour ce couple niveau/année.
+    const [[bareme]] = await pool.query(
+      'SELECT montant FROM frais_scolarite WHERE niveau = ? AND annee_academique = ?',
+      [etu.niveau, etu.annee_academique]
+    );
+    const totalAnneeCourante = paiements
+      .filter(p => p.annee_academique === etu.annee_academique)
+      .reduce((s, p) => s + Number(p.montant), 0);
+    const montant_attendu = bareme ? Number(bareme.montant) : null;
+    const solde = montant_attendu === null ? null : Math.max(0, montant_attendu - totalAnneeCourante);
+
+    res.json({ paiements, total, montant_attendu, solde });
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });
 
@@ -403,6 +428,42 @@ app.get('/api/etudiant/:id/bulletin', requireAdmin, async (req, res) => {
     genererBulletinPDF(res, etudiants[0], notes);
   } catch (erreur) {
     console.error('Erreur bulletin:', erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// =====================
+// RELEVÉ DE NOTES CUMULATIF — toutes les années académiques de l'étudiant
+// sur un seul document (réservé à l'administrateur, comme le bulletin).
+// =====================
+app.get('/api/etudiant/:id/releve-cumulatif', requireAdmin, async (req, res) => {
+  try {
+    const [etudiants] = await pool.query(
+      'SELECT e.*, f.nom AS filiere_nom FROM etudiant e LEFT JOIN filiere f ON e.filiere_id = f.id WHERE e.id = ?',
+      [req.params.id]
+    );
+    if (etudiants.length === 0) return res.status(404).json({ erreur: 'Étudiant non trouvé.' });
+
+    const [notes] = await pool.query(`
+      SELECT n.note, n.note_cc, n.note_examen, n.session, n.annee_academique,
+             c.nom AS matiere, c.code, c.credits, c.niveau
+      FROM note n JOIN cours c ON n.cours_id = c.id
+      WHERE n.etudiant_id = ?
+      ORDER BY n.annee_academique, n.session, c.code
+    `, [req.params.id]);
+
+    if (notes.length === 0) return res.status(404).json({ erreur: "Aucune note enregistrée pour cet étudiant." });
+
+    const parAnnee = {};
+    for (const n of notes) {
+      if (!parAnnee[n.annee_academique]) parAnnee[n.annee_academique] = { annee_academique: n.annee_academique, niveau: n.niveau, notes: [] };
+      parAnnee[n.annee_academique].notes.push(n);
+    }
+    const notesParAnnee = Object.values(parAnnee).sort((a, b) => a.annee_academique.localeCompare(b.annee_academique));
+
+    genererReleveNotesCumulatifPDF(res, etudiants[0], notesParAnnee);
+  } catch (erreur) {
+    console.error('Erreur relevé cumulatif:', erreur);
     res.status(500).json({ erreur: erreur.message });
   }
 });
@@ -562,6 +623,88 @@ app.post('/api/professeur/:id/notes', async (req, res) => {
       [etudiant_id, cours_id, ccFinal, examenFinal, note, session, annee_academique]
     );
     res.status(201).json({ message: 'Note enregistrée.', id: r.insertId, note });
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+// =====================
+// PRÉSENCES — feuille d'appel d'une séance (espace professeur, uniquement ses propres cours)
+// =====================
+app.get('/api/professeur/:id/horaires/:horaireId/presences', async (req, res) => {
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ erreur: "Le paramètre date est obligatoire." });
+  try {
+    const [autorise] = await pool.query(
+      'SELECT cours_id FROM horaire WHERE id = ? AND professeur_id = ? LIMIT 1',
+      [req.params.horaireId, req.params.id]
+    );
+    if (autorise.length === 0) return res.status(403).json({ erreur: "Ce créneau ne vous appartient pas." });
+
+    // Étudiants inscrits au cours de ce créneau, avec leur statut de
+    // présence pour cette date précise s'il a déjà été saisi.
+    const [etudiants] = await pool.query(`
+      SELECT e.id, e.nom, e.postnom, e.prenom, p.statut
+      FROM inscription_cours ic
+      JOIN etudiant e ON e.id = ic.etudiant_id
+      LEFT JOIN presence p ON p.etudiant_id = e.id AND p.horaire_id = ? AND p.date_seance = ?
+      WHERE ic.cours_id = ?
+      ORDER BY e.nom, e.prenom
+    `, [req.params.horaireId, date, autorise[0].cours_id]);
+    res.json(etudiants);
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+app.post('/api/professeur/:id/horaires/:horaireId/presences', async (req, res) => {
+  const { date_seance, presences } = req.body;
+  if (!date_seance || !Array.isArray(presences) || presences.length === 0) {
+    return res.status(400).json({ erreur: "Date de séance et liste de présences obligatoires." });
+  }
+  const statutsValides = ['present', 'absent', 'retard'];
+  if (presences.some(p => !p.etudiant_id || !statutsValides.includes(p.statut))) {
+    return res.status(400).json({ erreur: "Chaque présence doit préciser un étudiant et un statut valide." });
+  }
+  try {
+    const [autorise] = await pool.query(
+      'SELECT 1 FROM horaire WHERE id = ? AND professeur_id = ? LIMIT 1',
+      [req.params.horaireId, req.params.id]
+    );
+    if (autorise.length === 0) return res.status(403).json({ erreur: "Ce créneau ne vous appartient pas." });
+
+    for (const p of presences) {
+      await pool.query(
+        `INSERT INTO presence (horaire_id, etudiant_id, date_seance, statut) VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE statut = VALUES(statut)`,
+        [req.params.horaireId, p.etudiant_id, date_seance, p.statut]
+      );
+    }
+    res.status(201).json({ message: 'Présences enregistrées.' });
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+// =====================
+// PRÉSENCES — consultation par l'étudiant (taux d'assiduité par cours + historique)
+// =====================
+app.get('/api/etudiant/:id/presences', async (req, res) => {
+  try {
+    const [lignes] = await pool.query(`
+      SELECT p.date_seance, p.statut, h.heure_debut, h.heure_fin, h.salle,
+             c.id AS cours_id, c.nom AS cours, c.code
+      FROM presence p
+      JOIN horaire h ON h.id = p.horaire_id
+      JOIN cours c ON c.id = h.cours_id
+      WHERE p.etudiant_id = ?
+      ORDER BY p.date_seance DESC
+    `, [req.params.id]);
+
+    const parCours = {};
+    for (const l of lignes) {
+      if (!parCours[l.cours_id]) parCours[l.cours_id] = { cours_id: l.cours_id, cours: l.cours, code: l.code, total: 0, present: 0, absent: 0, retard: 0, seances: [] };
+      const c = parCours[l.cours_id];
+      c.total++;
+      c[l.statut]++;
+      c.seances.push({ date_seance: l.date_seance, statut: l.statut, heure_debut: l.heure_debut, heure_fin: l.heure_fin, salle: l.salle });
+    }
+    const parCoursListe = Object.values(parCours).map(c => ({ ...c, taux_presence: c.total === 0 ? null : Math.round((c.present / c.total) * 1000) / 10 }));
+    res.json(parCoursListe);
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });
 

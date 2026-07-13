@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
+const { inscrireAuxCoursDuNiveau } = require('../models/inscriptionAuto');
 
 // Toutes les routes de réinscription sont réservées à l'admin
 router.use(requireAdmin);
@@ -30,21 +31,6 @@ async function genererMatricule(anneeAcademique) {
     if (!exist) return matricule;
     seq++;
   }
-}
-
-// Inscrit un étudiant aux cours de sa faculté + niveau + année (sa filière
-// précise + les cours communs à toute la faculté). Renvoie le nombre de cours.
-async function inscrireAuxCoursDuNiveau(etudiantId, faculte, niveau, filiere_id, annee) {
-  if (!faculte || !niveau || !annee) return 0;
-  let sql = 'SELECT id FROM cours WHERE faculte = ? AND niveau = ? AND annee_academique = ? AND (filiere_id IS NULL';
-  const params = [faculte, niveau, annee];
-  if (filiere_id) { sql += ' OR filiere_id = ?'; params.push(filiere_id); }
-  sql += ')';
-  const [cours] = await pool.query(sql, params);
-  if (cours.length === 0) return 0;
-  const valeurs = cours.map(c => [etudiantId, c.id]);
-  await pool.query('INSERT IGNORE INTO inscription_cours (etudiant_id, cours_id) VALUES ?', [valeurs]);
-  return cours.length;
 }
 
 // ===== POST /api/reinscriptions/promouvoir — faire monter un étudiant existant de promotion =====

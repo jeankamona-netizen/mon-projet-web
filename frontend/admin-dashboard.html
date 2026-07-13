@@ -100,6 +100,11 @@
           Agents (personnel)
         </a>
 
+        <a href="#" class="nav-item" onclick="afficherSection('admin-annees', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Années académiques
+        </a>
+
         <a href="#" class="nav-item" onclick="afficherSection('admin-audit', this)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><polyline points="14 2 14 7 19 7"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
           Journal d'audit
@@ -188,10 +193,6 @@
           <div class="admin-toolbar">
             <select class="admin-recherche" id="notes-filtre-faculte" style="flex:0 0 200px" onchange="chargerFilieresPourFiltreNotes(); chargerNotes()">
               <option value="">Toutes les facultés</option>
-              <option value="Faculté de Théologie">Faculté de Théologie</option>
-              <option value="Sciences Informatiques">Sciences Informatiques</option>
-              <option value="Sciences Économiques">Sciences Économiques</option>
-              <option value="Sciences de l'Éducation & Psychologie">Sciences de l'Éducation & Psychologie</option>
             </select>
             <select class="admin-recherche" id="notes-filtre-filiere" style="flex:0 0 200px" onchange="chargerNotes()">
               <option value="">Toutes les filières</option>
@@ -262,7 +263,10 @@
         <p class="dash-sous-titre">Organisez les cours par promotion et année académique</p>
 
         <div class="admin-toolbar">
-          <select class="admin-recherche" id="filtre-annee" style="flex:0 0 160px">
+          <select class="admin-recherche" id="filtre-faculte" style="flex:0 0 175px;min-width:175px">
+            <option value="">Toutes les facultés</option>
+          </select>
+          <select class="admin-recherche" id="filtre-annee" style="flex:0 0 150px;min-width:150px">
             <option value="">Toutes les années</option>
             <option value="2026-2027">2026-2027</option>
             <option value="2027-2028">2027-2028</option>
@@ -270,15 +274,16 @@
             <option value="2029-2030">2029-2030</option>
             <option value="2030-2031">2030-2031</option>
           </select>
-          <select class="admin-recherche" id="filtre-niveau" style="flex:0 0 180px">
+          <select class="admin-recherche" id="filtre-niveau" style="flex:0 0 145px;min-width:145px">
             <option value="">Tous les niveaux</option>
+            <option value="Pré-U">Pré-Universitaire</option>
             <option value="L1">Licence 1</option>
             <option value="L2">Licence 2</option>
             <option value="L3">Licence 3</option>
             <option value="M1">Master 1</option>
             <option value="M2">Master 2</option>
           </select>
-          <select class="admin-recherche" id="filtre-jour" style="flex:0 0 160px">
+          <select class="admin-recherche" id="filtre-jour" style="flex:0 0 125px;min-width:125px">
             <option value="">Tous les jours</option>
             <option value="Lundi">Lundi</option>
             <option value="Mardi">Mardi</option>
@@ -290,35 +295,14 @@
         </div>
 
         <div class="dash-card">
-          <table class="dash-table horaires-admin-table">
-            <colgroup>
-              <col style="width:7%">
-              <col style="width:9%">
-              <col style="width:6%">
-              <col style="width:13%">
-              <col style="width:5%">
-              <col style="width:21%">
-              <col style="width:13%">
-              <col style="width:9%">
-              <col style="width:10%">
-              <col style="width:7%">
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Jour</th>
-                <th>Date</th>
-                <th>Heure</th>
-                <th>Promotion</th>
-                <th>Nbre</th>
-                <th>Cours</th>
-                <th>Professeur</th>
-                <th>Salle</th>
-                <th>Année</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="admin-horaires-body"></tbody>
-          </table>
+          <div class="cal-nav">
+            <button class="cal-nav-btn" onclick="changerSemaineHorairesAdmin(-1)" aria-label="Semaine précédente">‹</button>
+            <span class="cal-nav-label" id="admin-horaires-semaine-label"></span>
+            <button class="cal-nav-btn" onclick="changerSemaineHorairesAdmin(1)" aria-label="Semaine suivante">›</button>
+          </div>
+          <div class="calendrier-semaine" id="admin-horaires-calendrier">
+            <p style="color:#999;font-size:13px">Chargement...</p>
+          </div>
         </div>
       </section>
 
@@ -397,25 +381,7 @@
 
 
         <div class="admin-toolbar" style="margin-top:10px;justify-content:flex-start;flex-wrap:nowrap">
-          <select class="admin-recherche" id="filtre-faculte-prog" style="flex:1.5 1 0;min-width:0" onchange="chargerFilieresPourFiltreProg(); chargerProgramme()">
-            <option value="">— Faculté —</option>
-            <option value="Faculté de Théologie">Faculté de Théologie</option>
-            <option value="Sciences Informatiques">Sciences Informatiques</option>
-            <option value="Sciences Économiques">Sciences Économiques</option>
-            <option value="Sciences de l'Éducation & Psychologie">Sciences de l'Éducation & Psychologie</option>
-          </select>
-          <select class="admin-recherche" id="filtre-filiere-prog" style="flex:1.2 1 0;min-width:0" onchange="chargerProgramme()">
-            <option value="">Toutes les filières</option>
-          </select>
-          <select class="admin-recherche" id="filtre-niveau-prog" style="flex:1 1 0;min-width:0" onchange="chargerProgramme()">
-            <option value="">— Niveau —</option>
-            <option value="L1">Licence 1</option>
-            <option value="L2">Licence 2</option>
-            <option value="L3">Licence 3</option>
-            <option value="M1">Master 1</option>
-            <option value="M2">Master 2</option>
-          </select>
-          <select class="admin-recherche" id="filtre-annee-prog" style="flex:1 1 0;min-width:0" onchange="chargerProgramme()">
+           <select class="admin-recherche" id="filtre-annee-prog" style="flex:1 1 0;min-width:0" onchange="chargerProgramme()">
             <option value="">— Année —</option>
             <option value="2024-2025">2024-2025</option>
             <option value="2025-2026">2025-2026</option>
@@ -423,6 +389,22 @@
             <option value="2027-2028">2027-2028</option>
             <option value="2028-2029">2028-2029</option>
           </select>
+          <select class="admin-recherche" id="filtre-faculte-prog" style="flex:1.5 1 0;min-width:0" onchange="chargerFilieresPourFiltreProg(); chargerProgramme()">
+            <option value="">— Faculté —</option>
+          </select>
+          <select class="admin-recherche" id="filtre-filiere-prog" style="flex:1.2 1 0;min-width:0" onchange="chargerProgramme()">
+            <option value="">Toutes les filières</option>
+          </select>
+          <select class="admin-recherche" id="filtre-niveau-prog" style="flex:1 1 0;min-width:0" onchange="chargerProgramme()">
+            <option value="">— Niveau —</option>
+            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="L1">Licence 1</option>
+            <option value="L2">Licence 2</option>
+            <option value="L3">Licence 3</option>
+            <option value="M1">Master 1</option>
+            <option value="M2">Master 2</option>
+          </select>
+         
         </div>
 
         <!-- Message par défaut : demande de sélection -->
@@ -437,12 +419,12 @@
             <h3>Semestre 1</h3>
             <table class="dash-table">
               <thead>
-                <tr><th>Code</th><th>Cours</th><th>Crédits</th><th>Actions</th></tr>
+                <tr><th>Code UE</th><th>Intitulé UE</th><th>CMI</th><th>TD</th><th>TP</th><th>Crédits</th><th>Actions</th></tr>
               </thead>
               <tbody id="prog-s1-body"></tbody>
               <tfoot>
                 <tr>
-                  <td colspan="2" style="text-align:right;font-weight:700;color:var(--bleu)">Total</td>
+                  <td colspan="5" style="text-align:right;font-weight:700;color:var(--bleu)">Total</td>
                   <td id="prog-s1-total" style="font-weight:700;color:var(--bleu)">0</td>
                   <td></td>
                 </tr>
@@ -454,12 +436,12 @@
             <h3>Semestre 2</h3>
             <table class="dash-table">
               <thead>
-                <tr><th>Code</th><th>Cours</th><th>Crédits</th><th>Actions</th></tr>
+                <tr><th>Code UE</th><th>Intitulé UE</th><th>CMI</th><th>TD</th><th>TP</th><th>Crédits</th><th>Actions</th></tr>
               </thead>
               <tbody id="prog-s2-body"></tbody>
               <tfoot>
                 <tr>
-                  <td colspan="2" style="text-align:right;font-weight:700;color:var(--bleu)">Total</td>
+                  <td colspan="5" style="text-align:right;font-weight:700;color:var(--bleu)">Total</td>
                   <td id="prog-s2-total" style="font-weight:700;color:var(--bleu)">0</td>
                   <td></td>
                 </tr>
@@ -519,13 +501,10 @@
                  placeholder="🔎 Rechercher par nom...">
           <select class="admin-recherche" id="filtre-inscrits-faculte" style="flex:0 0 180px">
             <option value="">Toutes les facultés</option>
-            <option value="Faculté de Théologie">Théologie</option>
-            <option value="Sciences Informatiques">Informatique</option>
-            <option value="Sciences Économiques">Économie</option>
-            <option value="Sciences de l'Éducation & Psychologie">Éducation & Psycho</option>
           </select>
           <select class="admin-recherche" id="filtre-inscrits-niveau" style="flex:0 0 130px">
             <option value="">Tous niveaux</option>
+            <option value="Pré-U">Pré-Universitaire</option>
             <option value="L1">Licence 1</option>
             <option value="L2">Licence 2</option>
             <option value="L3">Licence 3</option>
@@ -594,7 +573,8 @@
                 <div class="form-group-dash">
                   <label>Nouveau niveau <span class="required">*</span></label>
                   <select id="reins-nouveau-niveau">
-                    <option value="L1">Licence 1</option>
+                    <option value="Pré-U">Pré-Universitaire</option>
+            <option value="L1">Licence 1</option>
                     <option value="L2">Licence 2</option>
                     <option value="L3">Licence 3</option>
                     <option value="M1">Master 1</option>
@@ -649,10 +629,6 @@
                 <label>Faculté <span class="required">*</span></label>
                 <select id="reins-faculte" onchange="chargerFilieresPourReinscription()">
                   <option value="">— Choisir —</option>
-                  <option value="Faculté de Théologie">Faculté de Théologie</option>
-                  <option value="Sciences Informatiques">Sciences Informatiques</option>
-                  <option value="Sciences Économiques">Sciences Économiques</option>
-                  <option value="Sciences de l'Éducation & Psychologie">Sciences de l'Éducation & Psychologie</option>
                 </select>
               </div>
               <div class="form-group-dash">
@@ -666,7 +642,8 @@
                 <select id="reins-niveau">
                   <option value="L2">Licence 2</option>
                   <option value="L3">Licence 3</option>
-                  <option value="L1">Licence 1</option>
+                  <option value="Pré-U">Pré-Universitaire</option>
+            <option value="L1">Licence 1</option>
                   <option value="M1">Master 1</option>
                   <option value="M2">Master 2</option>
                   <option value="D1">Doctorat 1</option>
@@ -785,6 +762,32 @@
         </div>
       </section>
 
+      <!-- ==================== ANNÉES ACADÉMIQUES ==================== -->
+      <section id="admin-annees" class="dash-section">
+        <h2>Années académiques</h2>
+        <p class="dash-sous-titre">L'année courante alimente les valeurs par défaut des formulaires de tout le site</p>
+
+        <div class="admin-toolbar">
+          <input type="text" class="admin-recherche" id="nouvelle-annee" placeholder="ex: 2031-2032" style="flex:0 0 200px" maxlength="9">
+          <button class="btn-ajouter" onclick="ajouterAnneeAcademique()">+ Ajouter une année</button>
+        </div>
+
+        <div class="dash-card">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Année académique</th>
+                <th>Statut</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="admin-annees-body">
+              <tr><td colspan="3" class="admin-vide">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -894,6 +897,7 @@
           <label>Niveau</label>
           <select id="filtre-note-niveau" onchange="filtrerEtudiants()">
             <option value="">Tous niveaux</option>
+            <option value="Pré-U">Pré-Universitaire</option>
             <option value="L1">Licence 1</option>
             <option value="L2">Licence 2</option>
             <option value="L3">Licence 3</option>
@@ -908,10 +912,6 @@
           <label>Faculté</label>
           <select id="filtre-note-faculte" onchange="filtrerEtudiantsParFaculte()">
             <option value="">Toutes les facultés</option>
-            <option value="Faculté de Théologie">Théologie</option>
-            <option value="Sciences Informatiques">Informatique</option>
-            <option value="Sciences Économiques">Économie</option>
-            <option value="Sciences de l'Éducation & Psychologie">Éducation & Psycho</option>
           </select>
         </div>
         <div class="form-group-dash">
@@ -988,10 +988,7 @@
           <label>Faculté</label>
           <select id="horaire-faculte" onchange="chargerFilieresPourHoraire()">
             <option value="">— Choisir —</option>
-            <option value="Faculté de Théologie">Faculté de Théologie</option>
-            <option value="Sciences Informatiques">Sciences Informatiques</option>
-            <option value="Sciences Économiques">Sciences Économiques</option>
-            <option value="Sciences de l'Éducation & Psychologie">Sciences de l'Éducation & Psychologie</option>
+            <option value="TOUTES">Toutes les facultés</option>
           </select>
         </div>
         
@@ -1009,6 +1006,7 @@
         <div class="form-group-dash">
           <label>Niveau</label>
           <select id="horaire-niveau" onchange="rafraichirCoursHoraire()">
+            <option value="Pré-U">Pré-Universitaire</option>
             <option value="L1">Licence 1</option>
             <option value="L2">Licence 2</option>
             <option value="L3">Licence 3</option>
@@ -1136,10 +1134,6 @@
         <label>Cible (dashboard étudiant)</label>
         <select id="annonce-cible">
           <option value="">Tout le monde</option>
-          <option value="Faculté de Théologie">Faculté de Théologie</option>
-          <option value="Sciences Informatiques">Sciences Informatiques</option>
-          <option value="Sciences Économiques">Sciences Économiques</option>
-          <option value="Sciences de l'Éducation & Psychologie">Sciences de l'Éducation & Psychologie</option>
         </select>
       </div>
 
@@ -1215,10 +1209,6 @@
           <label>Faculté</label>
           <select id="prog-faculte" onchange="chargerFilieresPourProgramme()">
             <option value="">— Choisir —</option>
-            <option value="Faculté de Théologie">Faculté de Théologie</option>
-            <option value="Sciences Informatiques">Sciences Informatiques</option>
-            <option value="Sciences Économiques">Sciences Économiques</option>
-            <option value="Sciences de l'Éducation & Psychologie">Sciences de l'Éducation & Psychologie</option>
           </select>
         </div>
         <div class="form-group-dash">
@@ -1241,6 +1231,7 @@
         <div class="form-group-dash">
           <label>Niveau</label>
           <select id="prog-niveau">
+            <option value="Pré-U">Pré-Universitaire</option>
             <option value="L1">Licence 1</option>
             <option value="L2">Licence 2</option>
             <option value="L3">Licence 3</option>
@@ -1276,18 +1267,33 @@
 
       <div class="form-row-admin">
         <div class="form-group-dash">
-          <label>Code du cours</label>
+          <label>Code UE</label>
           <input type="text" id="prog-code" placeholder="ex: INF201">
         </div>
         <div class="form-group-dash">
           <label>Crédits</label>
-          <input type="number" id="prog-credits" min="1" max="10" placeholder="ex: 4">
+          <input type="number" id="prog-credits" min="1" max="20" placeholder="ex: 4">
         </div>
       </div>
 
       <div class="form-group-dash">
-        <label>Intitulé du cours</label>
+        <label>Intitulé UE</label>
         <input type="text" id="prog-nom" placeholder="ex: Algorithmique avancée">
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>CMI <span class="info">(heures)</span></label>
+          <input type="number" id="prog-cmi" min="0" placeholder="ex: 40">
+        </div>
+        <div class="form-group-dash">
+          <label>TD <span class="info">(heures)</span></label>
+          <input type="number" id="prog-td" min="0" placeholder="ex: 20">
+        </div>
+        <div class="form-group-dash">
+          <label>TP <span class="info">(heures)</span></label>
+          <input type="number" id="prog-tp" min="0" placeholder="ex: 15">
+        </div>
       </div>
 
       <div class="admin-modal-actions">
@@ -1313,6 +1319,7 @@
       <div class="form-group-dash">
         <label>Niveau</label>
         <select id="inscriptions-niveau-masse">
+          <option value="Pré-U">Pré-Universitaire</option>
           <option value="L1">Licence 1</option>
           <option value="L2">Licence 2</option>
           <option value="L3">Licence 3</option>
@@ -1328,12 +1335,7 @@
       </div>
       <div class="form-group-dash">
         <label>Facultés concernées <span class="info">(sélectionnez-en une ou plusieurs — ex. Informatique + Théologie + Éducation + Économie pour un cours commun)</span></label>
-        <div id="inscriptions-facultes-checkboxes" class="faculte-checkbox-liste">
-          <label class="faculte-checkbox-item"><input type="checkbox" value="Faculté de Théologie"> Faculté de Théologie</label>
-          <label class="faculte-checkbox-item"><input type="checkbox" value="Sciences Informatiques"> Sciences Informatiques</label>
-          <label class="faculte-checkbox-item"><input type="checkbox" value="Sciences Économiques"> Sciences Économiques</label>
-          <label class="faculte-checkbox-item"><input type="checkbox" value="Sciences de l'Éducation & Psychologie"> Sciences de l'Éducation & Psychologie</label>
-        </div>
+        <div id="inscriptions-facultes-checkboxes" class="faculte-checkbox-liste"></div>
       </div>
       <button class="btn-ajouter" style="width:100%;margin-bottom:14px" onclick="inscrirePlusieursFacultes()">
         + Inscrire les étudiants sélectionnés
@@ -1426,10 +1428,6 @@
           <label>Faculté</label>
           <select id="inscrit-faculte" onchange="chargerFilieresPourInscrit()">
             <option value="">— Choisir —</option>
-            <option value="Faculté de Théologie">Faculté de Théologie</option>
-            <option value="Sciences Informatiques">Sciences Informatiques</option>
-            <option value="Sciences Économiques">Sciences Économiques</option>
-            <option value="Sciences de l'Éducation & Psychologie">Sciences de l'Éducation & Psychologie</option>
           </select>
         </div>
         <div class="form-group-dash">
@@ -1444,6 +1442,7 @@
         <div class="form-group-dash">
           <label>Niveau / Promotion</label>
           <select id="inscrit-promotion">
+            <option value="Pré-U">Pré-Universitaire</option>
             <option value="L1">Licence 1</option>
             <option value="L2">Licence 2</option>
             <option value="L3">Licence 3</option>
@@ -1493,64 +1492,6 @@
     </div>
   </div>
 
-  <!-- MODAL PAIEMENTS -->
-  <div class="admin-modal-overlay" id="modal-paiements">
-    <div class="admin-modal" style="max-width:560px">
-      <div class="admin-modal-header">
-        <h3>Frais de scolarité — <span id="paiements-nom-etudiant"></span></h3>
-        <button class="admin-modal-close" onclick="fermerModalPaiements()" aria-label="Fermer">✕</button>
-      </div>
-
-      <input type="hidden" id="paiements-etudiant-id">
-
-      <div style="background:var(--gris);border-radius:8px;padding:12px 16px;margin-bottom:16px;text-align:center">
-        <span style="font-size:12px;color:#888">Total versé</span>
-        <div style="font-size:22px;font-weight:700;color:var(--bleu)" id="paiements-total">0 $</div>
-      </div>
-
-      <table class="dash-table" style="margin-bottom:16px">
-        <thead>
-          <tr><th>Date</th><th>Montant</th><th>Mode</th><th></th></tr>
-        </thead>
-        <tbody id="paiements-body">
-          <tr><td colspan="4" class="admin-vide">Chargement...</td></tr>
-        </tbody>
-      </table>
-
-      <p class="form-sous-section">Enregistrer un nouveau versement</p>
-
-      <div class="form-row-admin">
-        <div class="form-group-dash">
-          <label>Montant ($)</label>
-          <input type="number" min="0" step="0.01" id="paiement-montant">
-        </div>
-        <div class="form-group-dash">
-          <label>Date</label>
-          <input type="date" id="paiement-date">
-        </div>
-      </div>
-
-      <div class="form-row-admin">
-        <div class="form-group-dash">
-          <label>Mode de paiement</label>
-          <select id="paiement-mode">
-            <option>Espèces</option>
-            <option>Virement</option>
-            <option>Mobile Money</option>
-            <option>Chèque</option>
-          </select>
-        </div>
-        <div class="form-group-dash">
-          <label>Référence (optionnel)</label>
-          <input type="text" id="paiement-reference">
-        </div>
-      </div>
-
-      <div class="admin-modal-actions">
-        <button class="btn-sauvegarder" onclick="ajouterPaiement()">✅ Enregistrer le versement</button>
-      </div>
-    </div>
-  </div>
 
   <!-- MODAL PROFESSEUR -->
   <div class="admin-modal-overlay" id="modal-professeur">
@@ -1602,6 +1543,25 @@
       <div class="admin-modal-header">
         <h3 id="modal-attribution-titre">Attribuer un cours</h3>
         <button class="admin-modal-close" onclick="fermerModalAttribution()" aria-label="Fermer">✕</button>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Année académique</label>
+          <select id="attr-annee-select" onchange="rechargerProgrammeAttribution()">
+            <option value="2026-2027">2026-2027</option>
+            <option value="2027-2028">2027-2028</option>
+            <option value="2028-2029">2028-2029</option>
+            <option value="2029-2030">2029-2030</option>
+            <option value="2030-2031">2030-2031</option>
+          </select>
+        </div>
+        <div class="form-group-dash">
+          <label>Faculté</label>
+          <select id="attr-faculte-select" onchange="rechargerProgrammeAttribution()">
+            <option value="">— Toutes les facultés —</option>
+          </select>
+        </div>
       </div>
 
       <div class="form-group-dash">

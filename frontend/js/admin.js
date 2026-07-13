@@ -74,12 +74,15 @@ async function fetchAdmin(url, options = {}) {
 // =====================
 // FILIÈRES PAR FACULTÉ
 // =====================
-const filiereParFaculte = {
-  'Faculté de Théologie':                    ['Missiologie','Théologie Pratique','Théologie Systématique','Théologie Biblique AT & NT'],
-  'Sciences Informatiques':                  ['Gestion Informatique','Réseau & Télécom','Génie Logicielle','Design'],
-  'Sciences Économiques':                    ['Gestion des Ressources Humaines','Finances, Banque & Comptabilité','Gestion Marketing','Entrepreneuriat','Douane'],
-  "Sciences de l'Éducation & Psychologie":  ["Sciences de l'Éducation",'Psychologie']
-};
+// Dérivé de facultesDB (ui.js), jamais codé en dur — voir chargerFiliereParFaculte.
+const filiereParFaculte = {};
+
+// facultesDB est déjà chargée (voir chargerFacultesDB, appelée avant celle-ci
+// dans l'init de la page) : on ne fait qu'en dériver la forme {faculté: [filières]}.
+async function chargerFiliereParFaculte() {
+  Object.keys(filiereParFaculte).forEach(k => delete filiereParFaculte[k]);
+  facultesDB.forEach(f => { filiereParFaculte[f.nom] = f.filieres || []; });
+}
 
 // =====================
 // ANNÉES ACADÉMIQUES — alimentées depuis la base (table annee_academique)
@@ -120,6 +123,58 @@ async function chargerAnnees() {
 }
 
 // =====================
+// GESTION DES ANNÉES ACADÉMIQUES
+// =====================
+async function chargerAnneesAcademiquesAdmin() {
+  const tbody = document.getElementById('admin-annees-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="3" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const r = await fetch(`${BASE_URL}/api/annees`);
+    const annees = await r.json();
+    if (!Array.isArray(annees) || annees.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3" class="admin-vide">Aucune année enregistrée.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = annees.map(a => `
+      <tr>
+        <td><strong>${a.libelle}</strong></td>
+        <td>${a.est_courante ? '<span class="badge reussi">Année courante</span>' : '<span class="badge attente">—</span>'}</td>
+        <td class="admin-actions-cell">
+          ${a.est_courante ? '' : `<button class="btn-icone" onclick="definirAnneeCourante('${a.libelle}')" aria-label="Définir comme courante" title="Définir comme année courante">${icone('coche-cercle')}</button>`}
+        </td>
+      </tr>`).join('');
+  } catch { tbody.innerHTML = `<tr><td colspan="3" class="admin-vide">⚠️ Impossible de charger les années.</td></tr>`; }
+}
+
+async function ajouterAnneeAcademique() {
+  const champ = document.getElementById('nouvelle-annee');
+  const libelle = champ?.value.trim();
+  if (!/^\d{4}-\d{4}$/.test(libelle || '')) { afficherToast('⚠️ Format attendu : AAAA-AAAA (ex. 2031-2032).', 'erreur'); return; }
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/annees`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ libelle }) });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('⚠️ ' + d.erreur, 'erreur'); return; }
+    afficherToast('✅ Année ajoutée.');
+    champ.value = '';
+    chargerAnneesAcademiquesAdmin();
+    chargerAnnees(); // rafraîchit tous les menus déroulants d'année du site
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function definirAnneeCourante(libelle) {
+  if (!await confirmerAction(`Définir ${libelle} comme année académique courante ? Elle deviendra la valeur par défaut de tous les formulaires du site.`, { titre: 'Année courante', texteConfirmer: 'Définir' })) return;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/annees/${libelle}/courante`, { method: 'PATCH' });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('⚠️ ' + d.erreur, 'erreur'); return; }
+    afficherToast('✅ Année courante définie.');
+    chargerAnneesAcademiquesAdmin();
+    chargerAnnees();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+// =====================
 // NAVIGATION ENTRE SECTIONS
 // =====================
 function afficherSection(id, lien) {
@@ -139,6 +194,7 @@ function afficherSection(id, lien) {
   if (id === 'admin-attributions')    chargerAttributions();
   if (id === 'admin-audit')           chargerAuditLog();
   if (id === 'admin-agents')          chargerAgents();
+  if (id === 'admin-annees')          chargerAnneesAcademiquesAdmin();
 }
 
 // Sous-menu déroulant « Gérer les Inscrits » : Inscriptions / Réinscriptions /
@@ -758,44 +814,124 @@ async function supprimerNote(id) {
 let horairesAdmin = [];
 
 async function chargerHoraires() {
-  const tbody = document.getElementById('admin-horaires-body');
-  if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="10" class="admin-vide">Chargement...</td></tr>`;
+  const conteneur = document.getElementById('admin-horaires-calendrier');
+  if (!conteneur) return;
+  conteneur.innerHTML = `<p style="color:#999;font-size:13px">Chargement...</p>`;
+  semaineHorairesAdminDecalage = 0; // ouvrir la section (ou changer un filtre) ramène toujours à la semaine en cours
   try {
-    const annee  = document.getElementById('filtre-annee')?.value  || '';
-    const niveau = document.getElementById('filtre-niveau')?.value || '';
-    const jour   = document.getElementById('filtre-jour')?.value   || '';
+    const annee   = document.getElementById('filtre-annee')?.value   || '';
+    const niveau  = document.getElementById('filtre-niveau')?.value  || '';
+    const jour    = document.getElementById('filtre-jour')?.value    || '';
+    const faculte = document.getElementById('filtre-faculte')?.value || '';
     const params = new URLSearchParams();
     if (annee) params.append('annee', annee);
     if (niveau) params.append('niveau', niveau);
     if (jour) params.append('jour', jour);
+    if (faculte) params.append('faculte', faculte);
     const r = await fetchAdmin(`${BASE_URL}/api/horaires?${params}`);
     if (!r.ok) throw new Error();
     horairesAdmin = await r.json();
-    afficherTableauHoraires();
-  } catch { tbody.innerHTML = `<tr><td colspan="10" class="admin-vide">⚠️ Impossible de charger les horaires.</td></tr>`; }
+    afficherCalendrierHorairesAdmin();
+  } catch { conteneur.innerHTML = `<p style="color:#999;font-size:13px">⚠️ Impossible de charger les horaires.</p>`; }
 }
 
-function afficherTableauHoraires(liste = horairesAdmin) {
-  const tbody = document.getElementById('admin-horaires-body');
-  if (!tbody) return;
-  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="10" class="admin-vide">Aucun cours programmé.</td></tr>`; return; }
-  tbody.innerHTML = liste.map(h => `
-    <tr>
-      <td>${h.jour}</td>
-      <td>${formaterDate(h.date_debut)}</td>
-      <td>${h.heure_debut.slice(0,5)}<br>${h.heure_fin.slice(0,5)}</td>
-      <td><strong>${h.promotion}</strong></td>
-      <td>${h.nb_etudiants ?? 0}</td>
-      <td>${h.cours}</td>
-      <td>${h.professeur ? (h.professeur_prenom ? h.professeur_prenom+' ' : '')+h.professeur : '—'}</td>
-      <td>${h.salle}</td>
-      <td>${h.annee_academique}</td>
-      <td class="admin-actions-cell">
-        <button class="btn-icone" onclick="modifierHoraire(${h.id})" aria-label="Modifier">${icone('crayon')}</button>
-        <button class="btn-icone danger" onclick="supprimerHoraire(${h.id})" aria-label="Supprimer">${icone('corbeille')}</button>
-      </td>
-    </tr>`).join('');
+// Toutes les dates sont ancrées en UTC-minuit pour rester cohérentes avec
+// les colonnes DATE MySQL (sérialisées en UTC) et éviter tout décalage
+// d'un jour selon le fuseau horaire du navigateur.
+function aujourdhuiUTCAdmin() {
+  const auj = new Date();
+  return new Date(Date.UTC(auj.getFullYear(), auj.getMonth(), auj.getDate()));
+}
+
+function lundiSemaineAdmin(decalageSemaines = 0) {
+  const d = aujourdhuiUTCAdmin();
+  const jourISO = d.getUTCDay() || 7; // 1 = lundi ... 7 = dimanche
+  d.setUTCDate(d.getUTCDate() - (jourISO - 1) + decalageSemaines * 7);
+  return d;
+}
+
+function memeJourUTCAdmin(a, b) {
+  return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
+}
+
+// Décalage (en semaines) par rapport à la semaine calendaire réelle en
+// cours — indépendant des données : la semaine affichée par défaut est
+// toujours celle d'aujourd'hui, même sans cours programmé.
+let semaineHorairesAdminDecalage = 0;
+
+function changerSemaineHorairesAdmin(delta) {
+  semaineHorairesAdminDecalage += delta;
+  afficherCalendrierHorairesAdmin();
+}
+
+const ORDRE_JOURS_ADMIN = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+
+// Même disposition en calendrier hebdomadaire que l'espace professeur/étudiant,
+// mais avec les actions Modifier/Supprimer directement sur chaque créneau et
+// le contenu propre à l'admin (promotion, professeur, salle, étudiants inscrits).
+// Un cours est rattaché à une colonne par correspondance exacte de date
+// (date_debut), pas par le simple libellé du jour.
+function afficherCalendrierHorairesAdmin() {
+  const conteneur = document.getElementById('admin-horaires-calendrier');
+  const labelSemaine = document.getElementById('admin-horaires-semaine-label');
+  if (!conteneur) return;
+
+  const jour = document.getElementById('filtre-jour')?.value || '';
+
+  const lundi = lundiSemaineAdmin(semaineHorairesAdminDecalage);
+  const vendredi = new Date(lundi);
+  vendredi.setUTCDate(lundi.getUTCDate() + 4);
+  if (labelSemaine) {
+    labelSemaine.textContent = `${formaterDate(lundi.toISOString())} – ${formaterDate(vendredi.toISOString())}`;
+  }
+
+  const auj = aujourdhuiUTCAdmin();
+  const joursAffiches = jour ? [jour] : ORDRE_JOURS_ADMIN;
+
+  // Une seule colonne (filtre "Jour" actif) doit rester compacte, pas
+  // s'étirer sur toute la largeur comme si elle occupait 5 colonnes vides.
+  conteneur.style.gridTemplateColumns = joursAffiches.length < ORDRE_JOURS_ADMIN.length
+    ? `repeat(${joursAffiches.length}, minmax(200px, 260px))`
+    : '';
+
+  conteneur.innerHTML = joursAffiches.map(j => {
+    const indexJour = ORDRE_JOURS_ADMIN.indexOf(j);
+    const dateColonne = new Date(lundi);
+    dateColonne.setUTCDate(lundi.getUTCDate() + indexJour);
+    const coursDuJour = horairesAdmin
+      .filter(h => h.date_debut && memeJourUTCAdmin(new Date(h.date_debut), dateColonne))
+      .sort((a, b) => a.heure_debut.localeCompare(b.heure_debut));
+
+    return `
+      <div class="cal-jour${memeJourUTCAdmin(dateColonne, auj) ? ' aujourdhui' : ''}">
+        <div class="cal-jour-entete">
+          <span class="cal-jour-nom">${j}</span>
+          <span class="cal-jour-date">${formaterDate(dateColonne.toISOString())}</span>
+        </div>
+        <div class="cal-jour-corps">
+          ${coursDuJour.length === 0
+            ? '<p class="cal-jour-vide">Pas de cours</p>'
+            : coursDuJour.map(h => `
+                <div class="cal-evenement cal-evenement-admin${h.cours_commun ? ' cal-evenement-commun' : ''}">
+                  <div class="cal-evenement-entete">
+                    <span>${h.heure_debut.slice(0,5)}-${h.heure_fin.slice(0,5)}</span>
+                    <div class="cal-evenement-actions">
+                      <button class="btn-icone" onclick="modifierHoraire(${h.id})" aria-label="Modifier">${icone('crayon', 14)}</button>
+                      <button class="btn-icone danger" onclick="supprimerHoraire(${h.id})" aria-label="Supprimer">${icone('corbeille', 14)}</button>
+                    </div>
+                  </div>
+                  <div class="cal-evenement-corps">
+                    ${h.cours_commun ? '<span class="badge-commun" title="Cours d\'ensemble : prioritaire en cas de conflit d\'horaire">🎯 Cours d\'ensemble</span>' : ''}
+                    ${h.autres_intitules_session ? `<span class="badge-session" title="Même professeur, même salle, même heure : c'est une seule séance enregistrée sous plusieurs intitulés">🔗 Session commune avec : ${h.autres_intitules_session}</span>` : ''}
+                    <span class="cours-nom">${h.cours}</span>
+                    <span class="cours-info"><strong>${h.promotion}</strong> · ${h.annee_academique}</span>
+                    <span class="cours-info">${h.professeur ? (h.grade ? h.grade+' ' : '')+(h.professeur_prenom ? h.professeur_prenom+' ' : '')+h.professeur : '— aucun professeur'}</span>
+                    <span class="cours-info">${h.salle} · ${h.nb_etudiants ?? 0} étudiant(s)</span>
+                  </div>
+                </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 async function remplirListeProfesseurs() {
@@ -814,14 +950,24 @@ function chargerFilieresPourHoraire() {
   const faculte = document.getElementById('horaire-faculte')?.value || '';
   const sel = document.getElementById('horaire-filiere');
   if (!sel) return;
-  const filieres = filiereParFaculte[faculte] || [];
-  sel.innerHTML = '<option value="">— Toute la faculté (cours commun) —</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join('');
+  // « Toutes les facultés » : la filière n'a pas de sens (elle est propre à
+  // une seule faculté) — zone grisée, non sélectionnable.
+  if (faculte === 'TOUTES') {
+    sel.innerHTML = '<option value="">— Non applicable —</option>';
+    sel.disabled = true;
+  } else {
+    sel.disabled = false;
+    const filieres = filiereParFaculte[faculte] || [];
+    sel.innerHTML = '<option value="">— Toute la faculté (cours commun) —</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join('');
+  }
   rafraichirCoursHoraire();
 }
 
 async function rafraichirCoursHoraire() {
   const faculte  = document.getElementById('horaire-faculte')?.value  || '';
-  const filiere  = document.getElementById('horaire-filiere')?.value  || '';
+  // « Toutes les facultés » (TOUTES) restreint le serveur aux seuls cours de
+  // tronc commun — la filière n'a pas de sens dans ce cas.
+  const filiere  = faculte === 'TOUTES' ? '' : (document.getElementById('horaire-filiere')?.value || '');
   const niveau   = document.getElementById('horaire-niveau')?.value   || '';
   const annee    = document.getElementById('horaire-annee')?.value    || '';
   const sel      = document.getElementById('horaire-cours');
@@ -835,6 +981,10 @@ async function rafraichirCoursHoraire() {
     sel.innerHTML = coursHoraireCache.length === 0
       ? '<option value="">Aucun cours pour cette sélection</option>'
       : coursHoraireCache.map(c => `<option value="${c.id}">${c.code} — ${c.nom} (${c.promotion})</option>`).join('');
+    // Le <select> sélectionne automatiquement sa première option sans
+    // déclencher onchange : on synchronise donc le professeur nous-mêmes
+    // pour qu'il apparaisse dès qu'un cours est déjà sélectionné.
+    autoSelectionnerProfesseurHoraire();
   } catch { sel.innerHTML = '<option value="">Erreur</option>'; }
 }
 
@@ -886,7 +1036,7 @@ async function modifierHoraire(id) {
   document.getElementById('horaire-date-debut').value = h.date_debut ? h.date_debut.split('T')[0] : '';
   document.getElementById('horaire-debut').value   = h.heure_debut;
   document.getElementById('horaire-fin').value     = h.heure_fin;
-  document.getElementById('horaire-prof').value    = '';
+  document.getElementById('horaire-prof').value    = h.professeur_id || '';
   document.getElementById('horaire-salle').value   = h.salle;
   document.getElementById('horaire-annee').value   = h.annee_academique;
 
@@ -895,12 +1045,17 @@ async function modifierHoraire(id) {
     const programme = await r.json();
     const coursActuel = programme.find(c => c.id === h.cours_id);
     if (coursActuel) {
-      document.getElementById('horaire-faculte').value = coursActuel.faculte || '';
+      // Cours commun (faculte NULL en base) = option « Toutes les facultés ».
+      document.getElementById('horaire-faculte').value = coursActuel.faculte || 'TOUTES';
       document.getElementById('horaire-niveau').value  = coursActuel.niveau || 'L1';
       chargerFilieresPourHoraire();
       document.getElementById('horaire-filiere').value = coursActuel.filiere_nom || '';
       await rafraichirCoursHoraire();
       document.getElementById('horaire-cours').value = h.cours_id;
+      // rafraichirCoursHoraire() vient de resynchroniser le professeur sur
+      // celui par défaut du cours : on rétablit celui réellement assigné à
+      // CE créneau (peut différer si un autre prof a été attribué ensuite).
+      document.getElementById('horaire-prof').value = h.professeur_id || '';
     }
   } catch (err) { console.error(err); }
 
@@ -952,6 +1107,15 @@ async function supprimerHoraire(id) {
 let programmeAdmin = [];
 let vueGroupeeProgramme = false;
 
+function libelleNiveauProg(niveau) {
+  const map = { 'Pré-U':'Pré-Universitaire', L1:'Licence 1', L2:'Licence 2', L3:'Licence 3', M1:'Master 1', M2:'Master 2', D1:'Doctorat 1', D2:'Doctorat 2' };
+  return map[niveau] || niveau || '—';
+}
+
+// Ordre d'affichage des niveaux (regroupement des cours communs par
+// promotion) — utilisé à la fois par la vue à l'écran et l'impression.
+const ORDRE_NIVEAUX = ['Pré-U','L1','L2','L3','M1','M2','D1','D2'];
+
 function chargerFilieresPourFiltreProg() {
   const faculte = document.getElementById('filtre-faculte-prog')?.value || '';
   const sel = document.getElementById('filtre-filiere-prog');
@@ -968,9 +1132,11 @@ function basculerVueGroupeeProgramme() {
 }
 
 // Génère les lignes d'un tableau de cours (un semestre).
+const heuresUE = (v) => v == null ? '—' : `${v}h`;
+
 function lignesCoursProgramme(cours) {
-  if (cours.length === 0) return `<tr><td colspan="4" class="admin-vide">Aucun cours.</td></tr>`;
-  return cours.map(p => `<tr><td><span class="prog-code-admin">${p.code}</span></td><td>${p.nom}</td><td>${p.credits} cr.</td><td class="admin-actions-cell"><button class="btn-icone" onclick="ouvrirModalInscriptions(${p.id},'${p.nom.replace(/'/g,"\\'")}','${p.promotion}')" aria-label="Étudiants inscrits" title="Étudiants inscrits">${icone('utilisateurs')}</button><button class="btn-icone" onclick="modifierProgramme(${p.id})" aria-label="Modifier">${icone('crayon')}</button><button class="btn-icone danger" onclick="supprimerProgramme(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td></tr>`).join('');
+  if (cours.length === 0) return `<tr><td colspan="7" class="admin-vide">Aucun cours.</td></tr>`;
+  return cours.map(p => `<tr><td><span class="prog-code-admin">${p.code}</span></td><td>${p.nom}</td><td>${heuresUE(p.cmi)}</td><td>${heuresUE(p.td)}</td><td>${heuresUE(p.tp)}</td><td>${p.credits} cr.</td><td class="admin-actions-cell"><button class="btn-icone" onclick="ouvrirModalInscriptions(${p.id},'${p.nom.replace(/'/g,"\\'")}','${p.promotion}')" aria-label="Étudiants inscrits" title="Étudiants inscrits">${icone('utilisateurs')}</button><button class="btn-icone" onclick="modifierProgramme(${p.id})" aria-label="Modifier">${icone('crayon')}</button><button class="btn-icone danger" onclick="supprimerProgramme(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td></tr>`).join('');
 }
 
 async function chargerProgramme() {
@@ -984,16 +1150,30 @@ async function chargerProgramme() {
   const annee   = document.getElementById('filtre-annee-prog')?.value   || '';
   const niveau  = document.getElementById('filtre-niveau-prog')?.value  || '';
 
-  // Vue groupée : les deux semestres de chaque faculté, séparément.
+  // Vue groupée : les deux semestres de chaque faculté, séparément. Exige une
+  // année choisie — sinon on afficherait d'un coup tous les cours déjà
+  // enregistrés, toutes années confondues.
   if (vueGroupeeProgramme) {
+    if (!annee) {
+      message.style.display = 'block';
+      message.innerHTML = 'Choisissez une <b>année académique</b> pour afficher le programme groupé par faculté.';
+      normal.style.display = 'none';
+      groupe.style.display = 'none';
+      return;
+    }
     message.style.display = 'none';
     normal.style.display = 'none';
     groupe.style.display = 'block';
     groupe.innerHTML = '<div class="dash-card" style="text-align:center;color:#888">Chargement...</div>';
     try {
-      const params = new URLSearchParams();
-      if (annee)  params.append('annee', annee);
-      if (niveau) params.append('niveau', niveau);
+      // La vue groupée respecte aussi une faculté/filière choisie en plus de
+      // l'année : ça ne montre plus que la sélection demandée (pas les 4
+      // facultés systématiquement), et l'impression qui lit ensuite les
+      // mêmes données en hérite automatiquement.
+      const params = new URLSearchParams({ annee });
+      if (niveau)  params.append('niveau', niveau);
+      if (faculte) params.append('faculte', faculte);
+      if (filiere) params.append('filiere', filiere);
       const r = await fetch(`${BASE_URL}/api/programme?${params}`);
       programmeAdmin = await r.json();
       afficherProgrammeGroupe();
@@ -1004,6 +1184,7 @@ async function chargerProgramme() {
   // Vue normale : nécessite une sélection précise (faculté + année + niveau).
   if (!faculte || !annee || !niveau) {
     message.style.display = 'block';
+    message.innerHTML = 'Sélectionnez une <b>faculté</b>, une <b>filière</b>, une <b>année académique</b> et un <b>niveau</b> pour afficher le programme —<br>\n          ou cliquez sur <b>« 🏛️ Toutes les facultés »</b> (une année académique reste requise).';
     normal.style.display = 'none';
     groupe.style.display = 'none';
     return;
@@ -1014,14 +1195,14 @@ async function chargerProgramme() {
   normal.style.display = 'flex';
   const t1 = document.getElementById('prog-s1-body');
   const t2 = document.getElementById('prog-s2-body');
-  t1.innerHTML = t2.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
+  t1.innerHTML = t2.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
   try {
     const params = new URLSearchParams({ faculte, annee, niveau });
     if (filiere) params.append('filiere', filiere);
     const r = await fetch(`${BASE_URL}/api/programme?${params}`);
     programmeAdmin = await r.json();
     afficherTableauProgramme();
-  } catch { t1.innerHTML = `<tr><td colspan="4" class="admin-vide">⚠️ Erreur.</td></tr>`; t2.innerHTML=''; }
+  } catch { t1.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Erreur.</td></tr>`; t2.innerHTML=''; }
 }
 
 function afficherTableauProgramme(liste = programmeAdmin) {
@@ -1040,45 +1221,179 @@ function afficherTableauProgramme(liste = programmeAdmin) {
 function afficherProgrammeGroupe() {
   const groupe = document.getElementById('programme-groupe');
   if (!groupe) return;
-  const FACULTES = ['Faculté de Théologie','Sciences Informatiques','Sciences Économiques',"Sciences de l'Éducation & Psychologie"];
+  const TOUTES_FACULTES = facultesDB.map(f => f.nom);
+  // Si une faculté précise a été choisie dans les filtres, la vue groupée ne
+  // montre qu'elle (plus de blocs "Aucun cours" pour les 3 autres).
+  const faculteChoisie = document.getElementById('filtre-faculte-prog')?.value || '';
+  const FACULTES = faculteChoisie ? [faculteChoisie] : TOUTES_FACULTES;
   if (programmeAdmin.length === 0) {
     groupe.innerHTML = '<div class="dash-card" style="text-align:center;color:#888;padding:30px">Aucun cours pour cette sélection.</div>';
     return;
   }
   // Un tableau de semestre pour une filière donnée, avec total crédits.
   const tableauSemestre = (titre, liste) => `
-    <div class="dash-card" style="flex:1;min-width:260px">
+    <div class="dash-card">
       <h4 style="margin:0 0 8px">${titre} <span style="font-weight:400;color:#999;font-size:12px">(${liste.reduce((s,p)=>s+p.credits,0)} cr.)</span></h4>
-      <table class="dash-table">
-        <thead><tr><th>Code</th><th>Cours</th><th>Crédits</th><th>Actions</th></tr></thead>
-        <tbody>${lignesCoursProgramme(liste)}</tbody>
-      </table>
+      <div style="overflow-x:auto">
+        <table class="dash-table prog-table-groupe">
+          <thead><tr><th>Code UE</th><th>Intitulé UE</th><th>CMI</th><th>TD</th><th>TP</th><th>Crédits</th><th>Actions</th></tr></thead>
+          <tbody>${lignesCoursProgramme(liste)}</tbody>
+        </table>
+      </div>
     </div>`;
 
-  groupe.innerHTML = FACULTES.map(fac => {
-    const coursFac = programmeAdmin.filter(p => p.faculte === fac);
-    if (coursFac.length === 0) {
-      return `<div style="margin-bottom:28px"><h2 style="font-size:16px;color:var(--bleu);border-bottom:2px solid var(--jaune);padding-bottom:6px;margin-bottom:10px">${fac}</h2><p style="color:#999;font-size:13px">Aucun cours.</p></div>`;
-    }
-    // Dans chaque faculté, on groupe par filière (les cours communs à part).
-    const COMMUN = 'Cours communs (toute la faculté)';
-    const filieres = [...new Set(coursFac.map(p => p.filiere_nom || COMMUN))].sort((a,b) => a === COMMUN ? 1 : b === COMMUN ? -1 : a.localeCompare(b));
-    const blocs = filieres.map(fil => {
-      const coursFil = coursFac.filter(p => (p.filiere_nom || COMMUN) === fil);
-      const s1 = coursFil.filter(p => p.semestre === 'S1');
-      const s2 = coursFil.filter(p => p.semestre === 'S2');
+  // Cours communs à plusieurs facultés (fiche unique, p.faculte = NULL) : bloc
+  // à part en tête, classé par PROMOTION (niveau) — il existe des cours
+  // d'ensemble à chaque niveau (L1, L2, L3, M1...), les regrouper tous sous un
+  // même intitulé vague serait ambigu.
+  const coursCommuns = programmeAdmin.filter(p => !p.faculte);
+  const blocCommuns = coursCommuns.length === 0 ? '' : (() => {
+    const niveaux = [...new Set(coursCommuns.map(p => p.niveau))]
+      .sort((a,b) => ORDRE_NIVEAUX.indexOf(a) - ORDRE_NIVEAUX.indexOf(b));
+    const blocs = niveaux.map(niv => {
+      const coursNiv = coursCommuns.filter(p => p.niveau === niv);
+      const s1 = coursNiv.filter(p => p.semestre === 'S1');
+      const s2 = coursNiv.filter(p => p.semestre === 'S2');
       return `
         <div style="margin-bottom:16px">
-          <h3 style="font-size:14px;color:#333;margin:0 0 8px;padding-left:8px;border-left:3px solid var(--jaune)">${fil}</h3>
-          <div class="dash-row">${tableauSemestre('Semestre 1', s1)}${tableauSemestre('Semestre 2', s2)}</div>
+          <h3 style="font-size:14px;color:#333;margin:0 0 8px;padding-left:8px;border-left:3px solid var(--jaune)">${libelleNiveauProg(niv)}</h3>
+          <div style="display:flex;flex-direction:column;gap:14px">${tableauSemestre('Semestre 1', s1)}${tableauSemestre('Semestre 2', s2)}</div>
         </div>`;
     }).join('');
     return `
       <div style="margin-bottom:30px">
-        <h2 style="font-size:16px;color:var(--bleu);border-bottom:2px solid var(--jaune);padding-bottom:6px;margin-bottom:14px">${fac}</h2>
+        <h2 style="font-size:16px;color:var(--bleu);border-bottom:2px solid var(--jaune);padding-bottom:6px;margin-bottom:14px">🎯 Cours communs (plusieurs facultés)</h2>
+        ${blocs}
+      </div>`;
+  })();
+
+  groupe.innerHTML = blocCommuns + FACULTES.map(fac => {
+    const coursFac = programmeAdmin.filter(p => p.faculte === fac);
+    const entete = `
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid var(--jaune);padding-bottom:6px;margin-bottom:14px">
+        <h2 style="font-size:16px;color:var(--bleu);margin:0">${fac}</h2>
+        <button class="btn-icone" onclick="imprimerProgrammeFaculte('${fac.replace(/'/g,"\\'")}')" aria-label="Imprimer le programme" title="Imprimer le programme">${icone('imprimante')}</button>
+      </div>`;
+    if (coursFac.length === 0) {
+      return `<div style="margin-bottom:28px">${entete}<p style="color:#999;font-size:13px">Aucun cours.</p></div>`;
+    }
+    // Groupé d'abord par NIVEAU (promotion), puis par filière à l'intérieur —
+    // un cours commun à toute la faculté (filiere_id NULL) existe à chaque
+    // niveau (tronc commun M1 d'un côté, licence de l'autre, etc.) : les
+    // mélanger dans un seul bloc "Cours communs" sans distinction de niveau
+    // serait ambigu.
+    const COMMUN = 'Cours communs (toute la faculté)';
+    const niveauxFac = [...new Set(coursFac.map(p => p.niveau))]
+      .sort((a,b) => ORDRE_NIVEAUX.indexOf(a) - ORDRE_NIVEAUX.indexOf(b));
+    const blocs = niveauxFac.map(niv => {
+      const coursNiv = coursFac.filter(p => p.niveau === niv);
+      const filieres = [...new Set(coursNiv.map(p => p.filiere_nom || COMMUN))].sort((a,b) => a === COMMUN ? 1 : b === COMMUN ? -1 : a.localeCompare(b));
+      const sousBlocs = filieres.map(fil => {
+        const coursFil = coursNiv.filter(p => (p.filiere_nom || COMMUN) === fil);
+        const s1 = coursFil.filter(p => p.semestre === 'S1');
+        const s2 = coursFil.filter(p => p.semestre === 'S2');
+        return `
+          <div style="margin-bottom:16px">
+            <h4 style="font-size:13px;color:#555;margin:0 0 8px;padding-left:8px;border-left:2px solid #ddd">${fil}</h4>
+            <div style="display:flex;flex-direction:column;gap:14px">${tableauSemestre('Semestre 1', s1)}${tableauSemestre('Semestre 2', s2)}</div>
+          </div>`;
+      }).join('');
+      return `
+        <div style="margin-bottom:22px">
+          <h3 style="font-size:14px;color:#333;margin:0 0 10px;padding-left:8px;border-left:3px solid var(--jaune)">${libelleNiveauProg(niv)}</h3>
+          ${sousBlocs}
+        </div>`;
+    }).join('');
+    return `
+      <div style="margin-bottom:30px">
+        ${entete}
         ${blocs}
       </div>`;
   }).join('');
+}
+
+// Imprime le programme d'une faculté (toutes ses filières, S1 et S2), à
+// partir des données déjà chargées en mémoire (vue groupée) — même
+// présentation que la fenêtre pop-up d'impression utilisée ailleurs
+// (reçus/rapports caisse, carte étudiant).
+function imprimerProgrammeFaculte(fac) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const heures = v => v == null ? '—' : `${v}h`;
+  const coursFac = programmeAdmin.filter(p => p.faculte === fac);
+  const annee = document.getElementById('filtre-annee-prog')?.value || coursFac[0]?.annee_academique || '';
+  const logoSrc = `${location.origin}/img/logo.png`;
+
+  const tableauHtml = (liste) => liste.length === 0
+    ? '<tr><td colspan="6" style="text-align:center;color:#999">Aucun cours.</td></tr>'
+    : liste.map(c => `<tr>
+        <td>${esc(c.code)}</td><td>${esc(c.nom)}</td>
+        <td class="n">${heures(c.cmi)}</td><td class="n">${heures(c.td)}</td><td class="n">${heures(c.tp)}</td>
+        <td class="n">${c.credits} cr.</td>
+      </tr>`).join('');
+
+  // Groupé d'abord par NIVEAU (promotion), puis par filière — même règle que
+  // la vue à l'écran : un cours commun à toute la faculté existe à chaque
+  // niveau (tronc commun M1 d'un côté, licence de l'autre...), les mélanger
+  // sans distinction de niveau serait ambigu à l'impression aussi.
+  const COMMUN = 'Cours communs (toute la faculté)';
+  const entete = '<tr><th>Code UE</th><th>Intitulé UE</th><th class="n">CMI</th><th class="n">TD</th><th class="n">TP</th><th class="n">Crédits</th></tr>';
+  const niveaux = [...new Set(coursFac.map(p => p.niveau))]
+    .sort((a,b) => ORDRE_NIVEAUX.indexOf(a) - ORDRE_NIVEAUX.indexOf(b));
+  const blocsFilieres = niveaux.map(niv => {
+    const coursNiv = coursFac.filter(p => p.niveau === niv);
+    const filieres = [...new Set(coursNiv.map(p => p.filiere_nom || COMMUN))].sort((a,b) => a === COMMUN ? 1 : b === COMMUN ? -1 : a.localeCompare(b));
+    const sousBlocs = filieres.map(fil => {
+      const coursFil = coursNiv.filter(p => (p.filiere_nom || COMMUN) === fil);
+      const s1 = coursFil.filter(p => p.semestre === 'S1');
+      const s2 = coursFil.filter(p => p.semestre === 'S2');
+      return `
+        <h3>${esc(fil)}</h3>
+        <h4>Semestre 1 <span>(${s1.reduce((s,p)=>s+p.credits,0)} cr.)</span></h4>
+        <table><thead>${entete}</thead><tbody>${tableauHtml(s1)}</tbody></table>
+        <h4>Semestre 2 <span>(${s2.reduce((s,p)=>s+p.credits,0)} cr.)</span></h4>
+        <table><thead>${entete}</thead><tbody>${tableauHtml(s2)}</tbody></table>`;
+    }).join('');
+    return `<h2>${libelleNiveauProg(niv)}</h2>${sousBlocs}`;
+  }).join('');
+
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Programme — ${esc(fac)}</title>
+<style>
+  :root { --bleu:#1a3a6b; --jaune:#f0c020; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI',Arial,sans-serif; color:#1a1a1a; padding:24px; }
+  .barre { text-align:center; margin-bottom:16px; }
+  .barre button { font-size:14px; padding:9px 20px; border:none; border-radius:6px; background:var(--bleu); color:#fff; cursor:pointer; }
+  .tete { display:flex; align-items:center; gap:12px; border-bottom:3px solid var(--jaune); padding-bottom:10px; margin-bottom:6px; }
+  .tete img { width:46px; height:46px; object-fit:contain; }
+  .tete .u { font-size:16px; font-weight:800; color:var(--bleu); line-height:1.2; }
+  .tete .u small { display:block; font-size:10px; font-weight:600; color:#666; }
+  h1 { font-size:16px; color:var(--bleu); margin:14px 0 2px; }
+  .periode { color:#666; font-size:12px; margin-bottom:12px; }
+  h2 { font-size:14px; color:var(--bleu); margin:20px 0 10px; padding-left:8px; border-left:3px solid var(--jaune); page-break-after:avoid; }
+  h3 { font-size:12px; color:#333; margin:10px 0 6px; padding-left:8px; border-left:2px solid #ddd; page-break-after:avoid; }
+  h4 { font-size:10.5px; color:#666; text-transform:uppercase; letter-spacing:.5px; margin:8px 0 4px; }
+  h4 span { font-weight:400; text-transform:none; letter-spacing:0; color:#999; }
+  table { width:100%; border-collapse:collapse; margin-bottom:6px; font-size:11px; }
+  th { background:var(--bleu); color:#fff; padding:5px 8px; text-align:left; font-size:10px; }
+  td { padding:4px 8px; border-bottom:1px solid #eef1f5; }
+  td.n, th.n { text-align:right; }
+  @media print { .barre { display:none; } body { padding:0; } @page { size:A4; margin:14mm; }
+    * { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+</style></head><body>
+  <div class="barre"><button onclick="window.print()">🖨️ Imprimer le programme</button></div>
+  <div class="tete">
+    <img src="${logoSrc}" alt="" onerror="this.style.display='none'">
+    <div class="u">UNIVERSITÉ MÉTHODISTE DE LUBUMBASHI<small>Scientia, Sanctitas et Veritas</small></div>
+  </div>
+  <h1>Programme annuel — ${esc(fac)}</h1>
+  <div class="periode">Année académique ${esc(annee)} · Édité le ${new Date().toLocaleDateString('fr-FR')}</div>
+  ${blocsFilieres}
+<script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>
+</body></html>`;
+
+  const w = window.open('', '_blank', 'width=900,height=700');
+  if (!w) { afficherToast('⚠️ Autorisez les pop-ups pour imprimer.', 'erreur'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 function chargerFilieresPourProgramme() {
@@ -1121,7 +1436,7 @@ function retirerCibleProgramme(i) {
 
 function ouvrirModalProgramme() {
   document.getElementById('modal-programme-titre').textContent = 'Ajouter un cours';
-  ['prog-id-edit','prog-code','prog-credits','prog-nom'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['prog-id-edit','prog-code','prog-credits','prog-nom','prog-cmi','prog-td','prog-tp'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('prog-faculte').selectedIndex=0;
   chargerFilieresPourProgramme();
   document.getElementById('prog-niveau').value='L1';
@@ -1141,6 +1456,9 @@ function modifierProgramme(id) {
   document.getElementById('prog-code').value     = p.code;
   document.getElementById('prog-credits').value  = p.credits;
   document.getElementById('prog-nom').value      = p.nom;
+  document.getElementById('prog-cmi').value      = p.cmi ?? '';
+  document.getElementById('prog-td').value       = p.td ?? '';
+  document.getElementById('prog-tp').value       = p.tp ?? '';
   document.getElementById('prog-faculte').value  = p.faculte || '';
   chargerFilieresPourProgramme();
   document.getElementById('prog-filiere').value  = p.filiere_nom || '';
@@ -1166,23 +1484,30 @@ async function sauvegarderProgramme() {
   const niveau  = document.getElementById('prog-niveau').value;
   const annee_academique = document.getElementById('prog-annee').value;
   const semestre = document.getElementById('prog-semestre').value;
+  const cmiVal = document.getElementById('prog-cmi').value;
+  const tdVal  = document.getElementById('prog-td').value;
+  const tpVal  = document.getElementById('prog-tp').value;
+  const cmi = cmiVal === '' ? null : parseInt(cmiVal);
+  const td  = tdVal  === '' ? null : parseInt(tdVal);
+  const tp  = tpVal  === '' ? null : parseInt(tpVal);
   if (!code||!nom||!faculte||isNaN(credits)||credits<1) { afficherToast('⚠️ Remplissez tous les champs, dont la faculté.', 'erreur'); return; }
   // En création, on programme le cours pour la sélection courante PLUS toutes les
   // cibles ajoutées à la liste (une ou plusieurs facultés/filières à la fois).
   const cibles = [{ faculte, filiere: filiere || null }, ...ciblesProgramme]
     .filter((c, i, arr) => arr.findIndex(x => x.faculte === c.faculte && (x.filiere||'') === (c.filiere||'')) === i);
   const corps = idEdit
-    ? { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits }
-    : { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits, cibles };
+    ? { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits, cmi, td, tp }
+    : { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits, cmi, td, tp, cibles };
   try {
     const r = await fetchAdmin(idEdit?`${BASE_URL}/api/programme/${idEdit}`:`${BASE_URL}/api/programme`,
       { method:idEdit?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(corps) });
     const d = await r.json();
     if (!r.ok) { afficherToast('⚠️ '+d.erreur, 'erreur'); return; }
     const msgDup = d.doublons && d.doublons.length ? ` — déjà existant pour : ${d.doublons.join(', ')}` : '';
-    afficherToast(idEdit
-      ? '✅ Modifié !'
-      : `✅ Programmé pour ${d.coursCrees||1} faculté(s)/filière(s) ! (${d.etudiantsInscrits||0} étudiant(s) inscrit(s))${msgDup}`);
+    const msgAjout = (d.facultes||1) > 1
+      ? `✅ Cours commun créé pour ${d.facultes} facultés ! (${d.etudiantsInscrits||0} étudiant(s) inscrit(s) — un seul horaire à programmer suffira pour tous)`
+      : `✅ Programmé ! (${d.etudiantsInscrits||0} étudiant(s) inscrit(s))${msgDup}`;
+    afficherToast(idEdit ? '✅ Modifié !' : msgAjout);
     // On aligne les filtres sur le cours ajouté/modifié pour qu'il soit
     // immédiatement visible (sinon il resterait masqué derrière le message).
     vueGroupeeProgramme = false;
@@ -1707,6 +2032,7 @@ async function chargerInscrits() {
         <td><span class="badge ${e.statut==='actif'?'reussi':e.statut==='diplome'?'attente':'echec'}">${e.statut||'actif'}</span></td>
         <td class="admin-actions-cell">
           <button class="btn-icone" onclick="telechargerBulletin('${e.id}')" aria-label="Télécharger le bulletin" title="Télécharger le bulletin">${icone('notes')}</button>
+          <button class="btn-icone" onclick="telechargerReleveCumulatif('${e.id}')" aria-label="Télécharger le relevé cumulatif" title="Télécharger le relevé de notes cumulatif (toutes années)">${icone('livre')}</button>
           <button class="btn-icone" onclick="imprimerCarteEtudiant('${e.id}')" aria-label="Imprimer la carte étudiant" title="Imprimer la carte étudiant">${icone('carte')}</button>
           <button class="btn-icone" onclick="modifierInscrit('${e.id}')" aria-label="Modifier">${icone('crayon')}</button>
           <button class="btn-icone danger" onclick="supprimerInscrit('${e.id}')" aria-label="Supprimer">${icone('corbeille')}</button>
@@ -1727,6 +2053,29 @@ async function telechargerBulletin(etudiantId) {
     const a = document.createElement('a');
     a.href = url;
     a.download = `bulletin-${etudiantId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    return true;
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); return false; }
+}
+
+// Relevé de notes cumulatif : couvre TOUTES les années académiques de
+// l'étudiant (contrairement au bulletin, limité à l'année en cours).
+async function telechargerReleveCumulatif(etudiantId) {
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/etudiant/${etudiantId}/releve-cumulatif`);
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      afficherToast('❌ ' + (d.erreur || 'Impossible de générer le relevé cumulatif.'), 'erreur');
+      return false;
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `releve-cumulatif-${etudiantId}.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -2160,75 +2509,6 @@ async function reinscrireNouvelEtudiant() {
 }
 
 // =====================
-// FRAIS DE SCOLARITÉ
-// =====================
-async function ouvrirModalPaiements(etudiantId, nomEtudiant) {
-  document.getElementById('paiements-etudiant-id').value = etudiantId;
-  document.getElementById('paiements-nom-etudiant').textContent = nomEtudiant;
-  document.getElementById('paiement-montant').value = '';
-  document.getElementById('paiement-date').value = new Date().toISOString().split('T')[0];
-  document.getElementById('paiement-reference').value = '';
-  document.getElementById('modal-paiements')?.classList.add('active');
-  await chargerPaiements();
-}
-
-function fermerModalPaiements() { document.getElementById('modal-paiements')?.classList.remove('active'); }
-
-async function chargerPaiements() {
-  const etudiantId = document.getElementById('paiements-etudiant-id').value;
-  const tbody = document.getElementById('paiements-body');
-  if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
-  try {
-    const r = await fetchAdmin(`${BASE_URL}/api/paiements/etudiant/${etudiantId}`);
-    const paiements = await r.json();
-    const total = paiements.reduce((s, p) => s + Number(p.montant), 0);
-    document.getElementById('paiements-total').textContent = `${total.toFixed(2)} $`;
-    tbody.innerHTML = paiements.length === 0
-      ? `<tr><td colspan="4" class="admin-vide">Aucun versement enregistré.</td></tr>`
-      : paiements.map(p => `<tr>
-          <td>${formaterDate(p.date_paiement)}</td>
-          <td>${Number(p.montant).toFixed(2)} $</td>
-          <td>${p.mode_paiement || '—'}</td>
-          <td class="admin-actions-cell"><button class="btn-icone danger" onclick="supprimerPaiement(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td>
-        </tr>`).join('');
-  } catch { tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">⚠️ Erreur.</td></tr>`; }
-}
-
-async function ajouterPaiement() {
-  const etudiant_id = document.getElementById('paiements-etudiant-id').value;
-  const montant = parseFloat(document.getElementById('paiement-montant').value);
-  const date_paiement = document.getElementById('paiement-date').value;
-  const mode_paiement = document.getElementById('paiement-mode').value;
-  const reference = document.getElementById('paiement-reference').value.trim();
-
-  if (isNaN(montant) || montant <= 0) { afficherToast('⚠️ Entrez un montant valide.', 'erreur'); return; }
-  if (!date_paiement) { afficherToast('⚠️ La date est obligatoire.', 'erreur'); return; }
-
-  try {
-    const r = await fetchAdmin(`${BASE_URL}/api/paiements`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ etudiant_id, montant, date_paiement, mode_paiement, reference })
-    });
-    const d = await r.json();
-    if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
-    afficherToast('✅ Versement enregistré.');
-    document.getElementById('paiement-montant').value = '';
-    document.getElementById('paiement-reference').value = '';
-    chargerPaiements();
-  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
-}
-
-async function supprimerPaiement(id) {
-  if (!await confirmerAction('Supprimer ce versement ? Cette action est irréversible.', { titre: 'Supprimer le versement', texteConfirmer: 'Supprimer' })) return;
-  try {
-    await fetchAdmin(`${BASE_URL}/api/paiements/${id}`, { method: 'DELETE' });
-    afficherToast('🗑️ Versement supprimé.');
-    chargerPaiements();
-  } catch (err) { console.error(err); }
-}
-
-// =====================
 // ATTRIBUTIONS DES COURS
 // =====================
 async function chargerAttributions() { await chargerProfesseurs(); await chargerCoursSansProf(); }
@@ -2275,7 +2555,7 @@ async function chargerCoursSansProf() {
     const programme=await r.json();
     const sans=programme.filter(c=>!c.professeur_id);
     tbody.innerHTML=sans.length===0?`<tr><td colspan="4" class="admin-vide">✅ Tous les cours ont un professeur.</td></tr>`:
-      sans.map(c=>`<tr><td>${c.nom}</td><td>${c.promotion}</td><td>${c.semestre==='S1'?'Semestre 1':'Semestre 2'}</td><td><button class="btn-ajouter" style="padding:4px 10px;font-size:12px" onclick="ouvrirModalAttribution(${c.id},null)">Attribuer</button></td></tr>`).join('');
+      sans.map(c=>`<tr><td>${c.nom}</td><td>${c.promotion}</td><td>${c.semestre==='S1'?'Semestre 1':'Semestre 2'}</td><td><button class="btn-ajouter" style="padding:4px 10px;font-size:12px" onclick="ouvrirModalAttribution(${c.id},null,'${c.annee_academique}',${c.faculte?`'${c.faculte.replace(/'/g,"\\'")}'`:'null'})">Attribuer</button></td></tr>`).join('');
   } catch (err) { console.error(err); }
 }
 
@@ -2344,25 +2624,40 @@ function filtrerCoursAttribution(coursIdASelectionner) {
   if (coursIdASelectionner) sel.value=coursIdASelectionner;
 }
 
-async function ouvrirModalAttribution(coursId,professeurId) {
-  const annee=document.getElementById('filtre-attr-annee')?.value||'';
+// Recharge la liste des cours de la modale selon l'année académique et la
+// faculté choisies (au lieu de tout charger d'un coup, toutes années et
+// facultés confondues) — la promotion reste un filtre supplémentaire, à
+// l'intérieur de cette sélection.
+async function rechargerProgrammeAttribution(coursIdASelectionner) {
+  const annee   = document.getElementById('attr-annee-select')?.value   || '';
+  const faculte = document.getElementById('attr-faculte-select')?.value || '';
   try {
-    const [rProgramme,rProfs]=await Promise.all([
-      fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`),
-      fetchAdmin(`${BASE_URL}/api/professeurs`)
-    ]);
-    programmeAttribution=await rProgramme.json();
-    const profs=await rProfs.json();
+    const params = new URLSearchParams({ annee });
+    if (faculte) params.append('faculte', faculte);
+    const r = await fetchAdmin(`${BASE_URL}/api/programme?${params}`);
+    programmeAttribution = await r.json();
 
     const promotions=[...new Set(programmeAttribution.map(c=>c.promotion))].sort();
     document.getElementById('attr-promotion-select').innerHTML='<option value="">— Toutes les promotions —</option>'+
       promotions.map(p=>`<option value="${p}">${p}</option>`).join('');
 
-    const coursActuel=coursId?programmeAttribution.find(c=>c.id===coursId):null;
-    if (coursActuel) document.getElementById('attr-promotion-select').value=coursActuel.promotion;
-    else document.getElementById('attr-promotion-select').value='';
+    const coursActuel=coursIdASelectionner?programmeAttribution.find(c=>c.id===coursIdASelectionner):null;
+    document.getElementById('attr-promotion-select').value = coursActuel ? coursActuel.promotion : '';
 
-    filtrerCoursAttribution(coursId);
+    filtrerCoursAttribution(coursIdASelectionner);
+  } catch (err) { console.error(err); afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function ouvrirModalAttribution(coursId, professeurId, anneePreset, facultePreset) {
+  try {
+    const anneeParDefaut = anneePreset || document.getElementById('filtre-attr-annee')?.value || '2026-2027';
+    document.getElementById('attr-annee-select').value = anneeParDefaut;
+    document.getElementById('attr-faculte-select').value = facultePreset || '';
+
+    const rProfs = await fetchAdmin(`${BASE_URL}/api/professeurs`);
+    const profs = await rProfs.json();
+
+    await rechargerProgrammeAttribution(coursId);
 
     document.getElementById('attr-prof-select').innerHTML='<option value="">— Choisir un professeur —</option>'+
       profs.map(p=>`<option value="${p.id}">${p.nom} ${p.prenom||''}${p.grade?' — '+p.grade:''}</option>`).join('');
@@ -2451,8 +2746,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   const champPass=document.getElementById('admin-pass');
   if (champPass) champPass.addEventListener('keypress',(e)=>{ if(e.key==='Enter') connexionAdmin(); });
 
-  // Alimente tous les menus d'années depuis la base avant les chargements.
-  await chargerAnnees();
+  // Alimente tous les menus d'années, de facultés et de filières depuis la
+  // base avant les chargements — aucune liste de faculté/filière codée en dur.
+  const libelleCourtFaculte = nom => ({
+    'Faculté de Théologie': 'Théologie',
+    'Sciences Informatiques': 'Informatique',
+    'Sciences Économiques': 'Économie',
+    "Sciences de l'Éducation & Psychologie": 'Éducation & Psycho',
+  }[nom]);
+  await Promise.all([chargerAnnees(), chargerFacultesDB()]);
+  chargerFiliereParFaculte();
+  [
+    'notes-filtre-faculte', 'filtre-faculte', 'filtre-faculte-prog',
+    'reins-faculte', 'prog-faculte', 'inscrit-faculte', 'attr-faculte-select', 'annonce-cible',
+  ].forEach(id => remplirSelectFacultes(id));
+  remplirSelectFacultes('horaire-faculte', { garder: 2 }); // conserve aussi l'option "TOUTES"
+  remplirSelectFacultes('filtre-inscrits-faculte', { libelleCourt: libelleCourtFaculte });
+  remplirSelectFacultes('filtre-note-faculte', { libelleCourt: libelleCourtFaculte });
+  remplirCheckboxesFacultes('inscriptions-facultes-checkboxes');
 
   if (document.getElementById('cpt-etudiants')) chargerStats();
 
@@ -2475,7 +2786,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (document.getElementById('admin-horaires')) {
     chargerHoraires();
-    ['filtre-annee','filtre-niveau','filtre-jour'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',chargerHoraires);});
+    ['filtre-annee','filtre-niveau','filtre-jour','filtre-faculte'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',chargerHoraires);});
   }
 
   if (document.getElementById('admin-programme')) {

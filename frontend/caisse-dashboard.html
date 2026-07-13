@@ -100,18 +100,38 @@
         <h2>Frais &amp; versements</h2>
         <p class="dash-sous-titre">Enregistrez et suivez les paiements des étudiants</p>
 
+        <div class="dash-card" style="margin-bottom:20px">
+          <div class="card-header-action">
+            <h3>Barème des frais attendus</h3>
+            <span class="info" style="font-size:12px">Sert à calculer le solde restant de chaque étudiant</span>
+          </div>
+          <div class="admin-toolbar" id="bareme-form" style="flex-wrap:wrap;gap:8px">
+            <select class="admin-recherche" id="bareme-niveau" style="flex:0 0 130px">
+              <option value="Pré-U">Pré-U</option>
+              <option value="L1">L1</option><option value="L2">L2</option><option value="L3">L3</option>
+              <option value="M1">M1</option><option value="M2">M2</option>
+            </select>
+            <select class="admin-recherche" id="bareme-annee" style="flex:0 0 170px"></select>
+            <input type="number" class="admin-recherche" id="bareme-montant" placeholder="Montant attendu ($)" min="0" step="0.01" style="flex:0 0 180px">
+            <button class="btn-ajouter" onclick="enregistrerBareme()">✅ Enregistrer</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="dash-table">
+              <thead><tr><th>Niveau</th><th>Année académique</th><th>Montant attendu ($)</th><th>Action</th></tr></thead>
+              <tbody id="bareme-body"><tr><td colspan="4" class="admin-vide">Chargement...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="admin-toolbar" style="flex-wrap:wrap;gap:8px">
           <input type="text" class="admin-recherche" id="caisse-recherche" placeholder="Rechercher (nom, matricule)..." oninput="chargerEtudiantsCaisse()" style="flex:1 1 220px">
           <select class="admin-recherche" id="caisse-filtre-annee" onchange="chargerEtudiantsCaisse()" style="flex:0 0 170px"><option value="">Toutes les années</option></select>
           <select class="admin-recherche" id="caisse-filtre-faculte" onchange="chargerEtudiantsCaisse()" style="flex:0 0 220px">
             <option value="">Toutes les facultés</option>
-            <option value="Faculté de Théologie">Faculté de Théologie</option>
-            <option value="Sciences Informatiques">Sciences Informatiques</option>
-            <option value="Sciences Économiques">Sciences Économiques</option>
-            <option value="Sciences de l'Éducation & Psychologie">Sciences de l'Éducation & Psychologie</option>
           </select>
           <select class="admin-recherche" id="caisse-filtre-niveau" onchange="chargerEtudiantsCaisse()" style="flex:0 0 130px">
             <option value="">Tous niveaux</option>
+            <option value="Pré-U">Pré-U</option>
             <option value="L1">L1</option><option value="L2">L2</option><option value="L3">L3</option>
             <option value="M1">M1</option><option value="M2">M2</option>
           </select>
@@ -120,9 +140,9 @@
         <div class="dash-card">
           <table class="dash-table">
             <thead>
-              <tr><th>Matricule</th><th>Étudiant</th><th>Faculté</th><th>Niveau</th><th>Année</th><th>Total versé</th><th>Actions</th></tr>
+              <tr><th>Matricule</th><th>Étudiant</th><th>Faculté</th><th>Niveau</th><th>Année</th><th>Total versé</th><th>Solde restant</th><th>Actions</th></tr>
             </thead>
-            <tbody id="caisse-etudiants-body"><tr><td colspan="7" class="admin-vide">Chargement...</td></tr></tbody>
+            <tbody id="caisse-etudiants-body"><tr><td colspan="8" class="admin-vide">Chargement...</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -161,9 +181,15 @@
 
       <input type="hidden" id="paiements-etudiant-id">
 
-      <div style="background:var(--gris,#f2f4f7);border-radius:8px;padding:12px 16px;margin-bottom:16px;text-align:center">
-        <span style="font-size:12px;color:#888">Total versé</span>
-        <div style="font-size:22px;font-weight:700;color:var(--bleu)" id="paiements-total">0 $</div>
+      <div style="display:flex;gap:10px;margin-bottom:16px">
+        <div style="flex:1;background:var(--gris,#f2f4f7);border-radius:8px;padding:12px 16px;text-align:center">
+          <span style="font-size:12px;color:#888">Total versé</span>
+          <div style="font-size:22px;font-weight:700;color:var(--bleu)" id="paiements-total">0 $</div>
+        </div>
+        <div style="flex:1;background:var(--gris,#f2f4f7);border-radius:8px;padding:12px 16px;text-align:center">
+          <span style="font-size:12px;color:#888">Solde restant</span>
+          <div style="font-size:22px;font-weight:700;color:var(--rouge,#c0392b)" id="paiements-solde">—</div>
+        </div>
       </div>
 
       <table class="dash-table" style="margin-bottom:16px">

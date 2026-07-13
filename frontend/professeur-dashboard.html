@@ -257,6 +257,30 @@
     </main>
   </div>
 
+  <!-- MODAL PRÉSENCES -->
+  <div class="admin-modal-overlay" id="modal-presences">
+    <div class="admin-modal" style="max-width:560px">
+      <div class="admin-modal-header">
+        <h3>Présences — <span id="presences-cours-nom"></span></h3>
+        <button class="admin-modal-close" onclick="fermerModalPresences()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="presences-horaire-id">
+
+      <div class="form-group-dash" style="margin-bottom:14px">
+        <label>Date de la séance</label>
+        <input type="date" id="presences-date" onchange="chargerPresencesModal()">
+      </div>
+
+      <table class="dash-table" style="margin-bottom:16px">
+        <thead><tr><th>Étudiant</th><th>Présent</th><th>Retard</th><th>Absent</th></tr></thead>
+        <tbody id="presences-body"><tr><td colspan="4" class="admin-vide">Chargement...</td></tr></tbody>
+      </table>
+
+      <button class="btn-ajouter" style="width:100%" onclick="enregistrerPresences()">✅ Enregistrer les présences</button>
+    </div>
+  </div>
+
   <!-- TOAST -->
   <div id="toast" class="toast"></div>
 

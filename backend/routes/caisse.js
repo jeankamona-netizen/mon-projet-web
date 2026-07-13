@@ -9,6 +9,9 @@ router.use(requireFinance);
 // ===== GET /api/caisse/etudiants — étudiants + total déjà versé (avec filtres) =====
 // La caisse a besoin de la liste des étudiants et de leur solde ; on renvoie le
 // cumul des versements par étudiant plutôt que d'ouvrir la route admin.
+// montant_attendu/solde viennent du barème (frais_scolarite) pour le niveau +
+// année de l'étudiant ; null si aucune ligne de barème n'existe encore pour ce
+// couple niveau/année (pas confondu avec un solde de 0 $).
 router.get('/etudiants', async (req, res) => {
   try {
     const { nom, annee, niveau, faculte } = req.query;
@@ -16,10 +19,12 @@ router.get('/etudiants', async (req, res) => {
       SELECT e.id, e.nom, e.postnom, e.prenom, e.faculte, f.nom AS filiere, e.promotion, e.niveau,
              e.annee_academique, e.statut,
              COALESCE(SUM(p.montant), 0) AS total_verse,
-             COUNT(p.id) AS nb_versements
+             COUNT(p.id) AS nb_versements,
+             fs.montant AS montant_attendu
       FROM etudiant e
       LEFT JOIN filiere f ON e.filiere_id = f.id
       LEFT JOIN paiement p ON p.etudiant_id = e.id
+      LEFT JOIN frais_scolarite fs ON fs.niveau = e.niveau AND fs.annee_academique = e.annee_academique
       WHERE 1=1
     `;
     const params = [];
@@ -33,7 +38,14 @@ router.get('/etudiants', async (req, res) => {
     sql += ' GROUP BY e.id ORDER BY e.nom, e.prenom';
 
     const [lignes] = await pool.query(sql, params);
-    res.json(lignes.map(l => ({ ...l, total_verse: Number(l.total_verse), nb_versements: Number(l.nb_versements) })));
+    res.json(lignes.map(l => {
+      const total_verse = Number(l.total_verse);
+      const montant_attendu = l.montant_attendu === null ? null : Number(l.montant_attendu);
+      return {
+        ...l, total_verse, nb_versements: Number(l.nb_versements), montant_attendu,
+        solde: montant_attendu === null ? null : Math.max(0, montant_attendu - total_verse),
+      };
+    }));
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: "Erreur lors de la récupération des étudiants." });

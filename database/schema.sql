@@ -87,11 +87,14 @@ CREATE TABLE cours (
   nom               VARCHAR(150) NOT NULL,
   faculte           VARCHAR(150), -- faculté visée (ex. "Sciences Informatiques")
   filiere_id        INT,          -- filière précise ; NULL = cours commun à toute la faculté (ex. Educit)
-  niveau             VARCHAR(10),  -- ex. "L1", "M1"
-  promotion         VARCHAR(50) NOT NULL, -- libellé d'affichage/rattachement horaire, ex. "L1 Informatique"
+  niveau             VARCHAR(10),  -- ex. "L1", "M1", "Pré-U"
+  promotion         VARCHAR(150) NOT NULL, -- libellé d'affichage/rattachement horaire, ex. "L1 Informatique"
   annee_academique  VARCHAR(20) NOT NULL,
   semestre          ENUM('S1','S2') NOT NULL,
   credits           INT NOT NULL,
+  cmi               INT, -- heures de Cours Magistral (Intégré) — maquette officielle
+  td                INT, -- heures de Travaux Dirigés
+  tp                INT, -- heures de Travaux Pratiques
   professeur_id     INT, -- professeur attribué au cours (indépendant de l'horaire, voir "Attributions des cours")
   UNIQUE KEY code_promo_annee (code, promotion, annee_academique),
   FOREIGN KEY (filiere_id) REFERENCES filiere(id) ON DELETE SET NULL,
@@ -122,7 +125,7 @@ CREATE TABLE note (
 -- =====================================================================
 CREATE TABLE horaire (
   id                INT AUTO_INCREMENT PRIMARY KEY,
-  promotion         VARCHAR(50) NOT NULL,
+  promotion         VARCHAR(150) NOT NULL,
   annee_academique  VARCHAR(20) NOT NULL,
   jour              ENUM('Lundi','Mardi','Mercredi','Jeudi','Vendredi') NOT NULL,
   date_debut        DATE, -- date à partir de laquelle ce créneau hebdomadaire récurrent est valide
@@ -133,6 +136,23 @@ CREATE TABLE horaire (
   salle             VARCHAR(50) NOT NULL,
   FOREIGN KEY (cours_id)      REFERENCES cours(id),
   FOREIGN KEY (professeur_id) REFERENCES professeur(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================================
+-- PRESENCE — feuille d'appel par séance. Une séance est identifiée par
+-- (horaire_id, date_seance) : le même créneau horaire hebdomadaire récurrent
+-- donne lieu à une ligne de présence différente chaque semaine où il a lieu.
+-- =====================================================================
+CREATE TABLE presence (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  horaire_id   INT NOT NULL,
+  etudiant_id  VARCHAR(20) NOT NULL,
+  date_seance  DATE NOT NULL,
+  statut       ENUM('present','absent','retard') NOT NULL DEFAULT 'absent',
+  marque_le    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY horaire_etudiant_date (horaire_id, etudiant_id, date_seance),
+  FOREIGN KEY (horaire_id)  REFERENCES horaire(id)  ON DELETE CASCADE,
+  FOREIGN KEY (etudiant_id) REFERENCES etudiant(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================================
@@ -246,6 +266,21 @@ CREATE TABLE paiement (
   agent_id             INT,          -- caissier ayant encaissé (voir table agent)
   date_enregistrement  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (etudiant_id) REFERENCES etudiant(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================================
+-- FRAIS_SCOLARITE — barème des frais attendus par niveau et par année
+-- académique (montant total, tous rubriques confondus). Sert à calculer le
+-- solde restant d'un étudiant : montant attendu − somme de ses versements
+-- (table paiement) pour la même année. Aucune ligne définie pour un
+-- niveau/année = solde non calculable (pas assimilé à 0 $ dû).
+-- =====================================================================
+CREATE TABLE frais_scolarite (
+  id                INT AUTO_INCREMENT PRIMARY KEY,
+  niveau            VARCHAR(10) NOT NULL,
+  annee_academique  VARCHAR(20) NOT NULL,
+  montant           DECIMAL(10,2) NOT NULL,
+  UNIQUE KEY niveau_annee (niveau, annee_academique)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================================

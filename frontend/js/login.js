@@ -73,10 +73,34 @@ async function connecterEtudiant() {
   }
 }
 
+// Remplit les deux menus « Choix du programme » de la préinscription depuis
+// la base (jamais codé en dur) : la préinscription concerne l'entrée en
+// Licence (diplôme d'État, école secondaire), donc les filières de master
+// (préfixées "Master ") n'y ont pas leur place. Si une faculté n'a aucune
+// filière de licence propre (ex. Théologie, dont la licence n'est pas
+// subdivisée), son propre nom devient l'option à choisir.
+function remplirSpecialitesPreinscription() {
+  const html = facultesDB.map(f => {
+    const filieresLicence = (f.filieres || []).filter(nom => !nom.startsWith('Master '));
+    const options = filieresLicence.length > 0
+      ? filieresLicence.map(nom => `<option>${nom}</option>`).join('')
+      : `<option value="${f.nom}">${f.nom} (aucune filière)</option>`;
+    return `<optgroup label="${f.nom}">${options}</optgroup>`;
+  }).join('');
+  ['specialite', 'specialite2'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel) sel.innerHTML = '<option value="">-- Choisir une filière --</option>' + html;
+  });
+}
+
 // Validation avec Entrée
 document.addEventListener('DOMContentLoaded', () => {
   const mdp = document.getElementById('mot-de-passe');
   if (mdp) mdp.addEventListener('keypress', e => { if (e.key === 'Enter') connecterEtudiant(); });
+
+  if (document.getElementById('specialite')) {
+    chargerFacultesDB().then(remplirSpecialitesPreinscription);
+  }
 
   // ===== PRÉ-INSCRIPTION =====
   const inputFichiers = document.getElementById('documents');

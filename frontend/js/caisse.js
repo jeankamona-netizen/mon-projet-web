@@ -78,7 +78,7 @@ function afficherSectionCaisse(id, lien) {
   document.getElementById(id)?.classList.add('active');
   lien?.classList.add('active');
   if (id === 'caisse-accueil')  chargerStatsCaisse();
-  if (id === 'caisse-frais')    chargerEtudiantsCaisse();
+  if (id === 'caisse-frais')    { chargerEtudiantsCaisse(); chargerBareme(); }
   if (id === 'caisse-rapports') initRapports();
 }
 
@@ -129,16 +129,76 @@ async function chargerAnneesCaisse() {
     if (!r.ok) return;
     const annees = await r.json();
     const sel = document.getElementById('caisse-filtre-annee');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">Toutes les années</option>' +
+    if (sel) sel.innerHTML = '<option value="">Toutes les années</option>' +
       annees.map(a => `<option value="${a.libelle}">${a.libelle}</option>`).join('');
+    const selBareme = document.getElementById('bareme-annee');
+    if (selBareme) {
+      const courante = annees.find(a => a.est_courante)?.libelle;
+      selBareme.innerHTML = annees.map(a => `<option value="${a.libelle}">${a.libelle}</option>`).join('');
+      if (courante) selBareme.value = courante;
+    }
   } catch { /* silencieux */ }
+}
+
+// =====================
+// BARÈME DES FRAIS ATTENDUS
+// =====================
+async function chargerBareme() {
+  const tbody = document.getElementById('bareme-body');
+  if (!tbody) return;
+  const formulaire = document.getElementById('bareme-form');
+  if (formulaire) formulaire.style.display = estLectureSeule() ? 'none' : '';
+  tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite`);
+    const lignes = await r.json();
+    if (!lignes.length) { tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">Aucun barème défini pour l'instant.</td></tr>`; return; }
+    const lecture = estLectureSeule();
+    tbody.innerHTML = lignes.map(l => `
+      <tr>
+        <td><span class="annee-badge">${l.niveau}</span></td>
+        <td>${l.annee_academique}</td>
+        <td><strong>${montant(l.montant)} $</strong></td>
+        <td class="admin-actions-cell">${lecture ? '' : `<button class="btn-icone danger" onclick="supprimerBareme(${l.id})" aria-label="Supprimer">${icone('corbeille')}</button>`}</td>
+      </tr>`).join('');
+  } catch { tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+}
+
+async function enregistrerBareme() {
+  if (estLectureSeule()) { afficherToast('⚠️ Consultation seule.', 'erreur'); return; }
+  const niveau = document.getElementById('bareme-niveau')?.value;
+  const annee_academique = document.getElementById('bareme-annee')?.value;
+  const montantVal = parseFloat(document.getElementById('bareme-montant')?.value);
+  if (!niveau || !annee_academique) { afficherToast('⚠️ Choisissez un niveau et une année.', 'erreur'); return; }
+  if (isNaN(montantVal) || montantVal < 0) { afficherToast('⚠️ Entrez un montant valide.', 'erreur'); return; }
+  try {
+    const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ niveau, annee_academique, montant: montantVal })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    afficherToast('✅ Barème enregistré.');
+    document.getElementById('bareme-montant').value = '';
+    chargerBareme();
+    chargerEtudiantsCaisse();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function supprimerBareme(id) {
+  if (!await confirmerAction('Supprimer cette ligne de barème ? Le solde des étudiants concernés ne sera plus calculable tant qu\'aucune autre ligne ne la remplace.', { titre: 'Supprimer le barème', texteConfirmer: 'Supprimer' })) return;
+  try {
+    await fetchCaisse(`${BASE_URL}/api/frais-scolarite/${id}`, { method: 'DELETE' });
+    afficherToast('🗑️ Supprimé.');
+    chargerBareme();
+    chargerEtudiantsCaisse();
+  } catch (err) { console.error(err); }
 }
 
 async function chargerEtudiantsCaisse() {
   const tbody = document.getElementById('caisse-etudiants-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Chargement...</td></tr>`;
   try {
     const nom = document.getElementById('caisse-recherche')?.value || '';
     const annee = document.getElementById('caisse-filtre-annee')?.value || '';
@@ -151,7 +211,7 @@ async function chargerEtudiantsCaisse() {
     if (niveau) params.append('niveau', niveau);
     const r = await fetchCaisse(`${BASE_URL}/api/caisse/etudiants?${params}`);
     etudiantsCaisse = await r.json();
-    if (!etudiantsCaisse.length) { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
+    if (!etudiantsCaisse.length) { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
     const libelle = estLectureSeule() ? 'Consulter la situation' : 'Gérer les versements';
     tbody.innerHTML = etudiantsCaisse.map(e => `
       <tr>
@@ -161,11 +221,12 @@ async function chargerEtudiantsCaisse() {
         <td>${e.niveau ? `<span class="annee-badge">${e.niveau}</span>` : '—'}</td>
         <td>${e.annee_academique || '—'}</td>
         <td><strong style="color:var(--vert)">${montant(e.total_verse)} $</strong></td>
+        <td>${e.solde === null ? '<span style="color:#999">Barème non défini</span>' : `<strong style="color:${e.solde > 0 ? 'var(--rouge,#c0392b)' : 'var(--vert)'}">${montant(e.solde)} $</strong>`}</td>
         <td class="admin-actions-cell">
           <button class="btn-icone" onclick="ouvrirModalPaiementsCaisse('${e.id}')" title="${libelle}">💵</button>
         </td>
       </tr>`).join('');
-  } catch { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+  } catch { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
 // =====================
@@ -201,6 +262,21 @@ async function chargerPaiementsCaisse() {
     const paiements = await r.json();
     const total = paiements.reduce((s, p) => s + Number(p.montant), 0);
     document.getElementById('paiements-total').textContent = `${total.toFixed(2)} $`;
+
+    // Solde = barème (attaché à l'étudiant depuis GET /api/caisse/etudiants) −
+    // total versé recalculé ici (à jour même juste après un ajout/suppression).
+    const soldeEl = document.getElementById('paiements-solde');
+    if (soldeEl) {
+      const attendu = etudiantCourantCaisse?.montant_attendu;
+      if (attendu == null) { soldeEl.textContent = 'Barème non défini'; soldeEl.style.fontSize = '13px'; }
+      else {
+        const solde = Math.max(0, Number(attendu) - total);
+        soldeEl.textContent = `${solde.toFixed(2)} $`;
+        soldeEl.style.fontSize = '22px';
+        soldeEl.style.color = solde > 0 ? 'var(--rouge, #c0392b)' : 'var(--vert)';
+      }
+    }
+
     const lecture = estLectureSeule();
     tbody.innerHTML = paiements.length === 0
       ? `<tr><td colspan="4" class="admin-vide">Aucun versement enregistré.</td></tr>`
@@ -509,5 +585,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     chargerAnneesCaisse();
     chargerStatsCaisse();
+    chargerFacultesDB().then(() => remplirSelectFacultes('caisse-filtre-faculte'));
   }
 });

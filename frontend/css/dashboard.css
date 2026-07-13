@@ -607,6 +607,21 @@
   border-bottom: none;
 }
 
+/* Programme annuel (vue admin groupée par faculté) : chaque tableau occupe
+   toute la largeur (empilés verticalement), CMI/TD/TP/Crédits/Actions restent
+   compacts sur une seule ligne plutôt que d'écraser la colonne Actions. */
+.prog-table-groupe {
+  table-layout: fixed;
+}
+
+.prog-table-groupe th:nth-child(1), .prog-table-groupe td:nth-child(1) { width: 11%; }
+.prog-table-groupe th:nth-child(2), .prog-table-groupe td:nth-child(2) { width: 37%; }
+.prog-table-groupe th:nth-child(3), .prog-table-groupe td:nth-child(3),
+.prog-table-groupe th:nth-child(4), .prog-table-groupe td:nth-child(4),
+.prog-table-groupe th:nth-child(5), .prog-table-groupe td:nth-child(5) { width: 8%; white-space: nowrap; }
+.prog-table-groupe th:nth-child(6), .prog-table-groupe td:nth-child(6) { width: 9%; white-space: nowrap; }
+.prog-table-groupe th:nth-child(7), .prog-table-groupe td:nth-child(7) { width: 14%; white-space: nowrap; }
+
 /* Lignes de démarcation plus marquées entre chaque professeur (ligne "Cours
    attribués" pouvant contenir plusieurs cours sur plusieurs lignes). */
 #admin-professeurs-body tr td {
@@ -826,6 +841,69 @@
   }
 }
 
+/* Variante admin (Gérer les horaires) : édition directe sur le calendrier */
+.cal-evenement-admin .cal-evenement-entete {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.cal-evenement-admin .cal-evenement-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.cal-evenement-admin .cal-evenement-actions .btn-icone {
+  padding: 2px 3px;
+  color: var(--blanc);
+}
+
+.cal-evenement-admin .cal-evenement-actions .btn-icone:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.cal-evenement-admin .cal-evenement-actions .btn-icone.danger:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Cours d'ensemble (partagé par plusieurs facultés) : prioritaire en cas de
+   conflit d'horaire — un autre cours doit céder la place avant lui. */
+.cal-evenement-commun {
+  outline: 2px solid var(--jaune);
+  outline-offset: -2px;
+}
+
+.badge-commun {
+  display: inline-block;
+  background: var(--jaune);
+  color: var(--bleu);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  width: fit-content;
+}
+
+/* Session commune à intitulés différents : même professeur/salle/heure que
+   ce créneau, mais un cours_id différent (ex. cours mutualisé entre deux
+   facultés sous deux noms). Ne bloque jamais comme un conflit. */
+.badge-session {
+  display: inline-block;
+  background: #e8f0fe;
+  color: var(--bleu);
+  border: 1px solid var(--bleu);
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  width: fit-content;
+}
+
 /* FILTRES SESSION */
 .filtre-session {
   display: flex;
@@ -878,101 +956,6 @@
   color: var(--bleu);
 }
 
-/* HORAIRE TABLE */
-.horaire-table td:first-child {
-  white-space: nowrap;
-}
-
-/* Table « Gérer les horaires » (admin) — ordre des colonnes : Jour, Date,
-   Heure, Promotion, Nbre, Cours, Professeur, Salle, Année, Actions.
-   Largeurs fixes pilotées par le <colgroup> pour que les colonnes à faible
-   contenu (jour, date, heure, nbre, année, actions) restent compactes et
-   laissent la place aux colonnes à texte long ou variable (promotion,
-   cours, professeur, salle). overflow-wrap: break-word est réappliqué en
-   filet de sécurité — un mot isolé trop long (ex. "Amphithéâtre") ne
-   déborde plus sur la colonne suivante ; il est sans effet sur les
-   colonnes nowrap ci-dessous, qui restent toujours sur une seule ligne
-   (white-space:nowrap prime). */
-.horaires-admin-table {
-  table-layout: fixed;
-}
-
-.horaires-admin-table th,
-.horaires-admin-table td {
-  overflow-wrap: break-word;
-}
-
-.horaires-admin-table th:nth-child(1), .horaires-admin-table td:nth-child(1),
-.horaires-admin-table th:nth-child(2), .horaires-admin-table td:nth-child(2),
-.horaires-admin-table th:nth-child(3), .horaires-admin-table td:nth-child(3),
-.horaires-admin-table th:nth-child(5), .horaires-admin-table td:nth-child(5),
-.horaires-admin-table th:nth-child(9), .horaires-admin-table td:nth-child(9),
-.horaires-admin-table th:nth-child(10), .horaires-admin-table td:nth-child(10) {
-  white-space: nowrap;
-}
-
-/* Espacement supplémentaire entre certaines paires de colonnes trop collées :
-   Date/Heure, Année/Actions. Nbre et Professeur avaient un padding-droit
-   exagéré qui ne servait qu'à faire de la place « en dur » — cet espace a
-   été repris et transformé en largeur réelle pour la colonne Cours
-   (colgroup) afin qu'elle tienne sur deux lignes plutôt que trois. */
-.horaires-admin-table th:nth-child(2), .horaires-admin-table td:nth-child(2) {
-  padding-right: 22px;
-}
-
-.horaires-admin-table th:nth-child(9), .horaires-admin-table td:nth-child(9) {
-  padding-right: 32px;
-}
-
-.horaires-admin-table th:nth-child(7), .horaires-admin-table td:nth-child(7) {
-  padding-right: 16px;
-  /* Le nom du professeur ne doit jamais être coupé en syllabes (ex.
-     "MULUMBWA") : seul un retour à la ligne entre prénom et nom est
-     autorisé, jamais une coupure au milieu d'un mot. */
-  overflow-wrap: normal;
-  word-break: normal;
-}
-
-/* Heure/Promotion et Promotion/Nbre : resserrés (pas besoin de la même
-   respiration que les autres) — l'espace repris est redonné à la largeur
-   de la colonne Cours ci-dessous (colgroup) pour l'afficher normalement. */
-.horaires-admin-table th:nth-child(3), .horaires-admin-table td:nth-child(3) {
-  padding-right: 4px;
-}
-
-.horaires-admin-table th:nth-child(4), .horaires-admin-table td:nth-child(4) {
-  padding-left: 4px;
-  padding-right: 4px;
-}
-
-.horaires-admin-table th:nth-child(5), .horaires-admin-table td:nth-child(5) {
-  padding-left: 4px;
-  padding-right: 10px;
-}
-
-/* Jour / Année : texte simple sans pastille, même style que les autres
-   colonnes courtes (ex. Heure) — pas de traitement particulier nécessaire,
-   elles héritent déjà du style par défaut de .dash-table td. */
-.horaires-admin-table td:nth-child(1),
-.horaires-admin-table td:nth-child(9) {
-  font-size: 13px;
-  color: #333;
-}
-
-/* Actions bien centrées dans leur colonne */
-.horaires-admin-table .admin-actions-cell {
-  justify-content: center;
-}
-
-.jour-badge {
-  background: var(--bleu);
-  color: var(--blanc);
-  padding: 3px 10px;
-  border-radius: 5px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
 /* PROGRAMME */
 .prog-liste {
   display: flex;
@@ -1002,8 +985,19 @@
 
 .prog-nom {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prog-nom-titre {
   font-size: 13px;
   color: #333;
+}
+
+.prog-heures {
+  font-size: 10.5px;
+  color: #999;
 }
 
 .prog-credits {
@@ -1267,29 +1261,6 @@
 .ia-alerte-texte b {
   color: var(--bleu);
   font-weight: 600;
-}
-
-.ia-actions {
-  margin-top: 10px;
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.ia-action-btn {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--bleu);
-  background: var(--blanc);
-  border: 1px solid #D6E0F5;
-  padding: 6px 14px;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.ia-action-btn:hover {
-  background: #E4EAFB;
 }
 
 .ia-vide {

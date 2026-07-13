@@ -74,54 +74,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ===== POST /api/inscriptions/bulk — inscrire en masse les étudiants d'un cours =====
-// Se base sur les champs structurés du cours (faculté + niveau + filière éventuelle),
-// pas sur la chaîne "promotion" — évite les faux "aucun étudiant trouvé" dus à un
-// format de promotion qui ne correspond pas exactement.
-router.post('/bulk', async (req, res) => {
-  const { cours_id } = req.body;
-  if (!cours_id) {
-    return res.status(400).json({ erreur: 'Le cours est obligatoire.' });
-  }
-  try {
-    const [[cours]] = await pool.query(
-      'SELECT faculte, niveau, filiere_id, annee_academique FROM cours WHERE id = ?',
-      [cours_id]
-    );
-    if (!cours) return res.status(404).json({ erreur: 'Cours introuvable.' });
-    if (!cours.faculte || !cours.niveau) {
-      return res.status(400).json({ erreur: 'Ce cours n\'a pas de faculté/niveau défini — impossible d\'inscrire automatiquement.' });
-    }
-
-    let sql = 'SELECT id FROM etudiant WHERE faculte = ? AND niveau = ? AND annee_academique = ?';
-    const params = [cours.faculte, cours.niveau, cours.annee_academique];
-    if (cours.filiere_id) {
-      sql += ' AND filiere_id = ?';
-      params.push(cours.filiere_id);
-    }
-
-    const [etudiants] = await pool.query(sql, params);
-    if (etudiants.length === 0) {
-      return res.status(404).json({ erreur: `Aucun étudiant trouvé pour ${cours.faculte} — ${cours.niveau} (${cours.annee_academique}). Vérifiez que des étudiants existent avec cette faculté/niveau/année exacts.` });
-    }
-
-    const { libres, conflits } = await filtrerConflitsEtudiants(etudiants.map(e => e.id), cours_id);
-    if (libres.length === 0) {
-      return res.status(409).json({ erreur: `Aucun étudiant inscrit : les ${conflits.length} étudiant(s) concerné(s) ont déjà un cours en conflit d'horaire avec celui-ci.` });
-    }
-
-    const valeurs = libres.map(id => [id, cours_id]);
-    await pool.query('INSERT IGNORE INTO inscription_cours (etudiant_id, cours_id) VALUES ?', [valeurs]);
-
-    const message = conflits.length > 0
-      ? `${libres.length} étudiant(s) inscrit(s) au cours. ${conflits.length} exclu(s) pour conflit d'horaire avec un autre cours.`
-      : `${libres.length} étudiant(s) inscrit(s) au cours.`;
-    res.status(201).json({ message, total: libres.length, conflits: conflits.length });
-  } catch (erreur) {
-    res.status(500).json({ erreur: erreur.message });
-  }
-});
-
 // ===== POST /api/inscriptions/bulk-multi — inscrire les étudiants de plusieurs facultés/niveaux à la fois =====
 // Permet à un même cours d'être suivi par plusieurs promotions/facultés en même
 // temps (ex. un cours commun suivi par L1 Informatique + L1 Théologie + L1

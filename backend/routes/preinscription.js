@@ -5,8 +5,8 @@ const bcrypt = require('bcryptjs');
 const pool = require('../database');
 const { envoyerEmailAcceptation, envoyerEmailRejet } = require('../mailer');
 const upload = require('../upload');
-const path = require('path');
 const { requireAdmin } = require('../middleware/auth');
+const { inscrireAuxCoursDuNiveau } = require('../models/inscriptionAuto');
 
 // Mot de passe temporaire aléatoire (12 caractères, non prévisible) — l'étudiant
 // devra le changer, il est de toute façon hashé en bcrypt avant stockage.
@@ -132,25 +132,6 @@ router.get('/', requireAdmin, async (req, res) => {
   }
 });
 
-// ===== GET /api/preinscription/:id — un dossier précis (admin) =====
-router.get('/:id', requireAdmin, async (req, res) => {
-  try {
-    const [dossiers] = await pool.query(
-      'SELECT * FROM preinscription WHERE id = ?',
-      [req.params.id]
-    );
-
-    if (dossiers.length === 0) {
-      return res.status(404).json({ erreur: "Dossier non trouvé." });
-    }
-
-    res.json(dossiers[0]);
-  } catch (erreur) {
-    console.error(erreur);
-    res.status(500).json({ erreur: "Erreur lors de la récupération du dossier." });
-  }
-});
-
 // ===== PUT /api/preinscription/:id — changer le statut =====
 router.put('/:id', requireAdmin, async (req, res) => {
   const { statut } = req.body;
@@ -184,13 +165,20 @@ if (statut === 'accepte') {
   const numero = String(total + 1).padStart(4, '0');
   const numeroEtudiant = `UML-${annee}-${numero}`;
 
-  // Retrouver la filière (et sa faculté de rattachement) depuis la spécialité choisie
+  // Retrouver la filière (et sa faculté de rattachement) depuis la spécialité
+  // choisie. Certaines facultés n'ont pas de filière au niveau Licence (ex.
+  // Théologie, dont la Licence n'est pas subdivisée) : le formulaire propose
+  // alors directement le nom de la faculté comme "spécialité", sans filière.
   const [filieres] = await pool.query(
     'SELECT f.id, f.nom, fa.nom AS faculte_nom FROM filiere f JOIN faculte fa ON f.faculte_id = fa.id WHERE f.nom = ?',
     [dossier.specialite]
   );
-  const filiere_id = filieres.length > 0 ? filieres[0].id : null;
-  const faculteNom = filieres.length > 0 ? filieres[0].faculte_nom : null;
+  let filiere_id = filieres.length > 0 ? filieres[0].id : null;
+  let faculteNom = filieres.length > 0 ? filieres[0].faculte_nom : null;
+  if (!faculteNom) {
+    const [facultes] = await pool.query('SELECT nom FROM faculte WHERE nom = ?', [dossier.specialite]);
+    if (facultes.length > 0) faculteNom = facultes[0].nom;
+  }
 
   // Niveau court à partir du niveau saisi au dossier
   let niveauCourt = 'L1';
@@ -241,20 +229,10 @@ if (statut === 'accepte') {
     console.log(`✅ Étudiant créé : ${numeroEtudiant} — ${dossier.prenom} ${dossier.nom} | Faculté: ${faculteNom} | Filière: ${dossier.specialite} | Niveau: ${niveauCourt}`);
 
     // Inscrit automatiquement le nouvel étudiant aux cours déjà programmés pour sa
-    // faculté + niveau (+ sa filière précise, ou les cours communs à toute la
-    // faculté si filiere_id est NULL côté cours) — pas de correspondance fragile
-    // par chaîne "promotion".
-    if (faculteNom) {
-      let sqlCours = 'SELECT id FROM cours WHERE faculte = ? AND niveau = ? AND annee_academique = ? AND (filiere_id IS NULL';
-      const paramsCours = [faculteNom, niveauCourt, anneeAcademique];
-      if (filiere_id) { sqlCours += ' OR filiere_id = ?'; paramsCours.push(filiere_id); }
-      sqlCours += ')';
-      const [coursConcernes] = await pool.query(sqlCours, paramsCours);
-      if (coursConcernes.length > 0) {
-        const valeurs = coursConcernes.map(c => [numeroEtudiant, c.id]);
-        await pool.query('INSERT IGNORE INTO inscription_cours (etudiant_id, cours_id) VALUES ?', [valeurs]);
-      }
-    }
+    // faculté + niveau (+ sa filière précise, les cours communs à toute la
+    // faculté, et les cours communs à plusieurs facultés) — pas de correspondance
+    // fragile par chaîne "promotion".
+    await inscrireAuxCoursDuNiveau(numeroEtudiant, faculteNom, niveauCourt, filiere_id, anneeAcademique);
 
     if (dossier.email) {
       await envoyerEmailAcceptation(

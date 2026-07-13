@@ -3,6 +3,53 @@
 // Chargé sur toutes les pages, avant login.js/dashboard.js/admin.js
 // =====================
 
+// =====================
+// FACULTÉS & FILIÈRES — chargées une seule fois depuis la base de données,
+// jamais codées en dur, partagées par toutes les pages qui chargent ui.js.
+// Toute zone qui affiche des facultés/filières doit passer par facultesDB
+// (ou remplirSelectFacultes ci-dessous), pour ne jamais se désynchroniser
+// des filières réellement en base (créées/renommées/fusionnées côté admin).
+// =====================
+let facultesDB = []; // [{id, nom, master_disponible, filieres:[...]}]
+
+async function chargerFacultesDB() {
+  try {
+    const r = await fetch(`${BASE_URL}/api/facultes`);
+    facultesDB = await r.json();
+  } catch (err) { console.error('Impossible de charger les facultés :', err); }
+  return facultesDB;
+}
+
+// Régénère les <option> d'un <select> de faculté à partir de facultesDB, en
+// conservant ses N premières options (placeholder(s) fixes du select, ex.
+// « — Choisir — » ou « Toutes les facultés ») telles quelles.
+// options.garder : nombre d'options de tête à préserver (défaut 1).
+// options.libelleCourt(nom) : libellé d'affichage alternatif (ex. abréviation
+// pour un filtre étroit) — la VALEUR reste toujours le nom exact en base ;
+// seul l'affichage est raccourci, et retombe sur le nom complet si absent.
+function remplirSelectFacultes(selectId, options = {}) {
+  const sel = document.getElementById(selectId);
+  if (!sel || facultesDB.length === 0) return;
+  const { garder = 1, libelleCourt = null } = options;
+  const valeurActuelle = sel.value;
+  const placeholders = [...sel.options].slice(0, garder).map(o => o.outerHTML).join('');
+  sel.innerHTML = placeholders + facultesDB.map(f => {
+    const libelle = (libelleCourt && libelleCourt(f.nom)) || f.nom;
+    return `<option value="${f.nom}">${libelle}</option>`;
+  }).join('');
+  if ([...sel.options].some(o => o.value === valeurActuelle)) sel.value = valeurActuelle;
+}
+
+// Régénère un groupe de cases à cocher « une par faculté » (ex. ciblage
+// multi-facultés d'un cours commun) à partir de facultesDB.
+function remplirCheckboxesFacultes(conteneurId) {
+  const conteneur = document.getElementById(conteneurId);
+  if (!conteneur || facultesDB.length === 0) return;
+  conteneur.innerHTML = facultesDB.map(f =>
+    `<label class="faculte-checkbox-item"><input type="checkbox" value="${f.nom}"> ${f.nom}</label>`
+  ).join('');
+}
+
 function afficherToast(message, type = 'succes') {
   let toast = document.getElementById('toast');
   if (!toast) {

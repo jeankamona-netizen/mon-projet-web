@@ -87,28 +87,6 @@ router.get('/', requireAdmin, async (req, res) => {
   }
 });
 
-// ===== GET /api/notes/etudiant/:id — notes d'un étudiant précis =====
-router.get('/etudiant/:id', async (req, res) => {
-  try {
-    // La session affichée est celle du cours (c.semestre) et non le champ libre
-    // n.session : garantit qu'un cours n'apparaît que dans son vrai semestre.
-    // niveau + année du cours servent à séparer les cursus (ex. L1 2025-2026
-    // vs L2 2026-2027) pour un étudiant qui a été promu.
-    const [notes] = await pool.query(`
-      SELECT n.id, n.note_cc, n.note_examen, n.note, c.semestre AS session,
-             c.annee_academique, c.niveau, c.nom AS matiere, c.credits, c.code
-      FROM note n
-      JOIN cours c ON n.cours_id = c.id
-      WHERE n.etudiant_id = ?
-      ORDER BY c.annee_academique DESC, c.semestre, c.code
-    `, [req.params.id]);
-    res.json(notes);
-  } catch (erreur) {
-    console.error(erreur);
-    res.status(500).json({ erreur: "Erreur lors de la récupération des notes." });
-  }
-});
-
 // ===== POST /api/notes — ajouter/compléter une note =====
 // Le contrôle continu et l'examen peuvent être saisis l'un sans l'autre (le
 // CC arrive souvent avant l'examen) : on fusionne avec la note déjà

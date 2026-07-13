@@ -9,13 +9,23 @@ router.use(requireAdmin);
 // ===== GET /api/horaires — tous les horaires (avec filtres optionnels) =====
 router.get('/', async (req, res) => {
   try {
-    const { annee, niveau, jour } = req.query;
+    const { annee, niveau, jour, faculte } = req.query;
 
     let sql = `
       SELECT h.id, h.promotion, h.annee_academique, h.jour, h.date_debut,
        h.heure_debut, h.heure_fin, h.salle, h.professeur_id, h.cours_id,
-       c.nom AS cours, p.nom AS professeur, p.prenom AS professeur_prenom,
-       (SELECT COUNT(*) FROM inscription_cours ic WHERE ic.cours_id = c.id) AS nb_etudiants
+       c.nom AS cours, (c.faculte IS NULL) AS cours_commun,
+       p.nom AS professeur, p.prenom AS professeur_prenom, p.grade,
+       (SELECT COUNT(*) FROM inscription_cours ic WHERE ic.cours_id = c.id) AS nb_etudiants,
+       -- Session commune à intitulés différents : même professeur, même
+       -- salle, même date/heure, mais un cours_id différent (physiquement
+       -- une seule séance enregistrée sous plusieurs intitulés/facultés).
+       (SELECT GROUP_CONCAT(DISTINCT c2.nom SEPARATOR ' · ')
+        FROM horaire h2 JOIN cours c2 ON c2.id = h2.cours_id
+        WHERE h2.id != h.id AND h2.professeur_id = h.professeur_id AND h2.salle = h.salle
+          AND h2.date_debut = h.date_debut AND h2.heure_debut = h.heure_debut AND h2.heure_fin = h.heure_fin
+          AND h2.cours_id != h.cours_id AND h.professeur_id IS NOT NULL
+       ) AS autres_intitules_session
       FROM horaire h
       JOIN cours c ON h.cours_id = c.id
       LEFT JOIN professeur p ON h.professeur_id = p.id
@@ -28,6 +38,9 @@ router.get('/', async (req, res) => {
     // Informatique") : pas de colonne niveau dédiée sur horaire, d'où le préfixe.
     if (niveau) { sql += ' AND h.promotion LIKE ?'; params.push(niveau + ' %'); }
     if (jour)   { sql += ' AND h.jour = ?'; params.push(jour); }
+    // Un cours commun (c.faculte NULL, partagé par plusieurs facultés) doit
+    // rester visible quelle que soit la faculté choisie dans le filtre.
+    if (faculte){ sql += ' AND (c.faculte = ? OR c.faculte IS NULL)'; params.push(faculte); }
 
     sql += ' ORDER BY h.annee_academique DESC, h.promotion, FIELD(h.jour, "Lundi","Mardi","Mercredi","Jeudi","Vendredi"), h.heure_debut';
 
@@ -48,11 +61,19 @@ router.get('/', async (req, res) => {
 // même journée à des heures différentes ; en revanche, il ne peut jamais
 // être aligné sur deux cours différents (classes différentes) qui se
 // chevauchent à la même date et à la même heure — et une salle non plus.
+//
+// Exception « session commune à intitulés différents » : si le MÊME
+// professeur donne cours dans la MÊME salle à la même date/heure, c'est
+// physiquement une seule et même séance — même si elle est enregistrée sous
+// plusieurs cours_id différents (intitulés distincts par faculté, ex. cours
+// mutualisé entre Économie et Informatique). Ce n'est donc jamais un conflit
+// de salle ni de professeur, quel que soit le cours_id ou la faculté.
 async function trouverConflits({ date_debut, heure_debut, heure_fin, promotion, salle, professeur_id, cours_id, excluId }) {
   const conflits = {};
 
-  // Conflit de salle : même date, créneau qui chevauche, cours différent
-  // (le même cours dans la même salle au même horaire = cours commun, pas un conflit)
+  // Conflit de salle : même date, créneau qui chevauche, cours différent ET
+  // professeur différent (même cours, ou même professeur = session commune,
+  // jamais un conflit).
   let sqlSalle = `
     SELECT * FROM horaire
     WHERE date_debut = ? AND salle = ?
@@ -60,6 +81,7 @@ async function trouverConflits({ date_debut, heure_debut, heure_fin, promotion, 
     AND cours_id != ?
   `;
   const paramsSalle = [date_debut, salle, heure_fin, heure_debut, cours_id];
+  if (professeur_id) { sqlSalle += ' AND (professeur_id IS NULL OR professeur_id != ?)'; paramsSalle.push(professeur_id); }
   if (excluId) { sqlSalle += ' AND id != ?'; paramsSalle.push(excluId); }
   const [conflitsSalle] = await pool.query(sqlSalle, paramsSalle);
   if (conflitsSalle.length > 0) conflits.salle = `Conflit : la salle ${salle} est déjà occupée à cette date et à cette heure.`;
@@ -75,20 +97,21 @@ async function trouverConflits({ date_debut, heure_debut, heure_fin, promotion, 
   const [conflitsPromo] = await pool.query(sqlPromo, paramsPromo);
   if (conflitsPromo.length > 0) conflits.promotion = `Conflit : ${promotion} a déjà cours à cette date et à cette heure.`;
 
-  // Conflit de professeur : occupé à la même date et à la même heure sur un
-  // cours différent (classe différente), même dans une autre salle.
-  // L'exception « cours commun » (même cours_id, même salle) reste
-  // autorisée. Programmer le même professeur à des heures différentes le
-  // même jour n'est PAS un conflit (heure_debut/heure_fin filtrent déjà ça).
+  // Conflit de professeur : occupé à la même date et à la même heure dans une
+  // AUTRE salle (physiquement impossible). Rester dans la MÊME salle n'est
+  // jamais un conflit, même sur un cours_id différent (session commune à
+  // intitulés différents, cf. note ci-dessus). Programmer le même professeur
+  // à des heures différentes le même jour n'est pas non plus un conflit
+  // (heure_debut/heure_fin filtrent déjà ça).
   if (professeur_id) {
     let sqlProf = `
       SELECT h.*, c.nom AS cours_nom FROM horaire h
       JOIN cours c ON h.cours_id = c.id
       WHERE h.professeur_id = ? AND h.date_debut = ?
       AND h.heure_debut < ? AND h.heure_fin > ?
-      AND NOT (h.cours_id = ? AND h.salle = ?)
+      AND h.salle != ?
     `;
-    const paramsProf = [professeur_id, date_debut, heure_fin, heure_debut, cours_id, salle];
+    const paramsProf = [professeur_id, date_debut, heure_fin, heure_debut, salle];
     if (excluId) { sqlProf += ' AND h.id != ?'; paramsProf.push(excluId); }
     const [conflitsProf] = await pool.query(sqlProf, paramsProf);
     if (conflitsProf.length > 0) {
@@ -185,33 +208,6 @@ router.delete('/:id', async (req, res) => {
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: "Erreur lors de la suppression." });
-  }
-});
-
-// PATCH /api/horaires/:id — attribuer un professeur seulement
-router.patch('/:id', async (req, res) => {
-  const { professeur_id } = req.body;
-  try {
-    if (professeur_id) {
-      const [lignes] = await pool.query('SELECT * FROM horaire WHERE id = ?', [req.params.id]);
-      if (lignes.length === 0) return res.status(404).json({ erreur: "Créneau introuvable." });
-      const h = lignes[0];
-
-      const conflits = await trouverConflits({
-        date_debut: h.date_debut, heure_debut: h.heure_debut, heure_fin: h.heure_fin,
-        promotion: h.promotion, salle: h.salle, professeur_id, cours_id: h.cours_id, excluId: req.params.id
-      });
-      if (conflits.professeur) return res.status(409).json({ erreur: conflits.professeur });
-    }
-
-    await pool.query(
-      'UPDATE horaire SET professeur_id = ? WHERE id = ?',
-      [professeur_id, req.params.id]
-    );
-    res.json({ message: "Professeur attribué avec succès." });
-  } catch (erreur) {
-    console.error(erreur);
-    res.status(500).json({ erreur: erreur.message });
   }
 });
 module.exports = router;

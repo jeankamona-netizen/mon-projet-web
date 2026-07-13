@@ -46,7 +46,9 @@ function exigerRoles(rolesAutorises, messageRefus) {
 
 // Consultation des finances : caisse, administrateur du budget, admin.
 const requireFinance  = exigerRoles(['admin', 'caisse', 'budget'], 'Accès réservé au personnel des finances.');
-// Opérations d'encaissement (écriture) : caissier et admin uniquement.
+// Opérations d'écriture (encaissement, barème des frais) : caissier et admin
+// uniquement — l'administrateur du budget (role 'budget') est en lecture
+// seule (voir estLectureSeule() côté frontend caisse.js).
 const requireCaissier = exigerRoles(['admin', 'caisse'], 'Accès réservé à la caisse.');
 
 module.exports = { requireAdmin, requireFinance, requireCaissier };
