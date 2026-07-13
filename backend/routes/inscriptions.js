@@ -22,6 +22,36 @@ router.get('/cours/:coursId', async (req, res) => {
   }
 });
 
+// Un étudiant ne doit jamais se retrouver avec deux cours différents qui se
+// chevauchent à la même date et à la même heure (même s'ils appartiennent à
+// des promotions différentes — ex. cours au choix). Renvoie le nom de
+// l'autre cours en conflit, ou null si aucun conflit.
+async function trouverConflitEtudiant(etudiantId, coursId) {
+  const [conflits] = await pool.query(`
+    SELECT c2.nom AS autre_cours
+    FROM horaire h1
+    JOIN horaire h2
+      ON h2.date_debut = h1.date_debut
+     AND h2.heure_debut < h1.heure_fin AND h2.heure_fin > h1.heure_debut
+     AND h2.id != h1.id
+    JOIN inscription_cours ic ON ic.cours_id = h2.cours_id AND ic.etudiant_id = ?
+    JOIN cours c2 ON c2.id = h2.cours_id
+    WHERE h1.cours_id = ?
+    LIMIT 1
+  `, [etudiantId, coursId]);
+  return conflits.length > 0 ? conflits[0].autre_cours : null;
+}
+
+// Sépare une liste d'étudiants entre ceux libres à ce créneau et ceux déjà
+// pris par un autre cours (utilisé par les inscriptions en masse, qui
+// n'excluent que les étudiants en conflit plutôt que de tout bloquer).
+async function filtrerConflitsEtudiants(etudiantIds, coursId) {
+  const resultats = await Promise.all(etudiantIds.map(id => trouverConflitEtudiant(id, coursId)));
+  const libres = etudiantIds.filter((_, i) => !resultats[i]);
+  const conflits = etudiantIds.filter((_, i) => resultats[i]);
+  return { libres, conflits };
+}
+
 // ===== POST /api/inscriptions — inscrire un étudiant précis à un cours =====
 router.post('/', async (req, res) => {
   const { etudiant_id, cours_id } = req.body;
@@ -29,6 +59,11 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ erreur: 'Étudiant et cours sont obligatoires.' });
   }
   try {
+    const autreCours = await trouverConflitEtudiant(etudiant_id, cours_id);
+    if (autreCours) {
+      return res.status(409).json({ erreur: `Conflit d'horaire : cet étudiant suit déjà « ${autreCours} » à ce créneau.` });
+    }
+
     await pool.query(
       'INSERT IGNORE INTO inscription_cours (etudiant_id, cours_id) VALUES (?, ?)',
       [etudiant_id, cours_id]
@@ -70,10 +105,18 @@ router.post('/bulk', async (req, res) => {
       return res.status(404).json({ erreur: `Aucun étudiant trouvé pour ${cours.faculte} — ${cours.niveau} (${cours.annee_academique}). Vérifiez que des étudiants existent avec cette faculté/niveau/année exacts.` });
     }
 
-    const valeurs = etudiants.map(e => [e.id, cours_id]);
+    const { libres, conflits } = await filtrerConflitsEtudiants(etudiants.map(e => e.id), cours_id);
+    if (libres.length === 0) {
+      return res.status(409).json({ erreur: `Aucun étudiant inscrit : les ${conflits.length} étudiant(s) concerné(s) ont déjà un cours en conflit d'horaire avec celui-ci.` });
+    }
+
+    const valeurs = libres.map(id => [id, cours_id]);
     await pool.query('INSERT IGNORE INTO inscription_cours (etudiant_id, cours_id) VALUES ?', [valeurs]);
 
-    res.status(201).json({ message: `${etudiants.length} étudiant(s) inscrit(s) au cours.`, total: etudiants.length });
+    const message = conflits.length > 0
+      ? `${libres.length} étudiant(s) inscrit(s) au cours. ${conflits.length} exclu(s) pour conflit d'horaire avec un autre cours.`
+      : `${libres.length} étudiant(s) inscrit(s) au cours.`;
+    res.status(201).json({ message, total: libres.length, conflits: conflits.length });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });
   }
@@ -109,10 +152,18 @@ router.post('/bulk-multi', async (req, res) => {
       return res.status(404).json({ erreur: `Aucun étudiant trouvé pour les facultés/niveaux sélectionnés (${cours.annee_academique}).` });
     }
 
-    const valeurs = etudiants.map(e => [e.id, cours_id]);
+    const { libres, conflits } = await filtrerConflitsEtudiants(etudiants.map(e => e.id), cours_id);
+    if (libres.length === 0) {
+      return res.status(409).json({ erreur: `Aucun étudiant inscrit : les ${conflits.length} étudiant(s) concerné(s) ont déjà un cours en conflit d'horaire avec celui-ci.` });
+    }
+
+    const valeurs = libres.map(id => [id, cours_id]);
     await pool.query('INSERT IGNORE INTO inscription_cours (etudiant_id, cours_id) VALUES ?', [valeurs]);
 
-    res.status(201).json({ message: `${etudiants.length} étudiant(s) inscrit(s) au cours.`, total: etudiants.length });
+    const message = conflits.length > 0
+      ? `${libres.length} étudiant(s) inscrit(s) au cours. ${conflits.length} exclu(s) pour conflit d'horaire avec un autre cours.`
+      : `${libres.length} étudiant(s) inscrit(s) au cours.`;
+    res.status(201).json({ message, total: libres.length, conflits: conflits.length });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });
   }

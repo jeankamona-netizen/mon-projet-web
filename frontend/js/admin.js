@@ -782,11 +782,11 @@ function afficherTableauHoraires(liste = horairesAdmin) {
   if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="10" class="admin-vide">Aucun cours programmé.</td></tr>`; return; }
   tbody.innerHTML = liste.map(h => `
     <tr>
-      <td><strong>${h.promotion}</strong></td>
-      <td>${h.nb_etudiants ?? 0}</td>
       <td>${h.jour}</td>
       <td>${formaterDate(h.date_debut)}</td>
       <td>${h.heure_debut.slice(0,5)}<br>${h.heure_fin.slice(0,5)}</td>
+      <td><strong>${h.promotion}</strong></td>
+      <td>${h.nb_etudiants ?? 0}</td>
       <td>${h.cours}</td>
       <td>${h.professeur ? (h.professeur_prenom ? h.professeur_prenom+' ' : '')+h.professeur : '—'}</td>
       <td>${h.salle}</td>
@@ -1699,7 +1699,7 @@ async function chargerInscrits() {
     tbody.innerHTML=inscritsAdmin.map(e=>`
       <tr>
         <td><code style="font-size:11px">${e.id}</code></td>
-        <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}</td>
+        <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}${e.historique?' <span class="badge attente" style="font-size:10px" title="Étudiant promu depuis — ceci est son historique pour cette période">Historique</span>':''}</td>
         <td>${e.faculte||'—'}</td>
         <td>${e.promotion||'—'}</td>
         <td>${e.niveau?`<span class="annee-badge">${e.niveau}</span>`:'—'}</td>
@@ -1872,6 +1872,18 @@ function imprimerCarteEtudiant(id) {
 function modifierInscrit(id) {
   const e=inscritsAdmin.find(x=>x.id===id);
   if (!e) { afficherToast('⚠️ Étudiant non trouvé. Actualisez.', 'erreur'); return; }
+  // Une ligne « Historique » (étudiant promu retrouvé via ses anciens cours)
+  // affiche le niveau/année/faculté/promotion de la PÉRIODE consultée, pas
+  // son profil courant : on édite toujours le profil courant réel (champs
+  // *_actuel[le]) pour ne jamais écraser une promotion par erreur.
+  const anneeReelle    = e.historique ? e.annee_academique_actuelle : e.annee_academique;
+  const niveauReel      = e.historique ? e.niveau_actuel             : e.niveau;
+  const faculteReelle   = e.historique ? e.faculte_actuelle          : e.faculte;
+  const promotionReelle = e.historique ? e.promotion_actuelle        : e.promotion;
+  if (e.historique) {
+    afficherToast('ℹ️ Cet étudiant a été promu depuis — vous modifiez son profil courant, pas cette période.');
+  }
+
   document.getElementById('inscrit-id-edit').value   = e.id;
   document.getElementById('inscrit-nom').value       = e.nom||'';
   document.getElementById('inscrit-postnom').value   = e.postnom||'';
@@ -1880,16 +1892,16 @@ function modifierInscrit(id) {
   document.getElementById('inscrit-sexe').value      = e.sexe||'M';
   document.getElementById('inscrit-email').value     = e.email||'';
   document.getElementById('inscrit-telephone').value = e.telephone||'';
-  document.getElementById('inscrit-annee').value     = e.annee_academique||'2025-2026';
+  document.getElementById('inscrit-annee').value     = anneeReelle||'2025-2026';
   document.getElementById('inscrit-statut').value    = e.statut||'actif';
-  document.getElementById('inscrit-promotion').value = e.niveau||'L1';
-  document.getElementById('inscrit-faculte').value   = e.faculte||'';
+  document.getElementById('inscrit-promotion').value = niveauReel||'L1';
+  document.getElementById('inscrit-faculte').value   = faculteReelle||'';
   chargerFilieresPourInscrit();
   const sel=document.getElementById('inscrit-filiere');
-  if (e.promotion) {
-    const ok=Array.from(sel.options).some(o=>o.value===e.promotion);
-    if (!ok) { const opt=document.createElement('option'); opt.value=e.promotion; opt.textContent=e.promotion; sel.appendChild(opt); }
-    sel.value=e.promotion;
+  if (promotionReelle) {
+    const ok=Array.from(sel.options).some(o=>o.value===promotionReelle);
+    if (!ok) { const opt=document.createElement('option'); opt.value=promotionReelle; opt.textContent=promotionReelle; sel.appendChild(opt); }
+    sel.value=promotionReelle;
   }
   // Photo : champ fichier remis à zéro, aperçu de la photo déjà enregistrée.
   document.getElementById('inscrit-photo').value = e.photo || '';

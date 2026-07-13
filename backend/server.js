@@ -185,20 +185,83 @@ app.get('/api/audit-log', requireAdmin, async (req, res) => {
 app.get('/api/etudiants', requireAdmin, async (req, res) => {
   try {
     const { annee, promotion, nom, niveau, faculte } = req.query;
-    let sql = 'SELECT * FROM etudiant WHERE 1=1';
-    const params = [];
-    if (annee)     { sql += ' AND annee_academique = ?'; params.push(annee); }
-    if (promotion) { sql += ' AND promotion = ?'; params.push(promotion); }
-    if (niveau)    { sql += ' AND niveau = ?'; params.push(niveau); }
-    if (faculte)   { sql += ' AND faculte = ?'; params.push(faculte); }
+    let sql, params = [];
+
+    if (annee || niveau) {
+      // Un étudiant promu (L1 → L2 → ...) ne garde qu'un niveau/année
+      // "courant" sur sa fiche : filtrer une année passée sur ces seules
+      // colonnes le ferait disparaître des listes, alors que son historique
+      // de cours (inscription_cours) n'est jamais supprimé à la promotion.
+      // On le retrouve donc aussi via ses inscriptions de cette période, et
+      // les colonnes affichées (faculté/promotion/niveau/année) reflètent
+      // alors CETTE période précise plutôt que son profil courant.
+      // « niveau_actuel » etc. gardent le vrai profil courant à part, pour
+      // que la modification (modifierInscrit) n'écrase jamais une promotion
+      // par erreur avec des valeurs historiques affichées dans la liste.
+      const condHist = [];
+      if (annee)  condHist.push('c.annee_academique = ?');
+      if (niveau) condHist.push('c.niveau = ?');
+      const condCourant = [];
+      if (annee)  condCourant.push('e.annee_academique = ?');
+      if (niveau) condCourant.push('e.niveau = ?');
+
+      sql = `
+        SELECT * FROM (
+          SELECT e.id, e.nom, e.postnom, e.prenom, e.date_naissance, e.lieu_naissance,
+                 e.nationalite, e.sexe, e.email, e.telephone, e.adresse, e.filiere_id,
+                 e.statut, e.photo,
+                 e.faculte AS faculte_actuelle, e.promotion AS promotion_actuelle,
+                 e.niveau AS niveau_actuel, e.annee_academique AS annee_academique_actuelle,
+                 COALESCE(h.faculte, e.faculte)                     AS faculte,
+                 COALESCE(h.promotion, e.promotion)                 AS promotion,
+                 COALESCE(h.niveau, e.niveau)                       AS niveau,
+                 COALESCE(h.annee_academique, e.annee_academique)   AS annee_academique,
+                 (h.etudiant_id IS NOT NULL AND NOT (${condCourant.length ? condCourant.join(' AND ') : '1=1'})) AS historique
+          FROM etudiant e
+          LEFT JOIN (
+            SELECT ic.etudiant_id,
+                   MAX(c.faculte) AS faculte, MAX(c.promotion) AS promotion,
+                   MAX(c.niveau) AS niveau, MAX(c.annee_academique) AS annee_academique
+            FROM inscription_cours ic
+            JOIN cours c ON c.id = ic.cours_id
+            ${condHist.length ? 'WHERE ' + condHist.join(' AND ') : ''}
+            GROUP BY ic.etudiant_id
+          ) h ON h.etudiant_id = e.id
+          WHERE (h.etudiant_id IS NOT NULL${condCourant.length ? ' OR (' + condCourant.join(' AND ') + ')' : ''})
+        ) e
+        WHERE 1=1
+      `;
+      // Ordre des paramètres : condCourant (dans le SELECT "historique"), condHist, condCourant (dans le WHERE final).
+      if (annee)  params.push(annee);
+      if (niveau) params.push(niveau);
+      if (annee)  params.push(annee);
+      if (niveau) params.push(niveau);
+      if (annee)  params.push(annee);
+      if (niveau) params.push(niveau);
+    } else {
+      sql = `
+        SELECT e.id, e.nom, e.postnom, e.prenom, e.date_naissance, e.lieu_naissance,
+               e.nationalite, e.sexe, e.email, e.telephone, e.adresse, e.filiere_id,
+               e.statut, e.photo, e.faculte, e.promotion, e.niveau, e.annee_academique,
+               e.faculte AS faculte_actuelle, e.promotion AS promotion_actuelle,
+               e.niveau AS niveau_actuel, e.annee_academique AS annee_academique_actuelle,
+               FALSE AS historique
+        FROM etudiant e WHERE 1=1
+      `;
+    }
+
+    if (promotion) { sql += ' AND e.promotion = ?'; params.push(promotion); }
+    if (faculte)   { sql += ' AND e.faculte = ?';   params.push(faculte); }
     if (nom) {
-      sql += ' AND (LOWER(nom) LIKE LOWER(?) OR LOWER(prenom) LIKE LOWER(?) OR LOWER(postnom) LIKE LOWER(?))';
+      sql += ' AND (LOWER(e.nom) LIKE LOWER(?) OR LOWER(e.prenom) LIKE LOWER(?) OR LOWER(e.postnom) LIKE LOWER(?))';
       params.push(`%${nom}%`, `%${nom}%`, `%${nom}%`);
     }
-    sql += ' ORDER BY nom, prenom';
+    sql += ' ORDER BY e.nom, e.prenom';
+
     const [etudiants] = await pool.query(sql, params);
     res.json(etudiants);
   } catch (erreur) {
+    console.error(erreur);
     res.status(500).json({ erreur: erreur.message });
   }
 });
@@ -324,11 +387,14 @@ app.get('/api/etudiant/:id/paiements', async (req, res) => {
 // =====================
 app.get('/api/etudiant/:id/bulletin', requireAdmin, async (req, res) => {
   try {
-    const [etudiants] = await pool.query('SELECT * FROM etudiant WHERE id = ?', [req.params.id]);
+    const [etudiants] = await pool.query(
+      'SELECT e.*, f.nom AS filiere_nom FROM etudiant e LEFT JOIN filiere f ON e.filiere_id = f.id WHERE e.id = ?',
+      [req.params.id]
+    );
     if (etudiants.length === 0) return res.status(404).json({ erreur: 'Étudiant non trouvé.' });
 
     const [notes] = await pool.query(`
-      SELECT n.note, n.session, c.nom AS matiere, c.code, c.credits
+      SELECT n.note, n.note_cc, n.note_examen, n.session, c.nom AS matiere, c.code, c.credits, c.annee_academique
       FROM note n JOIN cours c ON n.cours_id = c.id
       WHERE n.etudiant_id = ?
       ORDER BY n.session, c.code

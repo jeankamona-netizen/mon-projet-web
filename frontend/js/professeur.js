@@ -73,15 +73,69 @@ function afficherProfilProf(p) {
   document.querySelectorAll('#prof-avatar-header, #prof-avatar-sidebar').forEach(el => { if (el) el.textContent = initiales; });
 
   const nomComplet = `${p.prenom || ''} ${p.nom}`.trim();
-  const champs = {
+  const texte = {
     'prof-nom-sidebar': nomComplet,
     'prof-grade-sidebar': p.grade || 'Professeur',
-    'prof-nom': nomComplet,
-    'prof-email-val': p.email || '—',
-    'prof-telephone': p.telephone || '—',
     'prof-grade': p.grade || '—',
+    'prof-nom-complet': nomComplet,
+    'prof-email-val': p.email || '—',
+    'prof-telephone-val': p.telephone || '—',
   };
-  Object.entries(champs).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.textContent = val; });
+  Object.entries(texte).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.textContent = val; });
+}
+
+// =====================
+// ÉDITION DU PROFIL (informations personnelles) — même bascule affichage/
+// édition que l'espace étudiant.
+// =====================
+function toggleEditProf() {
+  const professeur = getProfesseurConnecte();
+  if (!professeur) return;
+
+  document.getElementById('prof-prenom-edit').value = professeur.prenom || '';
+  document.getElementById('prof-nom-edit').value = professeur.nom || '';
+  document.getElementById('prof-email-edit').value = professeur.email || '';
+  document.getElementById('prof-telephone-edit').value = professeur.telephone || '';
+
+  document.getElementById('prof-view-perso').style.display = 'none';
+  document.getElementById('prof-edit-perso').style.display = 'flex';
+}
+
+function annulerEditProf() {
+  document.getElementById('prof-view-perso').style.display = 'block';
+  document.getElementById('prof-edit-perso').style.display = 'none';
+}
+
+async function modifierProfilProf() {
+  const professeur = getProfesseurConnecte();
+  if (!professeur) return;
+
+  const nom       = document.getElementById('prof-nom-edit')?.value.trim();
+  const prenom    = document.getElementById('prof-prenom-edit')?.value.trim();
+  const email     = document.getElementById('prof-email-edit')?.value.trim();
+  const telephone = document.getElementById('prof-telephone-edit')?.value.trim();
+
+  if (!nom || !email) {
+    afficherToast('⚠️ Le nom et l\'email sont obligatoires.', 'erreur');
+    return;
+  }
+
+  try {
+    const r = await fetch(`${BASE_URL}/api/auth/professeur/${professeur.id}/profil`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nom, prenom, email, telephone })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+
+    sessionStorage.setItem('professeur', JSON.stringify({ ...professeur, ...d.professeur }));
+    afficherProfilProf(d.professeur);
+    afficherToast('✅ Profil mis à jour avec succès !');
+    annulerEditProf();
+  } catch {
+    afficherToast('⚠️ Impossible de contacter le serveur.', 'erreur');
+  }
 }
 
 // =====================
@@ -90,8 +144,9 @@ function afficherProfilProf(p) {
 let horaireProfCache = [];
 
 async function chargerHoraireProf(id) {
-  const tbody = document.getElementById('prof-horaire-body');
-  if (!tbody) return;
+  semaineHoraireProfDecalage = 0; // cliquer sur « Mon horaire » ramène toujours à la semaine en cours
+  const conteneur = document.getElementById('prof-horaire-calendrier');
+  if (!conteneur) return;
   try {
     const r = await fetch(`${BASE_URL}/api/professeur/${id}/horaires`);
     if (!r.ok) throw new Error();
@@ -99,7 +154,7 @@ async function chargerHoraireProf(id) {
     remplirFiltreAnneeHoraireProf();
     filtrerHoraireProf();
   } catch {
-    tbody.innerHTML = '<tr><td colspan="7" class="admin-vide">⚠️ Impossible de charger votre horaire.</td></tr>';
+    conteneur.innerHTML = '<p style="color:#999;font-size:13px;padding:12px">⚠️ Impossible de charger votre horaire.</p>';
   }
 }
 
@@ -122,33 +177,112 @@ function remplirFiltreAnneeHoraireProf() {
   if (annees.includes(anneeChoisie)) sel.value = anneeChoisie;
 }
 
+const ORDRE_JOURS_PROF = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+
+// Toutes les dates sont ancrées en UTC-minuit pour rester cohérentes avec
+// les colonnes DATE MySQL (sérialisées en UTC) et éviter tout décalage
+// d'un jour selon le fuseau horaire du navigateur.
+function aujourdhuiUTCProf() {
+  const auj = new Date();
+  return new Date(Date.UTC(auj.getFullYear(), auj.getMonth(), auj.getDate()));
+}
+
+function lundiSemaineProf(decalageSemaines = 0) {
+  const d = aujourdhuiUTCProf();
+  const jourISO = d.getUTCDay() || 7; // 1 = lundi ... 7 = dimanche
+  d.setUTCDate(d.getUTCDate() - (jourISO - 1) + decalageSemaines * 7);
+  return d;
+}
+
+function memeJourUTCProf(a, b) {
+  return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
+}
+
+// Décalage (en semaines) par rapport à la semaine calendaire réelle en
+// cours — indépendant des données : la semaine affichée par défaut est
+// toujours celle d'aujourd'hui, même sans cours programmé. Remis à 0 à
+// chaque ouverture de la section et à chaque changement de filtre.
+let semaineHoraireProfDecalage = 0;
+
+function changerSemaineHoraireProf(delta) {
+  semaineHoraireProfDecalage += delta;
+  filtrerHoraireProf();
+}
+
+function filtresHoraireProfChanges() {
+  semaineHoraireProfDecalage = 0;
+  filtrerHoraireProf();
+}
+
+// Même disposition en calendrier hebdomadaire que l'espace étudiant,
+// naviguable semaine par semaine : le jour et sa date réelle en en-tête
+// (une seule fois), l'heure de chaque créneau réaffichée dans sa propre
+// bande bleue au-dessus de ses informations. Un cours est rattaché à une
+// colonne par correspondance exacte de date (date_debut), pas par le
+// simple libellé du jour ; le filtre "Jour" ne fait que choisir quelle(s)
+// colonne(s) afficher.
 function filtrerHoraireProf() {
-  const tbody = document.getElementById('prof-horaire-body');
-  if (!tbody) return;
+  const conteneur = document.getElementById('prof-horaire-calendrier');
+  const labelSemaine = document.getElementById('prof-horaire-semaine-label');
+  if (!conteneur) return;
 
   const jour  = document.getElementById('horaire-filtre-jour')?.value || '';
   const mois  = document.getElementById('horaire-filtre-mois')?.value || '';
   const annee = document.getElementById('horaire-filtre-annee')?.value || '';
 
   let horaires = horaireProfCache;
-  if (jour)  horaires = horaires.filter(h => h.jour === jour);
   if (annee) horaires = horaires.filter(h => h.annee_academique === annee);
-  // Le mois est déduit de la date de début du créneau hebdomadaire (pas de
-  // colonne "mois" dédiée : l'horaire est un créneau récurrent, pas une date unique).
+  // Le mois est déduit de la date de début du créneau (pas de colonne
+  // "mois" dédiée).
   if (mois !== '') horaires = horaires.filter(h => h.date_debut && new Date(h.date_debut).getUTCMonth() === Number(mois));
 
-  tbody.innerHTML = horaires.length === 0
-    ? '<tr><td colspan="7" class="admin-vide">Aucun cours ne correspond à ces filtres.</td></tr>'
-    : horaires.map(h => `
-        <tr>
-          <td><span class="jour-badge">${h.jour}</span></td>
-          <td>${formaterDateHoraire(h.date_debut)}</td>
-          <td>${h.heure_debut} – ${h.heure_fin}</td>
-          <td>${h.cours} <span style="color:#999;font-size:11px">(${h.code})</span></td>
-          <td>${h.promotion}</td>
-          <td>${h.salle}</td>
-          <td>${h.nb_etudiants ?? 0}</td>
-        </tr>`).join('');
+  const lundi = lundiSemaineProf(semaineHoraireProfDecalage);
+  const vendredi = new Date(lundi);
+  vendredi.setUTCDate(lundi.getUTCDate() + 4);
+  if (labelSemaine) {
+    labelSemaine.textContent = `${formaterDateHoraire(lundi.toISOString())} – ${formaterDateHoraire(vendredi.toISOString())}`;
+  }
+
+  const auj = aujourdhuiUTCProf();
+  const joursAffiches = jour ? [jour] : ORDRE_JOURS_PROF;
+
+  // Une seule colonne (filtre "Jour" actif) doit rester compacte, pas
+  // s'étirer sur toute la largeur comme si elle occupait 5 colonnes vides.
+  conteneur.style.gridTemplateColumns = joursAffiches.length < ORDRE_JOURS_PROF.length
+    ? `repeat(${joursAffiches.length}, minmax(200px, 260px))`
+    : '';
+
+  conteneur.innerHTML = joursAffiches.map(j => {
+    const indexJour = ORDRE_JOURS_PROF.indexOf(j);
+    const dateColonne = new Date(lundi);
+    dateColonne.setUTCDate(lundi.getUTCDate() + indexJour);
+    const coursDuJour = horaires
+      .filter(h => h.date_debut && memeJourUTCProf(new Date(h.date_debut), dateColonne))
+      .sort((a, b) => a.heure_debut.localeCompare(b.heure_debut));
+
+    return `
+      <div class="cal-jour${memeJourUTCProf(dateColonne, auj) ? ' aujourdhui' : ''}">
+        <div class="cal-jour-entete">
+          <span class="cal-jour-nom">${j}</span>
+          <span class="cal-jour-date">${formaterDateHoraire(dateColonne.toISOString())}</span>
+        </div>
+        <div class="cal-jour-corps">
+          ${coursDuJour.length === 0
+            ? '<p class="cal-jour-vide">Pas de cours</p>'
+            : coursDuJour.map(h => `
+                <div class="cal-evenement">
+                  <div class="cal-evenement-entete">
+                    <span>${h.heure_debut.slice(0,5)}-${h.heure_fin.slice(0,5)}</span>
+                  </div>
+                  <div class="cal-evenement-corps">
+                    <span class="cours-nom">${h.cours} <span style="color:#999;font-weight:400">(${h.code})</span></span>
+                    <span class="cours-info">${h.promotion}</span>
+                    <span class="cours-info">${h.salle} · ${h.nb_etudiants ?? 0} étudiant(s) inscrit(s)</span>
+                  </div>
+                </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 // =====================

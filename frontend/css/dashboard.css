@@ -657,9 +657,10 @@
 .cours-heure {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   font-size: 11px;
   color: #888;
-  min-width: 42px;
+  min-width: 70px;
   text-align: center;
 }
 
@@ -677,6 +678,152 @@
 .cours-info {
   font-size: 12px;
   color: #888;
+}
+
+/* Navigation semaine précédente / suivante, au-dessus du calendrier */
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.cal-nav-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  background: var(--blanc);
+  color: var(--bleu);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cal-nav-btn:hover:not(:disabled) {
+  background: var(--bleu);
+  color: var(--blanc);
+  border-color: var(--bleu);
+}
+
+.cal-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.cal-nav-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bleu);
+  min-width: 160px;
+  text-align: center;
+}
+
+/* CALENDRIER HEBDOMADAIRE (Horaires de la semaine — vue façon agenda) */
+.calendrier-semaine {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.cal-jour {
+  background: var(--gris);
+  border-radius: 10px;
+  min-height: 120px;
+  overflow: hidden;
+}
+
+.cal-jour.aujourdhui {
+  outline: 2px solid var(--bleu);
+  outline-offset: -2px;
+}
+
+.cal-jour-entete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px;
+  background: var(--bleu);
+  color: var(--blanc);
+}
+
+.cal-jour.aujourdhui .cal-jour-entete {
+  background: var(--jaune);
+  color: var(--bleu);
+}
+
+.cal-jour-nom {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cal-jour-date {
+  font-size: 10.5px;
+  opacity: 0.9;
+}
+
+.cal-jour-corps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.cal-jour-vide {
+  font-size: 11px;
+  color: #aaa;
+  text-align: center;
+  padding: 14px 4px;
+}
+
+.cal-evenement {
+  display: flex;
+  flex-direction: column;
+  background: var(--blanc);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.cal-evenement-corps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px 8px;
+}
+
+.cal-evenement .cours-nom {
+  font-size: 12px;
+}
+
+.cal-evenement .cours-info {
+  font-size: 11px;
+}
+
+/* Date puis heure, empilées, juste sous le jour (fond bleu) et avant le
+   nom du cours — dans cet ordre : Jour (en-tête colonne) → Date → Heure →
+   Cours → reste des infos. */
+.cal-evenement-entete {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--bleu);
+  color: var(--blanc);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-align: center;
+  padding: 5px 8px;
+}
+
+@media (max-width: 900px) {
+  .calendrier-semaine {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* FILTRES SESSION */
@@ -736,14 +883,16 @@
   white-space: nowrap;
 }
 
-/* Table « Gérer les horaires » (admin) : largeurs fixes pilotées par le
-   <colgroup> pour que les colonnes à faible contenu (année, jour, date,
-   inscrits, actions) restent compactes et laissent la place aux colonnes
-   à texte long ou variable (promotion, heure, cours, professeur, salle).
-   overflow-wrap: break-word est réappliqué en filet de sécurité — un mot
-   isolé trop long (ex. "Amphithéâtre") ne déborde plus sur la colonne
-   suivante ; il est sans effet sur les colonnes nowrap ci-dessous, qui
-   restent toujours sur une seule ligne (white-space:nowrap prime). */
+/* Table « Gérer les horaires » (admin) — ordre des colonnes : Jour, Date,
+   Heure, Promotion, Nbre, Cours, Professeur, Salle, Année, Actions.
+   Largeurs fixes pilotées par le <colgroup> pour que les colonnes à faible
+   contenu (jour, date, heure, nbre, année, actions) restent compactes et
+   laissent la place aux colonnes à texte long ou variable (promotion,
+   cours, professeur, salle). overflow-wrap: break-word est réappliqué en
+   filet de sécurité — un mot isolé trop long (ex. "Amphithéâtre") ne
+   déborde plus sur la colonne suivante ; il est sans effet sur les
+   colonnes nowrap ci-dessous, qui restent toujours sur une seule ligne
+   (white-space:nowrap prime). */
 .horaires-admin-table {
   table-layout: fixed;
 }
@@ -753,23 +902,30 @@
   overflow-wrap: break-word;
 }
 
+.horaires-admin-table th:nth-child(1), .horaires-admin-table td:nth-child(1),
 .horaires-admin-table th:nth-child(2), .horaires-admin-table td:nth-child(2),
 .horaires-admin-table th:nth-child(3), .horaires-admin-table td:nth-child(3),
-.horaires-admin-table th:nth-child(4), .horaires-admin-table td:nth-child(4),
+.horaires-admin-table th:nth-child(5), .horaires-admin-table td:nth-child(5),
 .horaires-admin-table th:nth-child(9), .horaires-admin-table td:nth-child(9),
 .horaires-admin-table th:nth-child(10), .horaires-admin-table td:nth-child(10) {
   white-space: nowrap;
 }
 
 /* Espacement supplémentaire entre certaines paires de colonnes trop collées :
-   Année/Jour, Date/Heure, Professeur/Salle */
-.horaires-admin-table th:nth-child(2), .horaires-admin-table td:nth-child(2),
-.horaires-admin-table th:nth-child(4), .horaires-admin-table td:nth-child(4) {
+   Date/Heure, Année/Actions. Nbre et Professeur avaient un padding-droit
+   exagéré qui ne servait qu'à faire de la place « en dur » — cet espace a
+   été repris et transformé en largeur réelle pour la colonne Cours
+   (colgroup) afin qu'elle tienne sur deux lignes plutôt que trois. */
+.horaires-admin-table th:nth-child(2), .horaires-admin-table td:nth-child(2) {
   padding-right: 22px;
 }
 
+.horaires-admin-table th:nth-child(9), .horaires-admin-table td:nth-child(9) {
+  padding-right: 32px;
+}
+
 .horaires-admin-table th:nth-child(7), .horaires-admin-table td:nth-child(7) {
-  padding-right: 30px;
+  padding-right: 16px;
   /* Le nom du professeur ne doit jamais être coupé en syllabes (ex.
      "MULUMBWA") : seul un retour à la ligne entre prénom et nom est
      autorisé, jamais une coupure au milieu d'un mot. */
@@ -777,17 +933,27 @@
   word-break: normal;
 }
 
-/* Heure/Cours : resserrés (pas besoin de la même respiration que les autres) */
-.horaires-admin-table th:nth-child(5), .horaires-admin-table td:nth-child(5) {
+/* Heure/Promotion et Promotion/Nbre : resserrés (pas besoin de la même
+   respiration que les autres) — l'espace repris est redonné à la largeur
+   de la colonne Cours ci-dessous (colgroup) pour l'afficher normalement. */
+.horaires-admin-table th:nth-child(3), .horaires-admin-table td:nth-child(3) {
   padding-right: 4px;
 }
 
-.horaires-admin-table th:nth-child(6), .horaires-admin-table td:nth-child(6) {
+.horaires-admin-table th:nth-child(4), .horaires-admin-table td:nth-child(4) {
   padding-left: 4px;
+  padding-right: 4px;
 }
 
-/* Jour / Année : texte simple sans pastille, même taille que Promotion */
-.horaires-admin-table td:nth-child(3),
+.horaires-admin-table th:nth-child(5), .horaires-admin-table td:nth-child(5) {
+  padding-left: 4px;
+  padding-right: 10px;
+}
+
+/* Jour / Année : texte simple sans pastille, même style que les autres
+   colonnes courtes (ex. Heure) — pas de traitement particulier nécessaire,
+   elles héritent déjà du style par défaut de .dash-table td. */
+.horaires-admin-table td:nth-child(1),
 .horaires-admin-table td:nth-child(9) {
   font-size: 13px;
   color: #333;

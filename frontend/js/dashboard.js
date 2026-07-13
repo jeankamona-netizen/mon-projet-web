@@ -133,9 +133,54 @@ function annulerEdit(section) {
   document.getElementById(`edit-${section}`).style.display = 'none';
 }
 
-function sauvegarder(section) {
-  afficherToast('🚧 La modification du profil sera bientôt disponible. Contactez l\'administration.', 'erreur');
-  annulerEdit(section);
+// « Nom complet » est un seul champ dans le formulaire : premier mot =
+// prénom, dernier mot = nom, mots du milieu (s'il y en a) = postnom.
+function decouperNomComplet(valeur) {
+  const mots = valeur.trim().split(/\s+/).filter(Boolean);
+  if (mots.length < 2) return null;
+  return {
+    prenom: mots[0],
+    nom: mots[mots.length - 1],
+    postnom: mots.length > 2 ? mots.slice(1, -1).join(' ') : ''
+  };
+}
+
+async function sauvegarder(section) {
+  const etudiant = getEtudiantConnecte();
+  if (!etudiant) return;
+
+  const identite = decouperNomComplet(document.getElementById('e-nom')?.value || '');
+  if (!identite) {
+    afficherToast('⚠️ Entrez au moins un prénom et un nom.', 'erreur');
+    return;
+  }
+
+  const corps = {
+    ...identite,
+    date_naissance: document.getElementById('e-ddn')?.value || null,
+    nationalite: document.getElementById('e-nationalite')?.value.trim() || null,
+    telephone: document.getElementById('e-tel')?.value.trim() || null,
+    email: document.getElementById('e-email')?.value.trim() || null,
+    adresse: document.getElementById('e-adresse')?.value.trim() || null,
+  };
+
+  try {
+    const r = await fetch(`${BASE_URL}/api/auth/etudiant/${etudiant.id}/profil`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(corps)
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+
+    sessionStorage.setItem('etudiant', JSON.stringify({ ...etudiant, ...d.etudiant }));
+    afficherProfilHeader(d.etudiant);
+    afficherProfilSection(d.etudiant);
+    afficherToast('✅ Profil mis à jour avec succès !');
+    annulerEdit(section);
+  } catch {
+    afficherToast('⚠️ Impossible de contacter le serveur.', 'erreur');
+  }
 }
 
 // =====================
@@ -281,6 +326,7 @@ function horairesDuCursus() {
 }
 
 async function chargerHorairesDashboard(id) {
+  semaineHorairesDecalage = 0; // cliquer sur « Horaires » ramène toujours à la semaine en cours
   try {
     const r = await fetch(`${BASE_URL}/api/etudiant/${id}/horaires`);
     if (!r.ok) throw new Error();
@@ -289,33 +335,96 @@ async function chargerHorairesDashboard(id) {
     afficherCoursAujourdhui();
     mettreAJourNotifications();
   } catch {
-    const tbody = document.getElementById('horaires-body');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px">⚠️ Impossible de charger les horaires.</td></tr>';
+    const conteneur = document.getElementById('horaires-calendrier');
+    if (conteneur) conteneur.innerHTML = '<p style="color:#999;font-size:13px;padding:12px">⚠️ Impossible de charger les horaires.</p>';
   }
 }
 
+// Toutes les dates sont ancrées en UTC-minuit pour rester cohérentes avec
+// les colonnes DATE MySQL (sérialisées en UTC) et éviter tout décalage
+// d'un jour selon le fuseau horaire du navigateur.
+function aujourdhuiUTC() {
+  const auj = new Date();
+  return new Date(Date.UTC(auj.getFullYear(), auj.getMonth(), auj.getDate()));
+}
+
+function lundiSemaine(decalageSemaines = 0) {
+  const d = aujourdhuiUTC();
+  const jourISO = d.getUTCDay() || 7; // 1 = lundi ... 7 = dimanche
+  d.setUTCDate(d.getUTCDate() - (jourISO - 1) + decalageSemaines * 7);
+  return d;
+}
+
+function memeJourUTC(a, b) {
+  return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
+}
+
+// Décalage (en semaines) par rapport à la semaine calendaire réelle en
+// cours — indépendant des données : la semaine affichée par défaut est
+// toujours celle d'aujourd'hui (date système), même sans aucun cours
+// programmé cette semaine-là. Remis à 0 à chaque ouverture de la section
+// (voir chargerHorairesDashboard) ; les flèches le font varier ensuite.
+let semaineHorairesDecalage = 0;
+
+function changerSemaineHoraires(delta) {
+  semaineHorairesDecalage += delta;
+  afficherHoraires();
+}
+
+// Calendrier hebdomadaire (Lundi → Vendredi) façon agenda, naviguable
+// semaine par semaine : une colonne par jour avec sa date réelle affichée
+// une seule fois en en-tête, l'heure de chaque créneau réaffichée dans sa
+// propre bande bleue au-dessus de ses informations. Un cours est rattaché
+// à une colonne par correspondance exacte de date (date_debut), pas par le
+// simple libellé du jour.
 function afficherHoraires() {
-  const tbody = document.getElementById('horaires-body');
-  if (!tbody) return;
+  const conteneur = document.getElementById('horaires-calendrier');
+  const labelSemaine = document.getElementById('horaires-semaine-label');
+  if (!conteneur) return;
   const liste = horairesDuCursus();
 
   const label = document.getElementById('horaires-promo-label');
   if (label) label.textContent = liste[0] ? `${liste[0].promotion} — ${liste[0].annee_academique}` : 'Aucun horaire pour ce cursus.';
 
-  if (!liste.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px">Aucun horaire disponible pour ce cursus.</td></tr>';
-    return;
+  const lundi = lundiSemaine(semaineHorairesDecalage);
+  const vendredi = new Date(lundi);
+  vendredi.setUTCDate(lundi.getUTCDate() + 4);
+  if (labelSemaine) {
+    labelSemaine.textContent = `${formaterDateAffichage(lundi.toISOString())} – ${formaterDateAffichage(vendredi.toISOString())}`;
   }
 
-  tbody.innerHTML = liste.map(h => `
-    <tr>
-      <td><span class="jour-badge">${h.jour}</span></td>
-      <td>${formaterDateAffichage(h.date_debut)}</td>
-      <td>${h.heure_debut} – ${h.heure_fin}</td>
-      <td>${h.cours}</td>
-      <td>${h.professeur ? h.professeur+(h.grade?' ('+h.grade+')':'') : 'Non attribué'}</td>
-      <td>${h.salle}</td>
-    </tr>`).join('');
+  const auj = aujourdhuiUTC();
+
+  conteneur.innerHTML = ORDRE_JOURS.map((jour, i) => {
+    const dateColonne = new Date(lundi);
+    dateColonne.setUTCDate(lundi.getUTCDate() + i);
+    const coursDuJour = liste
+      .filter(h => h.date_debut && memeJourUTC(new Date(h.date_debut), dateColonne))
+      .sort((a, b) => a.heure_debut.localeCompare(b.heure_debut));
+
+    return `
+      <div class="cal-jour${memeJourUTC(dateColonne, auj) ? ' aujourdhui' : ''}">
+        <div class="cal-jour-entete">
+          <span class="cal-jour-nom">${jour}</span>
+          <span class="cal-jour-date">${formaterDateAffichage(dateColonne.toISOString())}</span>
+        </div>
+        <div class="cal-jour-corps">
+          ${coursDuJour.length === 0
+            ? '<p class="cal-jour-vide">Pas de cours</p>'
+            : coursDuJour.map(h => `
+                <div class="cal-evenement">
+                  <div class="cal-evenement-entete">
+                    <span>${h.heure_debut.slice(0,5)}-${h.heure_fin.slice(0,5)}</span>
+                  </div>
+                  <div class="cal-evenement-corps">
+                    <span class="cours-nom">${h.cours}</span>
+                    <span class="cours-info">${h.professeur ? (h.grade ? h.grade + ' ' : '') + h.professeur : 'Professeur non attribué'}</span>
+                    <span class="cours-info">${h.salle}</span>
+                  </div>
+                </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function afficherCoursAujourdhui() {
@@ -329,10 +438,10 @@ function afficherCoursAujourdhui() {
     ? '<p style="color:#999;font-size:13px">Pas de cours aujourd\'hui.</p>'
     : cours.map(h => `
         <div class="cours-item">
-          <div class="cours-heure"><span>${h.heure_debut}</span><span>${h.heure_fin}</span></div>
+          <div class="cours-heure"><span>${h.heure_debut.slice(0,5)}-${h.heure_fin.slice(0,5)}</span></div>
           <div class="cours-detail">
             <span class="cours-nom">${h.cours}</span>
-            <span class="cours-info">${h.professeur ? 'Prof. '+h.professeur : 'Prof. non attribué'} · ${h.salle}</span>
+            <span class="cours-info">${h.professeur ? (h.grade ? h.grade + ' ' : '') + h.professeur : 'Professeur non attribué'} · ${h.salle}</span>
           </div>
         </div>`).join('');
 }
@@ -527,7 +636,12 @@ const NOTIF_SECTION = { note: 'mes-notes', horaire: 'horaires', annonce: 'annonc
 function construireNotifications() {
   const items = [];
   (notesEtudiant || []).forEach(n => items.push({
-    categorie: 'note', id: n.id, icone: '📝',
+    // L'id inclut les valeurs de la note (pas seulement n.id) : le prof/admin
+    // modifie la note en place (même ligne en base), donc si on ne suivait que
+    // n.id, une correction de note déjà « vue » ne redeviendrait jamais une
+    // notification. En intégrant note_cc/note_examen/note dans la clé, toute
+    // modification produit une nouvelle clé et redéclenche la notification.
+    categorie: 'note', id: `${n.id}:${n.note_cc}:${n.note_examen}:${n.note}`, icone: '📝',
     titre: n.matiere,
     sousTitre: (n.note !== null && n.note !== undefined) ? `Note publiée : ${n.note}/20` : 'Note en cours de saisie'
   }));
@@ -685,10 +799,12 @@ function rafraichirSectionsCursus() {
   afficherFrais();
   afficherAnnonces();
   majTitreNotes();
+  genererAnalyseIA();
 }
 
 function selectionnerCursus(niveau, annee_academique) {
   cursusActif = { niveau, annee_academique };
+  semaineHorairesIndex = null; // le cursus change : reprendre la semaine la plus proche d'aujourd'hui
   document.getElementById('menu-compte')?.classList.remove('ouvert');
   // Met en évidence le cursus choisi dans le menu.
   document.querySelectorAll('.menu-cursus-item').forEach(b => b.classList.remove('actif'));
@@ -720,22 +836,43 @@ function basculerMenuCompte(event) {
 // =====================
 // BLOC IA
 // =====================
+// Compare en UTC (les colonnes DATE MySQL sont sérialisées à minuit UTC)
+// pour éviter un décalage d'un jour selon le fuseau horaire du navigateur.
+function dateDebutPassee(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return false;
+  const maintenant = new Date();
+  const aujourdhuiUTC = Date.UTC(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate());
+  const dateDebutUTC = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return dateDebutUTC < aujourdhuiUTC;
+}
+
 function genererAnalyseIA() {
   const c = document.getElementById('ia-alertes');
   if (!c) return;
   const alertes = [];
 
-  notesEtudiant.filter(n=>n.note!==null&&n.note<10).forEach(n => {
+  // Scopées au cursus actuellement consulté (voir cursusActif) : un étudiant
+  // réinscrit peut avoir plusieurs cursus (ex. L1 et L2), et l'analyse ne
+  // doit porter que sur celui affiché, pas mélanger les deux.
+  const notesCursus = notesDuCursusActif();
+  const horairesCursus = horairesDuCursus();
+
+  notesCursus.filter(n=>n.note!==null&&n.note<10).forEach(n => {
     alertes.push({ type:'danger', icone:'⚠️', texte:`<b>${n.matiere}</b> — ${n.note}/20, en dessous du seuil de réussite (10/20).` });
   });
 
+  // La charge par jour ne doit porter que sur les créneaux à venir : un
+  // cours dont la date de début est déjà passée ne doit plus être compté
+  // (ex. le 12/07/2026, un créneau du 08/07/2026 est déjà derrière nous).
   const parJour = {};
-  horairesEtudiant.forEach(h => { parJour[h.jour]=(parJour[h.jour]||0)+1; });
+  horairesCursus.filter(h => !dateDebutPassee(h.date_debut)).forEach(h => { parJour[h.jour]=(parJour[h.jour]||0)+1; });
   Object.entries(parJour).filter(([,nb])=>nb>=2).forEach(([jour,nb]) => {
     alertes.push({ type:'warn', icone:'⏰', texte:`Charge élevée le <b>${jour}</b> : ${nb} cours programmés.` });
   });
 
-  notesEtudiant.filter(n=>n.note!==null&&n.note>=15).forEach(n => {
+  notesCursus.filter(n=>n.note!==null&&n.note>=15).forEach(n => {
     alertes.push({ type:'ok', icone:'📈', texte:`Excellente performance en <b>${n.matiere}</b> : ${n.note}/20 !` });
   });
 
@@ -768,6 +905,13 @@ function initialiserNavigation() {
       afficherSectionDashboard(cible, lien);
     });
   });
+}
+
+// Utilisé par les cartes-statistiques cliquables du Tableau de bord pour
+// rejoindre une autre section en marquant le bon lien du menu latéral actif.
+function allerVersSection(id) {
+  const lien = document.querySelector(`.nav-item[data-section="${id}"]`);
+  afficherSectionDashboard(id, lien);
 }
 
 async function afficherSectionDashboard(id, lien) {

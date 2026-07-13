@@ -107,22 +107,30 @@
         <p class="dash-sous-titre">Bienvenue, <span id="etudiant-prenom-accueil"></span> ! Voici un résumé de votre parcours.</p>
 
         <div class="stats-grid">
-          <div class="stat-card">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="allerVersSection('mes-notes')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
             <span class="stat-icon bleu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
             <span class="stat-valeur" id="stat-moyenne">—</span>
             <span class="stat-label">Moyenne générale</span>
           </div>
-          <div class="stat-card">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="allerVersSection('programme')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
             <span class="stat-icon jaune"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
             <span class="stat-valeur" id="stat-cours">—</span>
             <span class="stat-label">Cours ce semestre</span>
           </div>
-          <div class="stat-card">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="allerVersSection('mes-notes')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
             <span class="stat-icon vert"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
             <span class="stat-valeur" id="stat-reussis">—</span>
             <span class="stat-label">Matières réussies</span>
           </div>
-          <div class="stat-card">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="allerVersSection('mes-notes')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
             <span class="stat-icon rouge"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h12v6a6 6 0 0 1-12 0V2z"/><path d="M6 22h12v-6a6 6 0 0 0-12 0v6z"/></svg></span>
             <span class="stat-valeur" id="stat-attente">—</span>
             <span class="stat-label">En attente</span>
@@ -223,21 +231,14 @@
         <p class="dash-sous-titre" id="horaires-promo-label">Chargement...</p>
 
         <div class="dash-card">
-          <table class="dash-table horaire-table">
-            <thead>
-              <tr>
-                <th>Jour</th>
-                <th>Depuis le</th>
-                <th>Heure</th>
-                <th>Cours</th>
-                <th>Professeur</th>
-                <th>Salle</th>
-              </tr>
-            </thead>
-            <tbody id="horaires-body">
-              <tr><td colspan="5" style="text-align:center;color:#999;padding:20px">Chargement...</td></tr>
-            </tbody>
-          </table>
+          <div class="cal-nav">
+            <button class="cal-nav-btn" onclick="changerSemaineHoraires(-1)" aria-label="Semaine précédente">‹</button>
+            <span class="cal-nav-label" id="horaires-semaine-label"></span>
+            <button class="cal-nav-btn" onclick="changerSemaineHoraires(1)" aria-label="Semaine suivante">›</button>
+          </div>
+          <div class="calendrier-semaine" id="horaires-calendrier">
+            <p style="color:#999;font-size:13px">Chargement...</p>
+          </div>
         </div>
       </section>
 

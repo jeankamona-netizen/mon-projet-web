@@ -172,6 +172,35 @@ router.post('/professeur', async (req, res) => {
 });
 
 // =====================
+// MODIFICATION DU PROFIL PROFESSEUR (nom, prenom, email, telephone)
+// =====================
+router.put('/professeur/:id/profil', async (req, res) => {
+  const { nom, prenom, email, telephone } = req.body;
+  if (!nom || !email)
+    return res.status(400).json({ erreur: 'Le nom et l\'email sont obligatoires.' });
+
+  try {
+    const [profs] = await pool.query('SELECT id FROM professeur WHERE id = ?', [req.params.id]);
+    if (profs.length === 0)
+      return res.status(404).json({ erreur: 'Professeur non trouvé.' });
+
+    await pool.query(
+      'UPDATE professeur SET nom = ?, prenom = ?, email = ?, telephone = ? WHERE id = ?',
+      [nom, prenom || null, email, telephone || null, req.params.id]
+    );
+
+    const [maj] = await pool.query(
+      'SELECT id, nom, prenom, email, telephone, grade FROM professeur WHERE id = ?',
+      [req.params.id]
+    );
+    res.json({ message: 'Profil mis à jour avec succès.', professeur: maj[0] });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// =====================
 // CHANGEMENT DE MOT DE PASSE PROFESSEUR
 // =====================
 router.put('/professeur/:id/password', async (req, res) => {
@@ -235,6 +264,35 @@ router.put('/etudiant/:id/password', async (req, res) => {
     await pool.query('UPDATE etudiant SET mot_de_passe = ? WHERE id = ?', [hash, req.params.id]);
 
     res.json({ message: 'Mot de passe mis à jour avec succès.' });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// =====================
+// MODIFICATION DU PROFIL ÉTUDIANT (informations personnelles uniquement —
+// pas la filière/promotion/niveau/année/statut, qui restent du ressort de
+// l'admin). Self-service, sans validation admin.
+// =====================
+router.put('/etudiant/:id/profil', async (req, res) => {
+  const { nom, postnom, prenom, date_naissance, nationalite, telephone, email, adresse } = req.body;
+  if (!nom || !prenom)
+    return res.status(400).json({ erreur: 'Le nom et le prénom sont obligatoires.' });
+
+  try {
+    const [etudiants] = await pool.query('SELECT id FROM etudiant WHERE id = ?', [req.params.id]);
+    if (etudiants.length === 0)
+      return res.status(404).json({ erreur: 'Étudiant non trouvé.' });
+
+    await pool.query(
+      'UPDATE etudiant SET nom = ?, postnom = ?, prenom = ?, date_naissance = ?, nationalite = ?, telephone = ?, email = ?, adresse = ? WHERE id = ?',
+      [nom, postnom || null, prenom, date_naissance || null, nationalite || null, telephone || null, email || null, adresse || null, req.params.id]
+    );
+
+    const [maj] = await pool.query('SELECT * FROM etudiant WHERE id = ?', [req.params.id]);
+    const { mot_de_passe: _, ...infos } = maj[0];
+    res.json({ message: 'Profil mis à jour avec succès.', etudiant: infos });
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });

@@ -78,7 +78,7 @@
         <p class="dash-sous-titre">Vos cours programmés cette année</p>
 
         <div class="admin-toolbar">
-          <select class="admin-recherche" id="horaire-filtre-jour" style="flex:0 0 160px" onchange="filtrerHoraireProf()">
+          <select class="admin-recherche" id="horaire-filtre-jour" style="flex:0 0 160px" onchange="filtresHoraireProfChanges()">
             <option value="">Tous les jours</option>
             <option value="Lundi">Lundi</option>
             <option value="Mardi">Mardi</option>
@@ -86,7 +86,7 @@
             <option value="Jeudi">Jeudi</option>
             <option value="Vendredi">Vendredi</option>
           </select>
-          <select class="admin-recherche" id="horaire-filtre-mois" style="flex:0 0 160px" onchange="filtrerHoraireProf()">
+          <select class="admin-recherche" id="horaire-filtre-mois" style="flex:0 0 160px" onchange="filtresHoraireProfChanges()">
             <option value="">Tous les mois</option>
             <option value="0">Janvier</option>
             <option value="1">Février</option>
@@ -101,28 +101,20 @@
             <option value="10">Novembre</option>
             <option value="11">Décembre</option>
           </select>
-          <select class="admin-recherche" id="horaire-filtre-annee" style="flex:0 0 160px" onchange="filtrerHoraireProf()">
+          <select class="admin-recherche" id="horaire-filtre-annee" style="flex:0 0 160px" onchange="filtresHoraireProfChanges()">
             <option value="">Toutes les années</option>
           </select>
         </div>
 
         <div class="dash-card">
-          <table class="dash-table horaire-table">
-            <thead>
-              <tr>
-                <th>Jour</th>
-                <th>Date</th>
-                <th>Heure</th>
-                <th>Cours</th>
-                <th>Promotion</th>
-                <th>Salle</th>
-                <th>Étudiants inscrits</th>
-              </tr>
-            </thead>
-            <tbody id="prof-horaire-body">
-              <tr><td colspan="7" class="admin-vide">Chargement...</td></tr>
-            </tbody>
-          </table>
+          <div class="cal-nav">
+            <button class="cal-nav-btn" onclick="changerSemaineHoraireProf(-1)" aria-label="Semaine précédente">‹</button>
+            <span class="cal-nav-label" id="prof-horaire-semaine-label"></span>
+            <button class="cal-nav-btn" onclick="changerSemaineHoraireProf(1)" aria-label="Semaine suivante">›</button>
+          </div>
+          <div class="calendrier-semaine" id="prof-horaire-calendrier">
+            <p style="color:#999;font-size:13px">Chargement...</p>
+          </div>
         </div>
       </section>
 
@@ -171,48 +163,94 @@
       <!-- ===== MON PROFIL ===== -->
       <section id="prof-profil" class="dash-section">
         <h2>Mon profil</h2>
-        <p class="dash-sous-titre">Vos informations et votre mot de passe</p>
+        <p class="dash-sous-titre">Vos informations personnelles et professionnelles</p>
 
-        <div class="dash-card">
+        <div class="dash-row">
+
+          <!-- INFOS PERSONNELLES -->
+          <div class="dash-card">
+            <div class="card-header-action">
+              <h3>Informations personnelles</h3>
+              <button class="btn-edit" id="prof-btn-edit" onclick="toggleEditProf()">✏️ Modifier</button>
+            </div>
+
+            <div class="profil-details" id="prof-view-perso">
+              <div class="profil-ligne">
+                <span class="profil-cle">Nom complet</span>
+                <span class="profil-val" id="prof-nom-complet">—</span>
+              </div>
+              <div class="profil-ligne">
+                <span class="profil-cle">Email</span>
+                <span class="profil-val" id="prof-email-val">—</span>
+              </div>
+              <div class="profil-ligne">
+                <span class="profil-cle">Téléphone</span>
+                <span class="profil-val" id="prof-telephone-val">—</span>
+              </div>
+            </div>
+
+            <!-- FORMULAIRE EDITION -->
+            <div class="profil-edit-form" id="prof-edit-perso" style="display:none">
+              <div class="form-group-dash">
+                <label>Prénom</label>
+                <input type="text" id="prof-prenom-edit" placeholder="Prénom">
+              </div>
+              <div class="form-group-dash">
+                <label>Nom</label>
+                <input type="text" id="prof-nom-edit" placeholder="Nom">
+              </div>
+              <div class="form-group-dash">
+                <label>Email</label>
+                <input type="email" id="prof-email-edit" placeholder="email@exemple.com">
+              </div>
+              <div class="form-group-dash">
+                <label>Téléphone</label>
+                <input type="tel" id="prof-telephone-edit" placeholder="Téléphone">
+              </div>
+              <div class="edit-actions">
+                <button class="btn-annuler" onclick="annulerEditProf()">Annuler</button>
+                <button class="btn-sauvegarder" onclick="modifierProfilProf()">✅ Sauvegarder</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- MOT DE PASSE -->
+          <div class="dash-card">
+            <div class="card-header-action">
+              <h3>Modifier le mot de passe</h3>
+            </div>
+            <form autocomplete="off" onsubmit="return false">
+              <div class="form-group-dash">
+                <label>Mot de passe actuel</label>
+                <input type="password" id="prof-mdp-actuel" placeholder="••••••••">
+              </div>
+              <div class="form-group-dash">
+                <label>Nouveau mot de passe</label>
+                <input type="password" id="prof-mdp-nouveau" placeholder="••••••••">
+              </div>
+              <div class="form-group-dash">
+                <label>Confirmer le nouveau mot de passe</label>
+                <input type="password" id="prof-mdp-confirm" placeholder="••••••••">
+              </div>
+              <button type="button" class="btn-sauvegarder" onclick="changerMotDePasseProf()" style="margin-top:8px">
+                ✅ Changer le mot de passe
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- INFOS PROFESSIONNELLES -->
+        <div class="dash-card" style="margin-top:20px">
+          <div class="card-header-action">
+            <h3>Informations professionnelles</h3>
+            <span class="badge attente" style="font-size:11px">Non modifiable</span>
+          </div>
           <div class="profil-details">
-            <div class="profil-ligne">
-              <span class="profil-cle">Nom complet</span>
-              <span class="profil-val" id="prof-nom">—</span>
-            </div>
-            <div class="profil-ligne">
-              <span class="profil-cle">Email</span>
-              <span class="profil-val" id="prof-email-val">—</span>
-            </div>
-            <div class="profil-ligne">
-              <span class="profil-cle">Téléphone</span>
-              <span class="profil-val" id="prof-telephone">—</span>
-            </div>
             <div class="profil-ligne">
               <span class="profil-cle">Grade</span>
               <span class="profil-val" id="prof-grade">—</span>
             </div>
           </div>
-        </div>
-
-        <div class="dash-card" style="margin-top:20px">
-          <h3>Changer le mot de passe</h3>
-          <form autocomplete="off" onsubmit="return false">
-            <div class="form-group-dash">
-              <label>Mot de passe actuel</label>
-              <input type="password" id="prof-mdp-actuel" placeholder="••••••••">
-            </div>
-            <div class="form-group-dash">
-              <label>Nouveau mot de passe</label>
-              <input type="password" id="prof-mdp-nouveau" placeholder="••••••••">
-            </div>
-            <div class="form-group-dash">
-              <label>Confirmer le nouveau mot de passe</label>
-              <input type="password" id="prof-mdp-confirm" placeholder="••••••••">
-            </div>
-            <button type="button" class="btn-submit" onclick="changerMotDePasseProf()" style="margin-top:8px">
-              Changer le mot de passe
-            </button>
-          </form>
         </div>
       </section>
 
