@@ -708,7 +708,11 @@ const NOTIF_SECTION = { note: 'mes-notes', horaire: 'horaires', annonce: 'annonc
 
 function construireNotifications() {
   const items = [];
-  (notesEtudiant || []).forEach(n => items.push({
+  // Depuis que /api/etudiant/:id/notes renvoie une ligne par cours SUIVI (et
+  // non plus seulement par note déjà saisie), un cours tout juste inscrit et
+  // pas encore noté ne doit pas générer de fausse notification "note en
+  // cours de saisie" — seules les notes où au moins une valeur existe comptent.
+  (notesEtudiant || []).filter(n => n.note_cc !== null || n.note_examen !== null || n.note !== null).forEach(n => items.push({
     // L'id inclut les valeurs de la note (pas seulement n.id) : le prof/admin
     // modifie la note en place (même ligne en base), donc si on ne suivait que
     // n.id, une correction de note déjà « vue » ne redeviendrait jamais une

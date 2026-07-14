@@ -354,14 +354,20 @@ app.post('/api/etudiants/:id/reinitialiser-mot-de-passe', requireAdmin, async (r
 // =====================
 app.get('/api/etudiant/:id/notes', async (req, res) => {
   try {
+    // Part des cours SUIVIS (inscription_cours), pas des notes déjà saisies :
+    // sinon un étudiant sans aucune note (début de semestre, cours pas encore
+    // corrigé...) apparaît à tort avec 0 cours au tableau de bord. La note
+    // reste simplement NULL tant qu'elle n'a pas été saisie.
     // session/niveau/année viennent du cours : garantit le bon semestre et
     // permet de séparer les cursus (L1 2025-2026 vs L2 2026-2027) après promotion.
     const [notes] = await pool.query(`
       SELECT n.id, n.note_cc, n.note_examen, n.note, c.semestre AS session,
              c.annee_academique, c.niveau,
              c.nom AS matiere, c.code, c.credits
-      FROM note n JOIN cours c ON n.cours_id = c.id
-      WHERE n.etudiant_id = ?
+      FROM inscription_cours ic
+      JOIN cours c ON ic.cours_id = c.id
+      LEFT JOIN note n ON n.etudiant_id = ic.etudiant_id AND n.cours_id = c.id
+      WHERE ic.etudiant_id = ?
       ORDER BY c.annee_academique DESC, c.semestre, c.code
     `, [req.params.id]);
     res.json(notes);

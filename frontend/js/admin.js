@@ -765,17 +765,21 @@ async function sauvegarderNote() {
   const matiereNom  = document.getElementById('note-matiere')?.value;
   const ccValeur     = document.getElementById('note-cc').value;
   const examenValeur = document.getElementById('note-examen').value;
-  const note_cc     = ccValeur     === '' ? undefined : parseFloat(ccValeur);
-  const note_examen = examenValeur === '' ? undefined : parseFloat(examenValeur);
+  // En modification, un champ vidé doit explicitement effacer la note déjà
+  // enregistrée (null envoyé au serveur) ; en création, un champ laissé vide
+  // signifie simplement "pas encore connu" et ne doit pas être envoyé du
+  // tout (le serveur fusionne alors avec l'autre note déjà présente).
+  const note_cc     = ccValeur     === '' ? (idEdit ? null : undefined) : parseFloat(ccValeur);
+  const note_examen = examenValeur === '' ? (idEdit ? null : undefined) : parseFloat(examenValeur);
   // Le semestre est déterminé côté serveur d'après le cours choisi.
   // En modification, l'année provient du contexte figé de la note.
   const annee_academique = idEdit
     ? (document.getElementById('note-ctx-annee')?.value || '')
     : (document.getElementById('filtre-note-annee')?.value || '2025-2026');
 
-  if (note_cc === undefined && note_examen === undefined) { afficherToast('⚠️ Renseignez au moins le contrôle continu ou l\'examen.', 'erreur'); return; }
-  if (note_cc     !== undefined && (isNaN(note_cc)     || note_cc     < 0 || note_cc     > 20)) { afficherToast('⚠️ Contrôle continu entre 0 et 20.', 'erreur'); return; }
-  if (note_examen !== undefined && (isNaN(note_examen) || note_examen < 0 || note_examen > 20)) { afficherToast('⚠️ Examen entre 0 et 20.', 'erreur'); return; }
+  if (!idEdit && note_cc === undefined && note_examen === undefined) { afficherToast('⚠️ Renseignez au moins le contrôle continu ou l\'examen.', 'erreur'); return; }
+  if (note_cc     !== undefined && note_cc     !== null && (isNaN(note_cc)     || note_cc     < 0 || note_cc     > 20)) { afficherToast('⚠️ Contrôle continu entre 0 et 20.', 'erreur'); return; }
+  if (note_examen !== undefined && note_examen !== null && (isNaN(note_examen) || note_examen < 0 || note_examen > 20)) { afficherToast('⚠️ Examen entre 0 et 20.', 'erreur'); return; }
   if (!idEdit && !etudiant_id) { afficherToast('⚠️ Sélectionnez un étudiant.', 'erreur'); return; }
   if (!idEdit && !matiereNom) { afficherToast('⚠️ Sélectionnez une matière.', 'erreur'); return; }
 
