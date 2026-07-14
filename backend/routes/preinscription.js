@@ -153,11 +153,14 @@ router.put('/:id', requireAdmin, async (req, res) => {
     }
 
     const dossier = dossiers[0];
+    // Renseigné uniquement en cas d'acceptation, pour que l'admin voie
+    // toujours le mot de passe temporaire même si l'envoi d'email échoue ou
+    // que le dossier n'a pas d'email — voir mailer.js:envoyerEmailAcceptation.
+    let compteCree = null;
 
     // ===== CAS 1 : ACCEPTATION =====
     // → Mettre à jour le statut de la pré-inscription
     // → Créer un compte étudiant dans la table etudiant
-    // ===== CAS 1 : ACCEPTATION =====
 if (statut === 'accepte') {
 
   const annee = new Date().getFullYear();
@@ -234,13 +237,18 @@ if (statut === 'accepte') {
     // fragile par chaîne "promotion".
     await inscrireAuxCoursDuNiveau(numeroEtudiant, faculteNom, niveauCourt, filiere_id, anneeAcademique);
 
+    let emailEnvoye = false;
     if (dossier.email) {
-      await envoyerEmailAcceptation(
+      emailEnvoye = await envoyerEmailAcceptation(
         { nom: dossier.nom, prenom: dossier.prenom, email: dossier.email },
         numeroEtudiant,
         motDePasse
-      ).catch(err => console.error('⚠️ Erreur envoi email:', err.message));
+      ).then(() => true).catch(err => { console.error('⚠️ Erreur envoi email:', err.message); return false; });
     }
+
+    // Retourné dans la réponse : l'admin doit toujours voir ce mot de passe,
+    // que l'email ait pu être envoyé ou non (dossier sans email, ou envoi en échec).
+    compteCree = { matricule: numeroEtudiant, motDePasseTemporaire: motDePasse, emailEnvoye };
   }
 }
     // ===== CAS 2 : REJET =====
@@ -285,7 +293,8 @@ if (statut === 'accepte') {
         : statut === 'rejete'
         ? `Candidature rejetée — étudiant retiré du registre.`
         : `Statut mis à jour : ${statut}`,
-      dossier: dossierMisAJour[0]
+      dossier: dossierMisAJour[0],
+      compteCree
     });
 
   } catch (erreur) {

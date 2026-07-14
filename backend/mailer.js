@@ -9,6 +9,10 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+// En local FRONTEND_URL n'est pas toujours défini : on retombe sur le
+// serveur de développement plutôt que de casser le lien dans l'email.
+const URL_CONNEXION = `${process.env.FRONTEND_URL || 'http://localhost:5500/frontend'}/login.html`;
+
 async function envoyerEmailAcceptation(etudiant, numeroEtudiant, motDePasse) {
   const options = {
     from: `"UML — Université Méthodiste de Lubumbashi" <${process.env.EMAIL_USER}>`,
@@ -37,7 +41,7 @@ async function envoyerEmailAcceptation(etudiant, numeroEtudiant, motDePasse) {
             ⚠️ Veuillez changer votre mot de passe dès votre première connexion.
           </p>
 
-          <a href="http://localhost:5500/frontend/login.html"
+          <a href="${URL_CONNEXION}"
              style="display:inline-block;background:#1a3a6b;color:#fff;
                     padding:12px 24px;border-radius:8px;text-decoration:none;margin-top:10px">
             Se connecter à l'espace étudiant
@@ -54,6 +58,52 @@ async function envoyerEmailAcceptation(etudiant, numeroEtudiant, motDePasse) {
 
   await transporter.sendMail(options);
   console.log(`📧 Email envoyé à ${etudiant.email}`);
+}
+
+async function envoyerEmailReinitialisation(etudiant, motDePasse) {
+  if (!etudiant.email) return;
+
+  const options = {
+    from: `"UML — Université Méthodiste de Lubumbashi" <${process.env.EMAIL_USER}>`,
+    to: etudiant.email,
+    subject: '🔑 Réinitialisation de votre mot de passe — UML',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+        <div style="background:#1a3a6b;padding:20px;text-align:center">
+          <h2 style="color:#f0c020;margin:0">Université Méthodiste de Lubumbashi</h2>
+        </div>
+        <div style="padding:28px 24px;background:#f8f9fa">
+          <h3 style="color:#1a3a6b">Bonjour, ${etudiant.prenom} ${etudiant.nom}</h3>
+          <p>Le mot de passe de votre espace étudiant a été réinitialisé par l'administration.</p>
+
+          <div style="background:#ffffff;border:1px solid #ddd;border-radius:8px;padding:16px;margin:20px 0">
+            <p style="margin:6px 0"><strong>Numéro étudiant :</strong>
+               <code style="background:#eef;padding:2px 8px;border-radius:4px">${etudiant.id}</code></p>
+            <p style="margin:6px 0"><strong>Nouveau mot de passe temporaire :</strong>
+               <code style="background:#eef;padding:2px 8px;border-radius:4px">${motDePasse}</code></p>
+          </div>
+
+          <p style="color:#cc2200;font-size:13px">
+            ⚠️ Veuillez changer votre mot de passe dès votre prochaine connexion.
+          </p>
+
+          <a href="${URL_CONNEXION}"
+             style="display:inline-block;background:#1a3a6b;color:#fff;
+                    padding:12px 24px;border-radius:8px;text-decoration:none;margin-top:10px">
+            Se connecter à l'espace étudiant
+          </a>
+
+          <p style="margin-top:24px;font-size:12px;color:#888">
+            Adresse : N°249, Croisement Av. Kasavubu & Likasi, Lubumbashi, RDC<br>
+            Email : lmu.lubumbashi@gmail.com
+          </p>
+        </div>
+      </div>
+    `
+  };
+
+  await transporter.sendMail(options);
+  console.log(`📧 Email de réinitialisation envoyé à ${etudiant.email}`);
 }
 
 async function envoyerEmailRejet(etudiant) {
@@ -87,4 +137,4 @@ async function envoyerEmailRejet(etudiant) {
   console.log(`📧 Email de rejet envoyé à ${etudiant.email}`);
 }
 
-module.exports = { envoyerEmailAcceptation, envoyerEmailRejet };
+module.exports = { envoyerEmailAcceptation, envoyerEmailReinitialisation, envoyerEmailRejet };

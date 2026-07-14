@@ -8,8 +8,11 @@ const morgan    = require('morgan');
 const pool      = require('./database');
 const { requireAdmin } = require('./middleware/auth');
 const { journaliserActionsAdmin } = require('./middleware/audit');
+const crypto      = require('crypto');
+const bcrypt      = require('bcryptjs');
 const { genererBulletinPDF } = require('./bulletin');
 const { genererReleveNotesCumulatifPDF } = require('./releveNotes');
+const { envoyerEmailReinitialisation } = require('./mailer');
 const { inscrireAuxCoursDuNiveau } = require('./models/inscriptionAuto');
 const upload    = require('./upload');
 const app       = express();
@@ -321,6 +324,28 @@ app.delete('/api/etudiants/:id', requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM etudiant WHERE id = ?', [req.params.id]);
     res.json({ message: 'Étudiant supprimé.' });
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+// Réinitialise le mot de passe d'un étudiant : génère un nouveau mot de passe
+// temporaire, le hash (le clair n'est jamais stocké), et le renvoie à l'admin
+// dans la réponse — indispensable si l'étudiant n'a pas d'email au dossier ou
+// si l'envoi automatique à la création du compte a échoué/n'a jamais eu lieu.
+app.post('/api/etudiants/:id/reinitialiser-mot-de-passe', requireAdmin, async (req, res) => {
+  try {
+    const [etudiants] = await pool.query('SELECT id, nom, prenom, email FROM etudiant WHERE id = ?', [req.params.id]);
+    if (etudiants.length === 0) return res.status(404).json({ erreur: 'Étudiant non trouvé.' });
+    const etudiant = etudiants[0];
+
+    const motDePasse = crypto.randomBytes(9).toString('base64').replace(/[+/=]/g, '').slice(0, 12);
+    const hash = await bcrypt.hash(motDePasse, 10);
+    await pool.query('UPDATE etudiant SET mot_de_passe = ? WHERE id = ?', [hash, req.params.id]);
+
+    const emailEnvoye = etudiant.email
+      ? await envoyerEmailReinitialisation(etudiant, motDePasse).then(() => true).catch(err => { console.error('⚠️ Erreur envoi email:', err.message); return false; })
+      : false;
+
+    res.json({ matricule: etudiant.id, motDePasseTemporaire: motDePasse, emailEnvoye });
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });
 

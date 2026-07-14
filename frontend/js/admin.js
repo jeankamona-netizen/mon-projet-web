@@ -1986,7 +1986,17 @@ async function changerStatutPreinscription(id,nouveauStatut) {
     const p=preinscriptionsCache.find(x=>x.id===id);
     if (p) p.statut=d?.dossier?d.dossier.statut:nouveauStatut;
     fermerModalPreinscription(); appliquerFiltresPreinscriptions(); chargerStats();
-    afficherToast(nouveauStatut==='accepte'?'✅ Accepté — étudiant créé !':'❌ Rejeté.');
+    if (nouveauStatut==='accepte' && d?.compteCree) {
+      afficherToast('✅ Accepté — étudiant créé !');
+      const cc = d.compteCree;
+      await confirmerAction(
+        `Matricule : ${cc.matricule} — Mot de passe temporaire : ${cc.motDePasseTemporaire}` +
+        (cc.emailEnvoye ? ' (également envoyé par email à l\'étudiant).' : ' — ⚠️ email non envoyé, communiquez ce mot de passe vous-même.'),
+        { titre: '✅ Compte étudiant créé', texteConfirmer: 'Compris' }
+      );
+    } else {
+      afficherToast(nouveauStatut==='accepte'?'✅ Accepté — étudiant créé !':'❌ Rejeté.');
+    }
   } catch (err) { afficherToast('⚠️ '+err.message, 'erreur'); }
 }
 
@@ -2033,6 +2043,7 @@ async function chargerInscrits() {
         <td class="admin-actions-cell">
           <button class="btn-icone" onclick="telechargerBulletin('${e.id}')" aria-label="Télécharger le bulletin" title="Télécharger le bulletin">${icone('notes')}</button>
           <button class="btn-icone" onclick="telechargerReleveCumulatif('${e.id}')" aria-label="Télécharger le relevé cumulatif" title="Télécharger le relevé de notes cumulatif (toutes années)">${icone('livre')}</button>
+          <button class="btn-icone" onclick="reinitialiserMotDePasseEtudiant('${e.id}')" aria-label="Réinitialiser le mot de passe" title="Réinitialiser le mot de passe">${icone('cle')}</button>
           <button class="btn-icone" onclick="imprimerCarteEtudiant('${e.id}')" aria-label="Imprimer la carte étudiant" title="Imprimer la carte étudiant">${icone('carte')}</button>
           <button class="btn-icone" onclick="modifierInscrit('${e.id}')" aria-label="Modifier">${icone('crayon')}</button>
           <button class="btn-icone danger" onclick="supprimerInscrit('${e.id}')" aria-label="Supprimer">${icone('corbeille')}</button>
@@ -2082,6 +2093,20 @@ async function telechargerReleveCumulatif(etudiantId) {
     URL.revokeObjectURL(url);
     return true;
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); return false; }
+}
+
+async function reinitialiserMotDePasseEtudiant(etudiantId) {
+  if (!await confirmerAction('Générer un nouveau mot de passe temporaire pour cet étudiant ? L\'ancien cessera de fonctionner immédiatement.', { titre: 'Réinitialiser le mot de passe', texteConfirmer: 'Réinitialiser' })) return;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/etudiants/${etudiantId}/reinitialiser-mot-de-passe`, { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    await confirmerAction(
+      `Matricule : ${d.matricule} — Nouveau mot de passe temporaire : ${d.motDePasseTemporaire}` +
+      (d.emailEnvoye ? ' (également envoyé par email à l\'étudiant).' : ' — ⚠️ email non envoyé, communiquez ce mot de passe vous-même.'),
+      { titre: '✅ Mot de passe réinitialisé', texteConfirmer: 'Compris' }
+    );
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
 // =====================
