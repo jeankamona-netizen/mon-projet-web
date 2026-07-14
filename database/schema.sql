@@ -299,3 +299,26 @@ CREATE TABLE agent (
   fonction      VARCHAR(50) NOT NULL, -- 'caissier' | 'administrateur_budget' | ...
   mot_de_passe  VARCHAR(255) NOT NULL -- hash bcrypt
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================================
+-- NEWSLETTER_ABONNE — inscriptions à la newsletter depuis le site public
+-- =====================================================================
+CREATE TABLE newsletter_abonne (
+  id                INT AUTO_INCREMENT PRIMARY KEY,
+  email             VARCHAR(150) UNIQUE NOT NULL,
+  date_inscription  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================================
+-- MESSAGE_CONTACT — messages soumis depuis le formulaire "Nous contacter"
+-- du site public
+-- =====================================================================
+CREATE TABLE message_contact (
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  nom          VARCHAR(150) NOT NULL,
+  email        VARCHAR(150) NOT NULL,
+  sujet        VARCHAR(200),
+  message      TEXT NOT NULL,
+  lu           TINYINT(1) DEFAULT 0,
+  date_envoi   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -58,14 +58,14 @@ async function fetchCaisse(url, options = {}) {
   if (reponse.status === 401) {
     sessionStorage.removeItem('caisse_token');
     afficherToast('⚠️ Session expirée, veuillez vous reconnecter.', 'erreur');
-    window.location.href = 'caisse.html';
+    window.location.href = 'login.html?role=caissier';
     throw new Error('Session expirée.');
   }
   return reponse;
 }
 
 function exigerConnexionCaisse() {
-  if (!sessionStorage.getItem('caisse_token')) { window.location.href = 'caisse.html'; return false; }
+  if (!sessionStorage.getItem('caisse_token')) { window.location.href = 'login.html?role=caissier'; return false; }
   return true;
 }
 

@@ -211,6 +211,78 @@ async function chargerAnnoncesPubliques() {
   }
 }
 
+// =====================
+// FORMULAIRE DE CONTACT
+// =====================
+async function envoyerMessageContact() {
+  const nom     = document.getElementById('contact-nom')?.value.trim();
+  const email   = document.getElementById('contact-email')?.value.trim();
+  const sujet   = document.getElementById('contact-sujet')?.value.trim();
+  const message = document.getElementById('contact-message')?.value.trim();
+  const statut  = document.getElementById('contact-statut');
+  if (!statut) return;
+
+  if (!nom || !email || !message) {
+    statut.style.display = 'block';
+    statut.style.background = '#fde8e8'; statut.style.color = '#A32D2D';
+    statut.textContent = '⚠️ Nom, email et message sont obligatoires.';
+    return;
+  }
+
+  try {
+    const r = await fetch(`${BASE_URL}/api/contact`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nom, email, sujet, message })
+    });
+    const d = await r.json();
+    statut.style.display = 'block';
+    if (!r.ok) {
+      statut.style.background = '#fde8e8'; statut.style.color = '#A32D2D';
+      statut.textContent = '⚠️ ' + d.erreur;
+      return;
+    }
+    statut.style.background = '#e6f4ea'; statut.style.color = '#2d7a2d';
+    statut.textContent = '✅ ' + d.message;
+    ['contact-nom', 'contact-email', 'contact-sujet', 'contact-message'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  } catch {
+    statut.style.display = 'block';
+    statut.style.background = '#fde8e8'; statut.style.color = '#A32D2D';
+    statut.textContent = '⚠️ Serveur indisponible, réessayez plus tard.';
+  }
+}
+
+// =====================
+// NEWSLETTER
+// =====================
+async function inscrireNewsletter() {
+  const champ  = document.getElementById('newsletter-email');
+  const statut = document.getElementById('newsletter-statut');
+  const email  = champ?.value.trim();
+  if (!statut) return;
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    statut.style.display = 'block'; statut.style.color = '#ffb4b4';
+    statut.textContent = '⚠️ Adresse email invalide.';
+    return;
+  }
+
+  try {
+    const r = await fetch(`${BASE_URL}/api/newsletter`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const d = await r.json();
+    statut.style.display = 'block';
+    if (!r.ok) { statut.style.color = '#ffb4b4'; statut.textContent = '⚠️ ' + d.erreur; return; }
+    statut.style.color = '#8fd99f';
+    statut.textContent = '✅ Inscription confirmée !';
+    if (champ) champ.value = '';
+  } catch {
+    statut.style.display = 'block'; statut.style.color = '#ffb4b4';
+    statut.textContent = '⚠️ Serveur indisponible.';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initialiserLightbox();
   chargerAnnoncesPubliques();

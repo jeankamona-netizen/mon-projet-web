@@ -104,6 +104,8 @@ const anneesRoutes        = require('./routes/annees');
 const caisseRoutes        = require('./routes/caisse');
 const agentsRoutes        = require('./routes/agents');
 const fraisScolariteRoutes = require('./routes/fraisScolarite');
+const newsletterRoutes    = require('./routes/newsletter');
+const contactRoutes       = require('./routes/contact');
 
 app.use('/api/auth',           authRoutes);
 app.use('/api/facultes',       facultesRoutes);
@@ -120,6 +122,8 @@ app.use('/api/annees',         anneesRoutes);
 app.use('/api/caisse',         caisseRoutes);
 app.use('/api/agents',         agentsRoutes);
 app.use('/api/frais-scolarite', fraisScolariteRoutes);
+app.use('/api/newsletter',     newsletterRoutes);
+app.use('/api/contact',        contactRoutes);
 
 // =====================
 // STATISTIQUES (vue d'ensemble admin)

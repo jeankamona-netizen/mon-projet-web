@@ -2,81 +2,15 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Caisse — Connexion | UML</title>
-  <meta name="description" content="Connexion réservée à la caisse (finances) de l'Université Méthodiste de Lubumbashi.">
-  <link rel="icon" href="img/logo.png" type="image/png">
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#1a3a6b">
-  <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/login.css">
-  <link rel="stylesheet" href="css/admin.css">
+  <title>Redirection — UML</title>
+  <!-- Le portail de connexion est désormais unique pour tous les profils
+       (étudiant, professeur, admin, caisse, budget) — voir login.html.
+       Cette page ne sert qu'à préserver les anciens liens/favoris. -->
+  <meta http-equiv="refresh" content="0; url=login.html?role=caissier">
+  <link rel="canonical" href="login.html?role=caissier">
 </head>
 <body>
-
-  <!-- NAVBAR -->
-  <nav class="navbar">
-    <div class="nav-container">
-      <div class="nav-brand">
-        <img src="img/logo.png" alt="Logo UML" class="nav-logo">
-        <div>
-          <span class="brand-name">Université Méthodiste de Lubumbashi</span>
-          <span class="brand-devise">Scientia, Sanctitas et Veritas</span>
-        </div>
-      </div>
-      <a href="index.html" class="btn-retour">← Retour à l'accueil</a>
-    </div>
-  </nav>
-
-  <!-- CONTENU PRINCIPAL -->
-  <main class="login-main admin-login-main">
-    <div class="login-box admin-box">
-      <div class="tab-content active" style="padding:32px">
-
-        <div class="admin-box-header">
-          <div class="admin-box-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><circle cx="12" cy="15" r="1.5"/></svg>
-          </div>
-          <h2>Espace Caisse</h2>
-          <p class="form-sous-titre" style="margin-bottom:0">Réservé aux agents (caissier, administrateur du budget)</p>
-        </div>
-
-        <p id="caisse-erreur" class="admin-erreur" style="display:none"></p>
-
-        <div class="form-group">
-          <label for="caisse-matricule">Matricule</label>
-          <input type="text" id="caisse-matricule" placeholder="Ex : CAI-001" autocomplete="username">
-        </div>
-
-        <div class="form-group">
-          <label for="caisse-pass">Mot de passe</label>
-          <div class="input-password">
-            <input type="password" id="caisse-pass" placeholder="••••••••" autocomplete="current-password">
-            <button type="button" class="toggle-pwd" onclick="toggleCaissePassword()" aria-label="Afficher/masquer le mot de passe">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
-          </div>
-        </div>
-
-        <button class="btn-submit" onclick="connexionCaisse()">Se connecter</button>
-
-        <p class="admin-footer-note" style="text-align:center;margin-top:18px">
-          <a href="index.html" style="color:inherit;text-decoration:none">← Retour au site public</a>
-        </p>
-
-      </div>
-    </div>
-  </main>
-
-  <!-- TOAST -->
-  <div id="toast" class="toast"></div>
-
-  <script src="js/config.js"></script>
-  <script src="js/icons.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/caisse.js"></script>
+  <p>Redirection vers <a href="login.html?role=caissier">le portail de connexion</a>…</p>
+  <script>window.location.replace('login.html?role=caissier');</script>
 </body>
 </html>

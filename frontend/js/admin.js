@@ -51,7 +51,7 @@ function toggleAdminPassword() {
 function verifierSessionAdmin() {
   const token = sessionStorage.getItem('admin_token');
   if (!token && document.getElementById('cpt-etudiants')) {
-    window.location.href = 'admin.html';
+    window.location.href = 'login.html?role=admin';
   }
 }
 
@@ -65,7 +65,7 @@ async function fetchAdmin(url, options = {}) {
   if (reponse.status === 401) {
     sessionStorage.removeItem('admin_token');
     afficherToast('⚠️ Session expirée, veuillez vous reconnecter.', 'erreur');
-    window.location.href = 'admin.html';
+    window.location.href = 'login.html?role=admin';
     throw new Error('Session expirée.');
   }
   return reponse;
@@ -175,6 +175,76 @@ async function definirAnneeCourante(libelle) {
 }
 
 // =====================
+// MESSAGES DE CONTACT & NEWSLETTER (site public)
+// =====================
+function basculerOngletContact(idOnglet, btn) {
+  document.querySelectorAll('.contact-onglet-contenu').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.contact-onglet-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(idOnglet)?.classList.add('active');
+  btn?.classList.add('active');
+}
+
+async function chargerMessagesContact() {
+  const tbody = document.getElementById('admin-contact-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/contact`);
+    const messages = await r.json();
+    tbody.innerHTML = messages.length === 0
+      ? `<tr><td colspan="7" class="admin-vide">Aucun message reçu.</td></tr>`
+      : messages.map(m => `
+        <tr style="${m.lu ? '' : 'font-weight:600'}">
+          <td>${new Date(m.date_envoi).toLocaleDateString('fr-FR')}</td>
+          <td>${m.nom}</td>
+          <td>${m.email}</td>
+          <td>${m.sujet || '—'}</td>
+          <td style="max-width:260px;white-space:normal">${m.message}</td>
+          <td>${m.lu ? '<span class="badge attente">Lu</span>' : '<span class="badge reussi">Nouveau</span>'}</td>
+          <td class="admin-actions-cell">
+            ${m.lu ? '' : `<button class="btn-icone" onclick="marquerMessageLu(${m.id})" aria-label="Marquer comme lu" title="Marquer comme lu">${icone('coche')}</button>`}
+            <button class="btn-icone danger" onclick="supprimerMessageContact(${m.id})" aria-label="Supprimer">${icone('corbeille')}</button>
+          </td>
+        </tr>`).join('');
+  } catch { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+}
+
+async function marquerMessageLu(id) {
+  try { await fetchAdmin(`${BASE_URL}/api/contact/${id}/lu`, { method: 'PATCH' }); chargerMessagesContact(); }
+  catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function supprimerMessageContact(id) {
+  if (!await confirmerAction('Supprimer ce message ?', { titre: 'Supprimer le message', texteConfirmer: 'Supprimer' })) return;
+  try { await fetchAdmin(`${BASE_URL}/api/contact/${id}`, { method: 'DELETE' }); afficherToast('🗑️ Message supprimé.'); chargerMessagesContact(); }
+  catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function chargerAbonnesNewsletter() {
+  const tbody = document.getElementById('admin-newsletter-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="3" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/newsletter`);
+    const abonnes = await r.json();
+    tbody.innerHTML = abonnes.length === 0
+      ? `<tr><td colspan="3" class="admin-vide">Aucun abonné pour l'instant.</td></tr>`
+      : abonnes.map(a => `
+        <tr>
+          <td>${a.email}</td>
+          <td>${new Date(a.date_inscription).toLocaleDateString('fr-FR')}</td>
+          <td class="admin-actions-cell"><button class="btn-icone danger" onclick="supprimerAbonneNewsletter(${a.id})" aria-label="Retirer">${icone('corbeille')}</button></td>
+        </tr>`).join('');
+  } catch { tbody.innerHTML = `<tr><td colspan="3" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+}
+
+async function supprimerAbonneNewsletter(id) {
+  if (!await confirmerAction('Retirer cet abonné de la newsletter ?', { titre: 'Retirer l\'abonné', texteConfirmer: 'Retirer' })) return;
+  try { await fetchAdmin(`${BASE_URL}/api/newsletter/${id}`, { method: 'DELETE' }); afficherToast('🗑️ Abonné retiré.'); chargerAbonnesNewsletter(); }
+  catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+// =====================
 // NAVIGATION ENTRE SECTIONS
 // =====================
 function afficherSection(id, lien) {
@@ -195,6 +265,7 @@ function afficherSection(id, lien) {
   if (id === 'admin-audit')           chargerAuditLog();
   if (id === 'admin-agents')          chargerAgents();
   if (id === 'admin-annees')          chargerAnneesAcademiquesAdmin();
+  if (id === 'admin-contact')         { chargerMessagesContact(); chargerAbonnesNewsletter(); }
 }
 
 // Sous-menu déroulant « Gérer les Inscrits » : Inscriptions / Réinscriptions /

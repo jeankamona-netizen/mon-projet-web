@@ -61,6 +61,23 @@
   margin-bottom: 6px;
 }
 
+.admin-box-header {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.connexion-icone {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 12px;
+  background: rgba(26,58,107,0.08);
+  color: var(--bleu);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .form-sous-titre {
   font-size: 13px;
   color: #888;

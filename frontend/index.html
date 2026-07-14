@@ -28,15 +28,26 @@
       </a>
 
       <ul class="nav-links">
-        <li><a href="#accueil">Accueil</a></li>
-        <li><a href="#facultes">Facultés</a></li>
-        <li><a href="#galerie">Galerie</a></li>
-        <li><a href="#lmd">LMD</a></li>
-        <li><a href="#contact">Contact</a></li>
-        <li class="nav-links-mobile-only"><a href="login.html">Connexion</a></li>
+        <li><a href="#accueil" data-i18n="nav.accueil">Accueil</a></li>
+        <li><a href="#facultes" data-i18n="nav.facultes">Facultés</a></li>
+        <li><a href="#galerie" data-i18n="nav.galerie">Galerie</a></li>
+        <li><a href="#lmd" data-i18n="nav.lmd">LMD</a></li>
+        <li><a href="#contact" data-i18n="nav.contact">Contact</a></li>
+        <li class="nav-links-mobile-only"><a href="login.html" data-i18n="nav.connexion">Connexion</a></li>
       </ul>
 
-      <a href="login.html" class="btn-connexion">Connexion</a>
+      <div class="lang-switch">
+        <button class="lang-switch-btn" onclick="basculerMenuLangue(event)" aria-haspopup="true" aria-expanded="false">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span id="lang-actuelle">FR</span>
+        </button>
+        <div class="lang-menu" id="lang-menu">
+          <button type="button" onclick="definirLangue('fr')">Français</button>
+          <button type="button" onclick="definirLangue('en')">English</button>
+        </div>
+      </div>
+
+      <a href="login.html" class="btn-connexion" data-i18n="nav.connexion">Connexion</a>
 
       <button class="nav-toggle" onclick="basculerMenuMobile()" aria-label="Ouvrir le menu" aria-expanded="false">
         <span></span><span></span><span></span>
@@ -49,18 +60,18 @@
   <section class="hero" id="accueil">
       <div class="hero-overlay">
       <h1>Université Méthodiste de Lubumbashi</h1>
-      <p class="hero-devise">Intégrité, Efficacité &amp; Excellence Académique</p>
-      <span class="hero-lmd">Système LMD — Licence · Master · Doctorat</span>
+      <p class="hero-devise" data-i18n="hero.devise">Intégrité, Efficacité &amp; Excellence Académique</p>
+      <span class="hero-lmd" data-i18n="hero.systeme">Système LMD — Licence · Master · Doctorat</span>
       <div class="hero-btns">
-        <a href="login.html" class="btn-primary">Faire une pré-inscription</a>
-        <a href="#facultes" class="btn-outline">Nos facultés</a>
+        <a href="login.html" class="btn-primary" data-i18n="hero.btn_preinscription">Faire une pré-inscription</a>
+        <a href="#facultes" class="btn-outline" data-i18n="hero.btn_facultes">Nos facultés</a>
       </div>
     </div>
   </section>
 
   <!-- ========== TICKER ========== -->
   <div class="ticker-section">
-    <span class="ticker-label">📢 Actualités</span>
+    <span class="ticker-label" data-i18n="ticker.label">📢 Actualités</span>
     <div class="ticker-wrap">
       <div class="ticker" id="ticker-contenu">
         <span class="ticker-item">Chargement des actualités...</span>
@@ -71,8 +82,8 @@
   <!-- ========== FACULTES ========== -->
   <section class="facultes" id="facultes">
     <div class="container">
-      <h2>Facultés organisées</h2>
-      <p class="sous-titre">4 facultés avec plusieurs filières spécialisées</p>
+      <h2 data-i18n="facultes.titre">Facultés organisées</h2>
+      <p class="sous-titre" data-i18n="facultes.soustitre">4 facultés avec plusieurs filières spécialisées</p>
       <div class="facultes-grid" id="facultes-grid">
         <p style="text-align:center;color:#888;grid-column:1/-1">Chargement...</p>
       </div>
@@ -82,15 +93,15 @@
     <!-- EVENEMENTS -->
 <section class="evenements" id="evenements">
   <div class="container">
-    <h2>Calendrier des événements</h2>
-    <p class="section-sous-titre">Restez informé des activités et dates importantes de l'UML</p>
+    <h2 data-i18n="evenements.titre">Calendrier des événements</h2>
+    <p class="section-sous-titre" data-i18n="evenements.soustitre">Restez informé des activités et dates importantes de l'UML</p>
     <div class="events-grid" id="evenements-grid">
       <p style="text-align:center;color:#888;grid-column:1/-1">Chargement des événements...</p>
     </div>
 
      <div class="events-btns">
-      <a href="#galerie" class="btn-events">📅 Tous les événements</a>
-      <a href="login.html" class="btn-events-outline">🎓 Faire une pré-inscription</a>
+      <a href="#galerie" class="btn-events" data-i18n="evenements.btn_tous">📅 Tous les événements</a>
+      <a href="login.html" class="btn-events-outline" data-i18n="evenements.btn_preinscription">🎓 Faire une pré-inscription</a>
       </div>
 
    
@@ -100,54 +111,54 @@
   <!-- ========== GALERIE ========== -->
   <section class="galerie" id="galerie">
     <div class="container">
-      <h2>Vie universitaire</h2>
-      <p class="sous-titre">Découvrez l'UML à travers ses événements et activités</p>
+      <h2 data-i18n="galerie.titre">Vie universitaire</h2>
+      <p class="sous-titre" data-i18n="galerie.soustitre">Découvrez l'UML à travers ses événements et activités</p>
       <div class="galerie-grid">
 
         <div class="galerie-card grand">
           <img src="img/collation.jpg" alt="Collation des grades UML" loading="lazy">
           <div class="galerie-overlay">
-            <span class="galerie-tag">Cérémonie</span>
-            <p>Collation des grades — promotion 2025</p>
+            <span class="galerie-tag" data-i18n="galerie.tag1">Cérémonie</span>
+            <p data-i18n="galerie.legende1">Collation des grades — promotion 2025</p>
           </div>
         </div>
 
         <div class="galerie-card">
           <img src="img/collation2.jpg" alt="Diplômés UML" loading="lazy">
           <div class="galerie-overlay">
-            <span class="galerie-tag">Diplômés</span>
-            <p>Nos lauréats fiers et diplômés</p>
+            <span class="galerie-tag" data-i18n="galerie.tag2">Diplômés</span>
+            <p data-i18n="galerie.legende2">Nos lauréats fiers et diplômés</p>
           </div>
         </div>
 
         <div class="galerie-card">
           <img src="img/grade.jpg" alt="Remise de diplôme" loading="lazy">
           <div class="galerie-overlay">
-            <span class="galerie-tag">Remise</span>
-            <p>Remise officielle des diplômes</p>
+            <span class="galerie-tag" data-i18n="galerie.tag3">Remise</span>
+            <p data-i18n="galerie.legende3">Remise officielle des diplômes</p>
           </div>
         </div>
 
         <div class="galerie-card">
           <img src="img/corps.jpg" alt="Corps académique UML" loading="lazy">
           <div class="galerie-overlay">
-            <span class="galerie-tag">Équipe</span>
-            <p>Notre corps académique dévoué</p>
+            <span class="galerie-tag" data-i18n="galerie.tag4">Équipe</span>
+            <p data-i18n="galerie.legende4">Notre corps académique dévoué</p>
           </div>
         </div>
 
         <div class="galerie-card">
           <img src="img/salle.jpg" alt="Salle informatique UML" loading="lazy">
           <div class="galerie-overlay">
-            <span class="galerie-tag">Infrastructures</span>
-            <p>Salle informatique équipée</p>
+            <span class="galerie-tag" data-i18n="galerie.tag5">Infrastructures</span>
+            <p data-i18n="galerie.legende5">Salle informatique équipée</p>
           </div>
         </div>
 
         <div class="galerie-card grand">
           <img src="img/cours.jpg" alt="Déroulement des cours à l'UML" loading="lazy">
           <div class="galerie-overlay">
-            <span class="galerie-tag">Dispense de cours</span>
+            <span class="galerie-tag" data-i18n="galerie.tag6">Dispense de cours</span>
             <p>Université Méthodiste de Lubumbashi</p>
           </div>
         </div>
@@ -156,8 +167,8 @@
         <div class="galerie-card">
           <img src="img/acquisition.jpg" alt="Acquisition de nouvelles machines pour la salle informatique" loading="lazy">
           <div class="galerie-overlay">
-            <span class="galerie-tag">Acquisition</span>
-            <p>Modernisation des infrastructures informatiques</p>
+            <span class="galerie-tag" data-i18n="galerie.tag7">Acquisition</span>
+            <p data-i18n="galerie.legende7">Modernisation des infrastructures informatiques</p>
           </div>
         </div>
 
@@ -167,47 +178,36 @@
 
 
 
-<!-- LIGHTBOX -->
-  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Visionneuse de photo">
-    <button class="lb-fermer" onclick="fermerLightbox()" aria-label="Fermer">✕</button>
-    <button class="lb-prev" onclick="changerPhoto(-1)" aria-label="Photo précédente">&#8249;</button>
-    <div class="lb-contenu">
-      <img id="lb-img" src="" alt="">
-      <p id="lb-legende"></p>
-    </div>
-    <button class="lb-next" onclick="changerPhoto(1)" aria-label="Photo suivante">&#8250;</button>
-  </div>
-
 
   <!-- ========== SYSTEME LMD ========== -->
   <section class="lmd" id="lmd">
     <div class="container">
-      <h2>Système LMD</h2>
-      <p class="sous-titre">Licence · Master · Doctorat — reconnu internationalement</p>
+      <h2 data-i18n="lmd.titre">Système LMD</h2>
+      <p class="sous-titre" data-i18n="lmd.soustitre">Licence · Master · Doctorat — reconnu internationalement</p>
       <div class="lmd-grid">
 
         <div class="lmd-card">
           <div class="lmd-lettre jaune">L</div>
-          <h3>Licence</h3>
-          <p>3 ans après le diplôme d'État. Formation générale et spécialisée dans votre filière.</p>
-          <div class="lmd-frais">350$ — payable en tranches</div>
-          <div class="lmd-inscription">Inscription : 20$ + Rame papiers</div>
+          <h3 data-i18n="lmd.licence_titre">Licence</h3>
+          <p data-i18n="lmd.licence_texte">3 ans après le diplôme d'État. Formation générale et spécialisée dans votre filière.</p>
+          <div class="lmd-frais" data-i18n="lmd.licence_frais">350$ — payable en tranches</div>
+          <div class="lmd-inscription" data-i18n="lmd.licence_inscription">Inscription : 20$ + Rame papiers</div>
         </div>
 
         <div class="lmd-card">
           <div class="lmd-lettre vert">M</div>
-          <h3>Master</h3>
-          <p>2 ans après la Licence. Approfondissement et spécialisation dans votre domaine.</p>
-          <div class="lmd-frais">500$ — payable en tranches</div>
-          <div class="lmd-inscription">Inscription : 50$ + Rame papiers</div>
+          <h3 data-i18n="lmd.master_titre">Master</h3>
+          <p data-i18n="lmd.master_texte">2 ans après la Licence. Approfondissement et spécialisation dans votre domaine.</p>
+          <div class="lmd-frais" data-i18n="lmd.master_frais">500$ — payable en tranches</div>
+          <div class="lmd-inscription" data-i18n="lmd.master_inscription">Inscription : 50$ + Rame papiers</div>
         </div>
 
         <div class="lmd-card">
           <div class="lmd-lettre rouge">D</div>
-          <h3>Doctorat</h3>
-          <p>Recherche avancée après le Master. Formation des enseignants et chercheurs.</p>
-          <div class="lmd-frais">Théologie &amp; Informatique</div>
-          <div class="lmd-inscription">Contactez l'administration</div>
+          <h3 data-i18n="lmd.doctorat_titre">Doctorat</h3>
+          <p data-i18n="lmd.doctorat_texte">Recherche avancée après le Master. Formation des enseignants et chercheurs.</p>
+          <div class="lmd-frais" data-i18n="lmd.doctorat_frais">Théologie &amp; Informatique</div>
+          <div class="lmd-inscription" data-i18n="lmd.doctorat_inscription">Contactez l'administration</div>
         </div>
 
       </div>
@@ -217,31 +217,131 @@
   <!-- ========== CONTACT ========== -->
   <section class="contact" id="contact">
     <div class="container">
-      <h2>Nous contacter</h2>
-      <div class="contact-compact">
-        <span class="contact-item">📍 N°249, Croisement Av. Kasavubu &amp; Likasi, Lubumbashi, RDC</span>
-        <span class="contact-item">✉️ contact@uml.ac.cd</span>
-        <span class="contact-item">🕐 Lundi - Vendredi : 7h00 - 17h00</span>
-        <span class="contact-item">📋 Arrêté N° 0173/MINESU/2021</span>
+      <h2 data-i18n="contact.titre">Nous contacter</h2>
+      <p class="section-sous-titre" data-i18n="contact.soustitre">Une question ? Écrivez-nous, nous vous répondrons rapidement</p>
+
+      <div class="contact-grille">
+
+        <div class="contact-infos">
+          <h3 data-i18n="contact.infos_titre">Informations</h3>
+
+          <div class="info-bloc">
+            <span class="info-icone">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </span>
+            <div>
+              <span class="info-titre" data-i18n="contact.adresse_label">Adresse</span>
+              <p data-i18n="contact.adresse_valeur">N°249, Croisement Av. Kasavubu &amp; Likasi<br>Lubumbashi, Katanga, RDC</p>
+            </div>
+          </div>
+
+          <div class="info-bloc">
+            <span class="info-icone">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            </span>
+            <div><span class="info-titre" data-i18n="contact.telephone_label">Téléphone</span><p>+243 973 722 252</p></div>
+          </div>
+
+          <div class="info-bloc">
+            <span class="info-icone">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </span>
+            <div><span class="info-titre" data-i18n="contact.email_label">Email</span><p>Contact@uml.ac.cd</p></div>
+          </div>
+
+          <div class="info-bloc">
+            <span class="info-icone">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            <div><span class="info-titre" data-i18n="contact.heures_label">Heures d'ouverture</span><p data-i18n="contact.heures_valeur">Lundi - Vendredi : 7h00 - 17h00</p></div>
+          </div>
+
+          <p class="info-arrete" data-i18n="contact.arrete">Arrêté N° 0173/MINESU/2021</p>
+        </div>
+
+        <div class="contact-formulaire">
+          <h3 data-i18n="contact.form_titre">Envoyez-nous un message</h3>
+          <p class="section-sous-titre" style="text-align:left;margin-bottom:18px" data-i18n="contact.form_soustitre">Nous vous répondrons dans les plus brefs délais.</p>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label data-i18n="contact.nom_label">Nom complet</label>
+              <input type="text" id="contact-nom" placeholder="Jean Dupont">
+            </div>
+            <div class="form-group">
+              <label data-i18n="contact.email_form_label">Adresse email</label>
+              <input type="email" id="contact-email" placeholder="jean@exemple.com">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label data-i18n="contact.sujet_label">Sujet</label>
+            <input type="text" id="contact-sujet" placeholder="Comment pouvons-nous vous aider ?" data-i18n-placeholder="contact.sujet_placeholder">
+          </div>
+
+          <div class="form-group">
+            <label data-i18n="contact.message_label">Message</label>
+            <textarea id="contact-message" rows="6" placeholder="Votre message ici..." data-i18n-placeholder="contact.message_placeholder"></textarea>
+          </div>
+
+          <p id="contact-statut" style="display:none;font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:12px"></p>
+
+          <button type="button" class="btn-primary" onclick="envoyerMessageContact()" data-i18n="contact.btn_envoyer">Envoyer le message</button>
+        </div>
+
       </div>
     </div>
   </section>
 
   <!-- ========== FOOTER ========== -->
   <footer class="footer">
-    <div class="container">
-    
-      <p class="footer-nom">Université Méthodiste de Lubumbashi</p>
-      <p class="footer-devise">Scientia, Sanctitas et Veritas</p>
-      <p class="footer-copy">© 2026 UML — Tous droits réservés</p>
-    <a href="admin.html" class="footer-admin-link">Espace administration</a>
-    <a href="professeur.html" class="footer-admin-link">Espace professeur</a>
-    <a href="caisse.html" class="footer-admin-link">Espace caisse</a>
+    <div class="container footer-grille">
+
+      <div class="footer-colonne">
+        <p class="footer-nom">Université Méthodiste de Lubumbashi</p>
+        <p class="footer-devise">Scientia, Sanctitas et Veritas</p>
+        <p class="footer-copy" data-i18n="footer.copyright">© 2026 UML — Tous droits réservés</p>
+      </div>
+
+      <div class="footer-colonne">
+        <h4 data-i18n="footer.liens_rapides">Liens rapides</h4>
+        <a href="#accueil" data-i18n="nav.accueil">Accueil</a>
+        <a href="#facultes" data-i18n="nav.facultes">Facultés</a>
+        <a href="#galerie" data-i18n="nav.galerie">Galerie</a>
+        <a href="#lmd" data-i18n="nav.lmd">LMD</a>
+        <a href="#contact" data-i18n="nav.contact">Contact</a>
+      </div>
+
+      <div class="footer-colonne">
+        <h4 data-i18n="footer.ressources">Ressources</h4>
+        <a href="login.html" data-i18n="footer.pre_inscription">Pré-inscription en ligne</a>
+        <a href="login.html" data-i18n="footer.portail_connexion">Portail de connexion</a>
+        <a href="#facultes" data-i18n="footer.facultes_filieres">Facultés &amp; filières</a>
+        <a href="#accueil" data-i18n="footer.calendrier">Calendrier des événements</a>
+      </div>
+
+      <div class="footer-colonne">
+        <h4 data-i18n="footer.newsletter_titre">Newsletter</h4>
+        <p class="footer-newsletter-texte" data-i18n="footer.newsletter_texte">Recevez nos actualités et annonces importantes.</p>
+        <div class="footer-newsletter-form">
+          <input type="email" id="newsletter-email" placeholder="Votre adresse email..." data-i18n-placeholder="footer.newsletter_placeholder">
+          <button type="button" onclick="inscrireNewsletter()" data-i18n="footer.newsletter_btn">S'inscrire</button>
+        </div>
+        <p id="newsletter-statut" style="display:none;font-size:12px;margin-top:8px"></p>
+      </div>
+
+    </div>
+
+    <div class="footer-bas">
+      <a href="admin.html" class="footer-admin-link" data-i18n="footer.espace_admin">Espace administration</a>
+      <a href="professeur.html" class="footer-admin-link" data-i18n="footer.espace_prof">Espace professeur</a>
+      <a href="caisse.html" class="footer-admin-link" data-i18n="footer.espace_caisse">Espace caisse</a>
     </div>
   </footer>
 
   <script src="js/config.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/i18n.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

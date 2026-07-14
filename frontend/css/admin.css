@@ -373,7 +373,8 @@
 
 .attr-onglet-btn,
 .notes-onglet-btn,
-.reins-onglet-btn {
+.reins-onglet-btn,
+.contact-onglet-btn {
   padding: 12px 20px;
   border: none;
   background: transparent;
@@ -387,27 +388,31 @@
 
 .attr-onglet-btn.active,
 .notes-onglet-btn.active,
-.reins-onglet-btn.active {
+.reins-onglet-btn.active,
+.contact-onglet-btn.active {
   color: var(--bleu);
   border-bottom-color: var(--bleu);
 }
 
 .attr-onglet-btn:hover:not(.active),
 .notes-onglet-btn:hover:not(.active),
-.reins-onglet-btn:hover:not(.active) {
+.reins-onglet-btn:hover:not(.active),
+.contact-onglet-btn:hover:not(.active) {
   color: var(--bleu);
   background: #f5f7fb;
 }
 
 .attr-onglet-contenu,
 .notes-onglet-contenu,
-.reins-onglet-contenu {
+.reins-onglet-contenu,
+.contact-onglet-contenu {
   display: none;
 }
 
 .attr-onglet-contenu.active,
 .notes-onglet-contenu.active,
-.reins-onglet-contenu.active {
+.reins-onglet-contenu.active,
+.contact-onglet-contenu.active {
   display: block;
 }
 

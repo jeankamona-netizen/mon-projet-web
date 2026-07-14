@@ -34,14 +34,39 @@ function allerEtape(numero) {
   document.querySelector('.login-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-async function connecterEtudiant() {
-  const numero     = document.getElementById('numero-etudiant')?.value.trim();
-  const motDePasse = document.getElementById('mot-de-passe')?.value.trim();
-  const erreurBox  = document.getElementById('erreur-connexion');
+// Un seul portail pour les 5 profils : le champ "identifiant" change de
+// libellé/type selon le rôle choisi, mais chaque rôle continue d'appeler sa
+// propre route d'authentification (auth/etudiant, auth/professeur, etc.) —
+// aucun changement côté backend, uniquement la page de connexion est unifiée.
+const CONFIG_ROLES_CONNEXION = {
+  etudiant:  { label: 'Numéro étudiant', placeholder: 'ex: UML-2024-0012', type: 'text', autocomplete: 'username' },
+  professeur:{ label: 'Adresse email',   placeholder: 'nom@exemple.com',   type: 'email', autocomplete: 'username' },
+  admin:     { label: 'Identifiant',     placeholder: 'ex: admin.uml',     type: 'text', autocomplete: 'username' },
+  caissier:  { label: 'Matricule',       placeholder: 'ex: CAISSE-001',    type: 'text', autocomplete: 'username' },
+  administrateur_budget: { label: 'Matricule', placeholder: 'ex: BUDGET-001', type: 'text', autocomplete: 'username' },
+};
+
+function ajusterChampIdentifiant() {
+  const role = document.getElementById('role-connexion')?.value;
+  const config = CONFIG_ROLES_CONNEXION[role];
+  const champ = document.getElementById('identifiant-connexion');
+  const label = document.getElementById('label-identifiant');
+  if (!config || !champ || !label) return;
+  label.textContent = config.label;
+  champ.placeholder = config.placeholder;
+  champ.type = config.type;
+  champ.autocomplete = config.autocomplete;
+}
+
+async function connecterUniverselle() {
+  const role       = document.getElementById('role-connexion')?.value;
+  const identifiant = document.getElementById('identifiant-connexion')?.value.trim();
+  const motDePasse  = document.getElementById('mot-de-passe')?.value.trim();
+  const erreurBox   = document.getElementById('erreur-connexion');
 
   if (erreurBox) erreurBox.style.display = 'none';
 
-  if (!numero || !motDePasse) {
+  if (!identifiant || !motDePasse) {
     if (erreurBox) { erreurBox.textContent = '⚠️ Veuillez remplir tous les champs.'; erreurBox.style.display = 'block'; }
     return;
   }
@@ -50,10 +75,16 @@ async function connecterEtudiant() {
   if (btnLogin) { btnLogin.disabled = true; btnLogin.textContent = '⏳ Connexion...'; }
 
   try {
-    const reponse = await fetch(`${BASE_URL}/api/auth/etudiant`, {
+    let route, corps;
+    if (role === 'etudiant')        { route = 'etudiant';   corps = { numero: identifiant, mot_de_passe: motDePasse }; }
+    else if (role === 'professeur') { route = 'professeur'; corps = { email: identifiant, mot_de_passe: motDePasse }; }
+    else if (role === 'admin')      { route = 'admin';      corps = { user: identifiant, password: motDePasse }; }
+    else                            { route = 'agent';      corps = { matricule: identifiant, mot_de_passe: motDePasse }; }
+
+    const reponse = await fetch(`${BASE_URL}/api/auth/${route}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numero, mot_de_passe: motDePasse })
+      body: JSON.stringify(corps)
     });
 
     const donnees = await reponse.json();
@@ -63,8 +94,22 @@ async function connecterEtudiant() {
       return;
     }
 
-    sessionStorage.setItem('etudiant', JSON.stringify(donnees.etudiant));
-    window.location.href = 'dashboard.html';
+    if (role === 'etudiant') {
+      sessionStorage.setItem('etudiant', JSON.stringify(donnees.etudiant));
+      window.location.href = 'dashboard.html';
+    } else if (role === 'professeur') {
+      sessionStorage.setItem('professeur', JSON.stringify(donnees.professeur));
+      window.location.href = 'professeur-dashboard.html';
+    } else if (role === 'admin') {
+      sessionStorage.setItem('admin_token', donnees.token);
+      window.location.href = 'admin-dashboard.html';
+    } else {
+      // caissier et administrateur_budget partagent le même tableau de bord
+      // (voir estLectureSeule() dans caisse.js pour la distinction d'accès).
+      sessionStorage.setItem('caisse_token', donnees.token);
+      sessionStorage.setItem('caisse_agent', JSON.stringify(donnees.agent));
+      window.location.href = 'caisse-dashboard.html';
+    }
 
   } catch {
     if (erreurBox) { erreurBox.textContent = '⚠️ Impossible de contacter le serveur. Vérifiez que le backend est démarré.'; erreurBox.style.display = 'block'; }
@@ -96,7 +141,16 @@ function remplirSpecialitesPreinscription() {
 // Validation avec Entrée
 document.addEventListener('DOMContentLoaded', () => {
   const mdp = document.getElementById('mot-de-passe');
-  if (mdp) mdp.addEventListener('keypress', e => { if (e.key === 'Enter') connecterEtudiant(); });
+  if (mdp) mdp.addEventListener('keypress', e => { if (e.key === 'Enter') connecterUniverselle(); });
+
+  // Pré-sélectionne le rôle si on arrive via un ancien lien direct
+  // (ex. admin.html redirige vers login.html?role=admin).
+  const roleParam = new URLSearchParams(window.location.search).get('role');
+  const selectRole = document.getElementById('role-connexion');
+  if (roleParam && selectRole && CONFIG_ROLES_CONNEXION[roleParam]) {
+    selectRole.value = roleParam;
+    ajusterChampIdentifiant();
+  }
 
   if (document.getElementById('specialite')) {
     chargerFacultesDB().then(remplirSpecialitesPreinscription);

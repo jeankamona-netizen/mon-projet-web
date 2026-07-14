@@ -40,7 +40,7 @@ async function connexionProfesseur() {
 
 function getProfesseurConnecte() {
   const data = sessionStorage.getItem('professeur');
-  if (!data) { window.location.href = 'professeur.html'; return null; }
+  if (!data) { window.location.href = 'login.html?role=professeur'; return null; }
   return JSON.parse(data);
 }
 
