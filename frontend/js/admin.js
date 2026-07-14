@@ -55,6 +55,16 @@ function verifierSessionAdmin() {
   }
 }
 
+function deconnecterAdmin() {
+  sessionStorage.removeItem('admin_token');
+  window.location.href = 'login.html?role=admin';
+}
+
+function basculerMenuCompteAdmin(event) {
+  if (event) event.stopPropagation();
+  document.getElementById('admin-menu-compte')?.classList.toggle('ouvert');
+}
+
 // =====================
 // APPEL API AUTHENTIFIÉ — ajoute le token JWT admin, gère l'expiration de session
 // =====================
@@ -245,6 +255,86 @@ async function supprimerAbonneNewsletter(id) {
 }
 
 // =====================
+// CLOCHE DE NOTIFICATIONS ADMIN — messages de contact + nouveaux abonnés
+// newsletter. « Vu » est mémorisé en local (comme côté étudiant) : ouvrir la
+// cloche marque tout ce qui y figure comme lu, seuls les éléments vraiment
+// nouveaux depuis la dernière consultation gonflent le badge.
+// =====================
+let messagesContactCache = [];
+let abonnesNewsletterCache = [];
+
+function construireNotificationsAdmin() {
+  const items = [];
+  messagesContactCache.forEach(m => items.push({
+    categorie: 'message', id: `msg-${m.id}`, icone: '✉️',
+    titre: m.nom, sousTitre: m.sujet || 'Nouveau message'
+  }));
+  abonnesNewsletterCache.forEach(a => items.push({
+    categorie: 'newsletter', id: `news-${a.id}`, icone: '📧',
+    titre: 'Nouvel abonné newsletter', sousTitre: a.email
+  }));
+  return items;
+}
+
+function notificationsAdminVues() {
+  try { return JSON.parse(localStorage.getItem('admin_notifs_vues') || '[]'); } catch { return []; }
+}
+
+function calculerNotificationsAdminNouvelles() {
+  const vues = new Set(notificationsAdminVues());
+  return construireNotificationsAdmin().filter(it => !vues.has(it.id));
+}
+
+async function chargerNotificationsAdmin() {
+  try {
+    const [rMsg, rNews] = await Promise.all([
+      fetchAdmin(`${BASE_URL}/api/contact`),
+      fetchAdmin(`${BASE_URL}/api/newsletter`),
+    ]);
+    messagesContactCache = await rMsg.json();
+    abonnesNewsletterCache = await rNews.json();
+    mettreAJourNotificationsAdmin();
+  } catch { /* silencieux : la cloche reste fonctionnelle sans nouvelles données */ }
+}
+
+function mettreAJourNotificationsAdmin() {
+  const nouvelles = calculerNotificationsAdminNouvelles();
+  const badge = document.getElementById('admin-notif-badge');
+  if (badge) {
+    if (nouvelles.length > 0) { badge.textContent = nouvelles.length > 99 ? '99+' : nouvelles.length; badge.style.display = ''; }
+    else badge.style.display = 'none';
+  }
+  const liste = document.getElementById('admin-notif-liste');
+  if (liste) {
+    liste.innerHTML = nouvelles.length === 0
+      ? '<p class="notif-vide">Aucune nouvelle information.</p>'
+      : nouvelles.map(it => `
+          <div class="notif-item" role="button" tabindex="0" onclick="afficherSection('admin-contact', document.querySelector('.nav-item[onclick*=admin-contact]'))">
+            <span class="notif-item-icone">${it.icone}</span>
+            <div>
+              <span class="notif-item-titre">${it.titre}</span>
+              <span class="notif-item-sous">${it.sousTitre}</span>
+            </div>
+          </div>`).join('');
+  }
+}
+
+function marquerNotificationsAdminLues() {
+  const ids = construireNotificationsAdmin().map(it => it.id);
+  localStorage.setItem('admin_notifs_vues', JSON.stringify(ids));
+  const badge = document.getElementById('admin-notif-badge');
+  if (badge) badge.style.display = 'none';
+}
+
+function basculerNotificationsAdmin(event) {
+  if (event) event.stopPropagation();
+  const panneau = document.getElementById('admin-notif-panneau');
+  if (!panneau) return;
+  const ouvert = panneau.classList.toggle('ouvert');
+  if (ouvert) marquerNotificationsAdminLues();
+}
+
+// =====================
 // NAVIGATION ENTRE SECTIONS
 // =====================
 function afficherSection(id, lien) {
@@ -265,7 +355,7 @@ function afficherSection(id, lien) {
   if (id === 'admin-audit')           chargerAuditLog();
   if (id === 'admin-agents')          chargerAgents();
   if (id === 'admin-annees')          chargerAnneesAcademiquesAdmin();
-  if (id === 'admin-contact')         { chargerMessagesContact(); chargerAbonnesNewsletter(); }
+  if (id === 'admin-contact')         { chargerMessagesContact(); chargerAbonnesNewsletter(); chargerNotificationsAdmin(); }
 }
 
 // Sous-menu déroulant « Gérer les Inscrits » : Inscriptions / Réinscriptions /
@@ -2895,6 +2985,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   remplirCheckboxesFacultes('inscriptions-facultes-checkboxes');
 
   if (document.getElementById('cpt-etudiants')) chargerStats();
+  if (document.getElementById('admin-notif-badge')) chargerNotificationsAdmin();
+
+  // Fermer les panneaux déroulants (notifications, menu compte) au clic en dehors.
+  document.addEventListener('click', e => {
+    const notifWrap = document.querySelector('.dash-notif-wrap');
+    const notifPanneau = document.getElementById('admin-notif-panneau');
+    if (notifPanneau && notifWrap && !notifWrap.contains(e.target)) notifPanneau.classList.remove('ouvert');
+
+    const menuWrap = document.querySelector('.dash-menu-wrap');
+    const menu = document.getElementById('admin-menu-compte');
+    if (menu && menuWrap && !menuWrap.contains(e.target)) menu.classList.remove('ouvert');
+  });
 
   if (document.getElementById('admin-notes')) {
     chargerNotes();

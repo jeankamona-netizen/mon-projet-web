@@ -63,7 +63,7 @@
 .dash-menu-btn {
   background: none;
   border: none;
-  color: inherit;
+  color: #fff;
   padding: 0;
   display: flex;
   align-items: center;
@@ -169,7 +169,7 @@
   position: relative;
   background: none;
   border: none;
-  color: inherit;
+  color: #fff;
   padding: 0;
   display: flex;
   align-items: center;
