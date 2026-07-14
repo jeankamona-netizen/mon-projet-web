@@ -32,6 +32,7 @@
         <li><a href="#facultes" data-i18n="nav.facultes">Facultés</a></li>
         <li><a href="#galerie" data-i18n="nav.galerie">Galerie</a></li>
         <li><a href="#lmd" data-i18n="nav.lmd">LMD</a></li>
+        <li><a href="#apropos" data-i18n="nav.apropos">À propos</a></li>
         <li><a href="#contact" data-i18n="nav.contact">Contact</a></li>
         <li class="nav-links-mobile-only"><a href="login.html" data-i18n="nav.connexion">Connexion</a></li>
       </ul>
@@ -141,7 +142,29 @@
 <section class="evenements" id="evenements">
   <div class="container">
     <h2 data-i18n="evenements.titre">Calendrier des événements</h2>
-    <p class="section-sous-titre" data-i18n="evenements.soustitre">Restez informé des activités et dates importantes de l'UML</p>
+  
+    <!-- PARTIE STATIQUE — temps forts récurrents (modifiable directement ici) -->
+    <h3 class="evenements-sous-titre" data-i18n="evenements.statique_titre">Temps forts de l'année académique</h3>
+    <div class="events-statiques">
+      <div class="event-statique">
+        <span class="event-statique-icone">🎓</span>
+        <h4 data-i18n="evenements.s1_titre">Rentrée académique</h4>
+        <p data-i18n="evenements.s1_desc">Accueil des nouveaux étudiants et ouverture solennelle de l'année.</p>
+      </div>
+      <div class="event-statique">
+        <span class="event-statique-icone">🔬</span>
+        <h4 data-i18n="evenements.s2_titre">Semaine scientifique</h4>
+        <p data-i18n="evenements.s2_desc">Conférences, ateliers et présentation des travaux de recherche.</p>
+      </div>
+      <div class="event-statique">
+        <span class="event-statique-icone">🏅</span>
+        <h4 data-i18n="evenements.s3_titre">Collation des grades</h4>
+        <p data-i18n="evenements.s3_desc">Cérémonie solennelle de remise des diplômes aux lauréats.</p>
+      </div>
+    </div>
+
+    <!-- PARTIE DYNAMIQUE — événements ajoutés par l'administration (Annonces & événements) -->
+    <h3 class="evenements-sous-titre" data-i18n="evenements.dynamique_titre">Prochains événements</h3>
     <div class="events-grid" id="evenements-grid">
       <p style="text-align:center;color:#888;grid-column:1/-1">Chargement des événements...</p>
     </div>
@@ -261,12 +284,101 @@
     </div>
   </section>
 
+  <!-- ========== À PROPOS ========== -->
+  <section class="apropos" id="apropos">
+    <div class="container">
+      <h2 data-i18n="apropos.titre">À propos de l'UML</h2>
+      <p class="sous-titre" data-i18n="apropos.soustitre">Notre histoire, notre mission, nos valeurs et notre localisation</p>
+
+      <!-- Mot du Recteur -->
+      <div class="recteur-mot">
+        <div class="recteur-photo">
+          <img src="img/lerecteur.jpg" alt="Le Recteur de l'UML" onerror="this.remove()">
+        </div>
+        <div class="recteur-texte">
+          <h3 data-i18n="apropos.recteur_titre">Le mot du Recteur</h3>
+          <p class="recteur-proverbe" data-i18n="apropos.recteur_proverbe">« Kumbuka kile kilikuleta » — Souviens-toi de ce qui t'a amené ici.</p>
+          <p data-i18n="apropos.recteur_texte">Bienvenue à l'Université Méthodiste de Lubumbashi. J'aime rappeler à nos étudiants ce proverbe : reste conscient du but qui te conduit à l'université, travaille avec conscience et persévérance, et n'oublie jamais pourquoi tu es sur les bancs de l'école. C'est dans cet esprit d'excellence, d'intégrité et de foi que nous vous accompagnons vers la réussite.</p>
+          <span class="recteur-signature">
+            <span class="recteur-nom" data-i18n="apropos.recteur_nom">Rév. Prof. Ordinaire Jean-Marie Nkonge</span>
+            <span class="recteur-fonction" data-i18n="apropos.recteur_fonction">Recteur de l'Université Méthodiste de Lubumbashi</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Histoire & Mission -->
+      <div class="apropos-bloc">
+        <div class="apropos-carte">
+          <h3 data-i18n="apropos.histoire_titre">Notre histoire</h3>
+          <p data-i18n="apropos.histoire_texte">L'Université Méthodiste de Lubumbashi (UML) a été créée en 2019 par le Révérend Professeur Ordinaire Jean-Marie Nkonge, sous l'égide de l'Évêque Professeur Ordinaire Kasap O'wan Tshibang, alors à la tête de l'Église Méthodiste Unie de la région Sud-Congo – Zambie. Institution d'enseignement supérieur d'inspiration chrétienne méthodiste, implantée à Lubumbashi (Katanga, RDC), elle est organisée autour de quatre facultés et adopte pleinement le système LMD (Licence – Master – Doctorat).</p>
+        </div>
+        <div class="apropos-carte">
+          <h3 data-i18n="apropos.mission_titre">Notre mission</h3>
+          <p data-i18n="apropos.mission_texte">Former des cadres compétents, intègres et responsables, capables de contribuer au développement de la société congolaise et de l'Afrique. L'UML allie l'excellence académique à une formation humaine et spirituelle, préparant ses étudiants à devenir des acteurs de changement au service du bien commun.</p>
+        </div>
+      </div>
+
+      <!-- Valeurs -->
+      <h3 class="apropos-sous-titre" data-i18n="valeurs.titre">Nos Valeurs Fondamentales</h3>
+      <p class="apropos-sous-texte" data-i18n="valeurs.soustitre">Trois principes qui découlent de notre devise et guident toute la vie de l'UML</p>
+      <div class="valeurs-grid">
+        <div class="valeur-card">
+          <div class="valeur-icone">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <h3 data-i18n="valeurs.integrite_titre">Intégrité</h3>
+          <p data-i18n="valeurs.integrite_desc">Honnêteté intellectuelle et morale, enracinée dans les valeurs chrétiennes méthodistes qui fondent l'université.</p>
+        </div>
+        <div class="valeur-card">
+          <div class="valeur-icone">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <h3 data-i18n="valeurs.efficacite_titre">Efficacité</h3>
+          <p data-i18n="valeurs.efficacite_desc">Rigueur, sérieux et sens du résultat, au service de la réussite et de l'insertion de nos étudiants.</p>
+        </div>
+        <div class="valeur-card">
+          <div class="valeur-icone">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+          </div>
+          <h3 data-i18n="valeurs.excellence_titre">Excellence Académique</h3>
+          <p data-i18n="valeurs.excellence_desc">Recherche constante de la qualité dans l'enseignement, la recherche et l'encadrement des étudiants.</p>
+        </div>
+      </div>
+
+      <!-- Partenaires -->
+      <h3 class="apropos-sous-titre" data-i18n="apropos.partenaires_titre">Nos partenaires</h3>
+      <p class="apropos-sous-texte" data-i18n="apropos.partenaires_soustexte">Ils accompagnent l'UML dans sa mission de formation et de service</p>
+      <div class="partenaires-grid">
+        <div class="partenaire-carte"><span class="partenaire-sigle">UMCOR</span><span class="partenaire-nom">United Methodist Committee on Relief</span></div>
+        <div class="partenaire-carte"><span class="partenaire-sigle">UMK</span><span class="partenaire-nom">Université Méthodiste au Katanga</span></div>
+        <div class="partenaire-carte"><span class="partenaire-sigle">UMKOL</span><span class="partenaire-nom">Université Méthodiste de Kolwezi</span></div>
+        <div class="partenaire-carte"><span class="partenaire-sigle">EMU</span><span class="partenaire-nom">Église Méthodiste Unie</span></div>
+      </div>
+
+      <!-- Localisation -->
+      <h3 class="apropos-sous-titre" data-i18n="apropos.localisation_titre">Notre localisation</h3>
+      <div class="apropos-loc">
+        <div class="apropos-loc-infos">
+          <p><span class="apropos-loc-label" data-i18n="apropos.adresse_label">Adresse</span><br>
+            <span data-i18n="contact.adresse_valeur">N°249, Croisement Av. Kasavubu &amp; Likasi<br>Lubumbashi, Katanga, RDC</span></p>
+          <p><span class="apropos-loc-label" data-i18n="apropos.heures_label">Heures d'ouverture</span><br>
+            <span data-i18n="contact.heures_valeur">Lundi - Vendredi : 7h00 - 17h00</span></p>
+          <a class="apropos-loc-lien" href="https://maps.google.com/maps?q=-11.673866,27.483233" target="_blank" rel="noopener" data-i18n="apropos.itineraire">Voir l'itinéraire sur Google Maps →</a>
+        </div>
+        <div class="apropos-loc-carte">
+          <iframe title="Localisation UML" src="https://maps.google.com/maps?q=-11.673866,27.483233&z=16&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
   <!-- ========== CONTACT ========== -->
   <section class="contact" id="contact">
     <div class="container">
       <h2 data-i18n="contact.titre">Nous contacter</h2>
-      <p class="section-sous-titre" data-i18n="contact.soustitre">Une question ? Écrivez-nous, nous vous répondrons rapidement</p>
 
+      <p class="sous-titre" data-i18n="contact.soustitre">Une question ? Écrivez-nous, nous vous répondrons rapidement</p>
       <div class="contact-grille">
 
         <div class="contact-infos">
@@ -356,6 +468,7 @@
         <a href="#facultes" data-i18n="nav.facultes">Facultés</a>
         <a href="#galerie" data-i18n="nav.galerie">Galerie</a>
         <a href="#lmd" data-i18n="nav.lmd">LMD</a>
+        <a href="#apropos" data-i18n="nav.apropos">À propos</a>
         <a href="#contact" data-i18n="nav.contact">Contact</a>
       </div>
 
@@ -379,11 +492,6 @@
 
     </div>
 
-    <div class="footer-bas">
-      <a href="admin.html" class="footer-admin-link" data-i18n="footer.espace_admin">Espace administration</a>
-      <a href="professeur.html" class="footer-admin-link" data-i18n="footer.espace_prof">Espace professeur</a>
-      <a href="caisse.html" class="footer-admin-link" data-i18n="footer.espace_caisse">Espace caisse</a>
-    </div>
   </footer>
 
   <script src="js/config.js"></script>
