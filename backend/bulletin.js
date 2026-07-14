@@ -136,7 +136,7 @@ function dessinerInfosEtudiant(doc, etudiant) {
 function dessinerBandeauPeriode(doc, etudiant, anneeAcademique, periode) {
   const largeurCol = LARGEUR_PAGE / 3;
   const y = doc.y;
-  const hauteurTitre = 12, hauteurValeur = 14;
+  const hauteurTitre = 11, hauteurValeur = 13;
 
   const cellules = [
     { titre: 'Année académique', valeur: anneeAcademique || etudiant.annee_academique || '—' },
@@ -147,12 +147,12 @@ function dessinerBandeauPeriode(doc, etudiant, anneeAcademique, periode) {
     const x = X_DEPART + i * largeurCol;
     doc.rect(x, y, largeurCol, hauteurTitre).fill(COULEUR_BLEU);
     doc.fontSize(7.3).font('Helvetica-Bold').fillColor('#ffffff')
-      .text(c.titre, x, y + 3, { width: largeurCol, align: 'center' });
+      .text(c.titre, x, y + 2.5, { width: largeurCol, align: 'center' });
     doc.rect(x, y + hauteurTitre, largeurCol, hauteurValeur).strokeColor(COULEUR_BORDURE).lineWidth(0.5).stroke();
     doc.fontSize(8.5).font('Helvetica-Bold').fillColor(COULEUR_TEXTE)
-      .text(c.valeur, x, y + hauteurTitre + 3, { width: largeurCol, align: 'center' });
+      .text(c.valeur, x, y + hauteurTitre + 2.5, { width: largeurCol, align: 'center' });
   });
-  doc.y = y + hauteurTitre + hauteurValeur + 6;
+  doc.y = y + hauteurTitre + hauteurValeur + 4;
 }
 
 // ===== TABLEAU DES NOTES (Code UE = code du cours, comme demandé) — compacté =====
@@ -221,37 +221,37 @@ function dessinerTotalGeneral(doc, notes) {
   const totalPoints   = notes.reduce((s, n) => s + (n.note !== null ? Number(n.note) * n.credits : 0), 0);
   const totalPossible = notes.reduce((s, n) => s + n.credits * 20, 0);
 
-  assurerEspace(doc, 18);
+  assurerEspace(doc, 16);
   const y = doc.y;
-  doc.rect(X_DEPART, y, LARGEUR_PAGE, 15).fillAndStroke('#eef2fb', COULEUR_BORDURE);
+  doc.rect(X_DEPART, y, LARGEUR_PAGE, 13).fillAndStroke('#eef2fb', COULEUR_BORDURE);
   doc.fontSize(8.3).font('Helvetica-Bold').fillColor(COULEUR_BLEU)
-    .text('Total Général', X_DEPART + 8, y + 3.5);
-  doc.text(`${totalPoints.toFixed(2)} / ${totalPossible}`, X_DEPART, y + 3.5, { width: LARGEUR_PAGE - 8, align: 'right' });
-  doc.y = y + 20;
+    .text('Total Général', X_DEPART + 8, y + 2.5);
+  doc.text(`${totalPoints.toFixed(2)} / ${totalPossible}`, X_DEPART, y + 2.5, { width: LARGEUR_PAGE - 8, align: 'right' });
+  doc.y = y + 17;
 }
 
 // Les absences ne sont pas encore suivies dans l'application : les champs
 // restent volontairement vides (pas de valeur inventée) en attendant.
 // Bloc compact sur deux lignes plutôt que deux grandes boîtes.
 function dessinerAbsencesEtMoyenne(doc, notesSession) {
-  assurerEspace(doc, 30);
+  assurerEspace(doc, 26);
   const y = doc.y;
 
   const moyenne = calculerMoyenne(notesSession);
   const creditsCapitalises = notesSession.filter(n => n.note !== null && n.note >= 10).reduce((s, n) => s + n.credits, 0);
   const creditsTotal = notesSession.reduce((s, n) => s + n.credits, 0);
 
-  doc.rect(X_DEPART, y, LARGEUR_PAGE, 26).fillAndStroke(COULEUR_FOND_BOITE, COULEUR_BORDURE);
+  doc.rect(X_DEPART, y, LARGEUR_PAGE, 22).fillAndStroke(COULEUR_FOND_BOITE, COULEUR_BORDURE);
 
   doc.fontSize(7.5).font('Helvetica').fillColor(COULEUR_TEXTE)
-    .text('Absences — Total : — · Justifiées : — · Non justifiées : — · Assiduité : —/20', X_DEPART + 8, y + 5, { width: LARGEUR_PAGE - 16 });
+    .text('Absences — Total : — · Justifiées : — · Non justifiées : — · Assiduité : —/20', X_DEPART + 8, y + 4, { width: LARGEUR_PAGE - 16 });
 
   doc.font('Helvetica-Bold').fillColor(COULEUR_BLEU)
-    .text(`Moyenne semestrielle : ${moyenne !== null ? moyenne.toFixed(2) + '/20' : '—'}`, X_DEPART + 8, y + 16, { continued: true });
+    .text(`Moyenne semestrielle : ${moyenne !== null ? moyenne.toFixed(2) + '/20' : '—'}`, X_DEPART + 8, y + 13, { continued: true });
   doc.font('Helvetica').fillColor(COULEUR_TEXTE)
     .text(`    —    Crédits capitalisés : ${creditsCapitalises} / ${creditsTotal}`);
 
-  doc.y = y + 32;
+  doc.y = y + 27;
 }
 
 function dessinerObservation(doc, notesSession, numero) {
@@ -264,13 +264,13 @@ function dessinerObservation(doc, notesSession, numero) {
   doc.fontSize(8).font('Helvetica-Bold').fillColor(COULEUR_TEXTE).text(`Observation S${numero} :`, X_DEPART, y, { continued: true });
   doc.font('Helvetica').fillColor(COULEUR_BLEU).text(' ' + observation);
 
-  doc.y = y + 18;
+  doc.y = y + 14;
 }
 
 function dessinerSemestre(doc, etudiant, notesSession, numero) {
   assurerEspace(doc, 40);
   doc.fontSize(10.5).font('Helvetica-Bold').fillColor(COULEUR_BLEU).text(`Semestre ${numero}`, X_DEPART, doc.y);
-  doc.y += 14;
+  doc.y += 12;
 
   const anneeAcademique = notesSession[0]?.annee_academique;
   dessinerBandeauPeriode(doc, etudiant, anneeAcademique, `Semestre ${numero} / Session 1`);
@@ -307,24 +307,24 @@ function dessinerResumeEtSignature(doc, notes) {
     .text(texteResume, X_DEPART, y + 7, { width: LARGEUR_PAGE, align: 'center' });
 
   // Signature unique pour l'ensemble du bulletin (les deux semestres).
-  const ySignature = y + 24;
+  const ySignature = y + 20;
   doc.font('Helvetica-Bold').fontSize(8.5).fillColor(COULEUR_TEXTE)
     .text('La Direction', X_DEPART + LARGEUR_PAGE - 145, ySignature, { width: 145, align: 'center' });
-  doc.moveTo(X_DEPART + LARGEUR_PAGE - 145, ySignature + 26).lineTo(X_DEPART + LARGEUR_PAGE, ySignature + 26)
+  doc.moveTo(X_DEPART + LARGEUR_PAGE - 145, ySignature + 22).lineTo(X_DEPART + LARGEUR_PAGE, ySignature + 22)
     .strokeColor(COULEUR_BORDURE).stroke();
 
-  doc.y = ySignature + 34;
+  doc.y = ySignature + 28;
 }
 
 function dessinerDateEtNote(doc) {
-  assurerEspace(doc, 16);
+  assurerEspace(doc, 13);
   const y = doc.y;
   const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   doc.fontSize(8.3).font('Helvetica').fillColor(COULEUR_TEXTE)
     .text(`Lubumbashi, le ${dateStr}`, X_DEPART, y, { width: 250 });
   doc.font('Helvetica-Bold').fillColor(COULEUR_ROUGE)
     .text('NB : Aucun duplicata ne sera délivré', X_DEPART + 250, y, { width: LARGEUR_PAGE - 250, align: 'right' });
-  doc.y = y + 16;
+  doc.y = y + 13;
 }
 
 // ===== BARÈME — tout en bas de page, petite police (9), comme demandé =====
@@ -332,9 +332,9 @@ function dessinerDateEtNote(doc) {
 // précède) : s'il reste de la place libre, le barème est repoussé vers le
 // bas plutôt que de flotter juste sous la signature.
 function dessinerBareme(doc) {
-  const hauteurLigne = 13;
-  const hauteurTotale = 12 + 13 + BAREME_CONVERSION.length * hauteurLigne; // titre + en-tête + lignes
-  const reservePied = 34; // marge de sécurité au-dessus du pied de page (évite tout chevauchement)
+  const hauteurLigne = 11;
+  const hauteurTotale = 10 + 11 + BAREME_CONVERSION.length * hauteurLigne; // titre + en-tête + lignes
+  const reservePied = 16; // marge de sécurité au-dessus du pied de page (évite tout chevauchement)
   const basPage = doc.page.height - doc.page.margins.bottom;
   const yAncre = basPage - hauteurTotale - reservePied;
   if (yAncre > doc.y) doc.y = yAncre;
@@ -342,7 +342,7 @@ function dessinerBareme(doc) {
 
   doc.fontSize(9).font('Helvetica-Bold').fillColor(COULEUR_TEXTE)
     .text('Système de correspondance des notes', X_DEPART, doc.y);
-  doc.y += 12;
+  doc.y += 10;
 
   const colonnes = [
     { titre: 'Note (/20)',   largeur: 70  },
@@ -352,19 +352,19 @@ function dessinerBareme(doc) {
     { titre: 'Commentaire',  largeur: 295 },
   ];
   let y = doc.y;
-  doc.rect(X_DEPART, y, LARGEUR_PAGE, 13).fill(COULEUR_BLEU);
+  doc.rect(X_DEPART, y, LARGEUR_PAGE, hauteurLigne).fill(COULEUR_BLEU);
   let x = X_DEPART;
-  doc.fontSize(9).font('Helvetica-Bold').fillColor('#ffffff');
-  colonnes.forEach(c => { doc.text(c.titre, x + 3, y + 2.5, { width: c.largeur - 6 }); x += c.largeur; });
-  y += 13;
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#ffffff');
+  colonnes.forEach(c => { doc.text(c.titre, x + 3, y + 1.8, { width: c.largeur - 6 }); x += c.largeur; });
+  y += hauteurLigne;
 
   BAREME_CONVERSION.forEach((ligne, i) => {
-    if (i % 2 === 1) doc.rect(X_DEPART, y, LARGEUR_PAGE, 13).fill(COULEUR_ZEBRE);
+    if (i % 2 === 1) doc.rect(X_DEPART, y, LARGEUR_PAGE, hauteurLigne).fill(COULEUR_ZEBRE);
     x = X_DEPART;
     const valeurs = [ligne.classique, ligne.ects, ligne.us, ligne.japonais, ligne.commentaire];
-    doc.fontSize(9).font('Helvetica').fillColor(COULEUR_TEXTE);
-    valeurs.forEach((v, j) => { doc.text(v, x + 3, y + 2.5, { width: colonnes[j].largeur - 6 }); x += colonnes[j].largeur; });
-    y += 13;
+    doc.fontSize(8.5).font('Helvetica').fillColor(COULEUR_TEXTE);
+    valeurs.forEach((v, j) => { doc.text(v, x + 3, y + 1.8, { width: colonnes[j].largeur - 6 }); x += colonnes[j].largeur; });
+    y += hauteurLigne;
   });
 
   doc.y = y + 4;

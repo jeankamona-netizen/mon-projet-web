@@ -407,6 +407,20 @@ h2 {
   border-bottom: 1px solid #f0f0f0;
 }
 
+.filieres li.filiere-separateur {
+  border-bottom: none;
+  padding: 10px 0;
+}
+
+.filieres li.filiere-separateur::before {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 2px;
+  margin: 0 auto;
+  background: var(--bleu);
+}
+
 .filieres li:last-child {
   border-bottom: none;
 }

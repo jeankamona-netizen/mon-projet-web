@@ -28,10 +28,18 @@ async function chargerFacultesAccueil() {
     if (facultesDB.length === 0) { grille.innerHTML = '<p style="text-align:center;color:#888;grid-column:1/-1">Aucune faculté enregistrée.</p>'; return; }
     grille.innerHTML = facultesDB.map(f => {
       const style = STYLE_FACULTE[f.nom] || 'theologie';
+      // Sépare visuellement Licence/Pré-U (filières sans préfixe) et Master
+      // (préfixées "Master ") quand la faculté propose les deux cycles.
+      const licence = (f.filieres || []).filter(nom => !nom.startsWith('Master '));
+      const master  = (f.filieres || []).filter(nom => nom.startsWith('Master '));
       const filieres = (f.filieres && f.filieres.length > 0)
-        ? f.filieres.map(nom => `<li>✓ ${nom}</li>`).join('')
+        ? licence.map(nom => `<li>✓ ${nom}</li>`).join('')
+          + (licence.length > 0 && master.length > 0 ? '<li class="filiere-separateur" aria-hidden="true"></li>' : '')
+          + master.map(nom => `<li>✓ ${nom}</li>`).join('')
         : '<li>✓ Programme non subdivisé en filières</li>';
-      const badge = f.master_disponible ? '<div class="master-badge">Master disponible</div>' : '';
+      const badge = f.master_disponible
+        ? '<div class="master-badge">Master disponible</div>'
+        : '<div class="master-badge">non programmé</div>';
       return `
         <div class="faculte-card">
           <div class="faculte-header ${style}"><h3>${f.nom}</h3></div>
