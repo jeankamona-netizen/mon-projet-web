@@ -654,7 +654,7 @@ async function chargerMatieresPourNote() {
     const cours = await r.json();
     sel.innerHTML = (!Array.isArray(cours) || cours.length === 0)
       ? '<option value="">Aucun cours pour ces critères</option>'
-      : '<option value="">— Choisir une matière —</option>' + cours.map(c => `<option value="${c.nom}" data-semestre="${c.semestre}">${c.code} — ${c.nom} (${c.promotion})</option>`).join('');
+      : '<option value="">— Choisir une matière —</option>' + cours.map(c => `<option value="${c.id}" data-semestre="${c.semestre}">${c.code} — ${c.nom} (${c.promotion})</option>`).join('');
     majSemestreNote();
   } catch { sel.innerHTML = '<option value="">⚠️ Erreur</option>'; }
 }
@@ -682,7 +682,7 @@ async function chargerCoursEtudiant() {
     const cours = await r.json();
     sel.innerHTML = (!Array.isArray(cours) || cours.length === 0)
       ? '<option value="">Aucun cours pour cet étudiant</option>'
-      : '<option value="">— Choisir une matière —</option>' + cours.map(c => `<option value="${c.nom}" data-semestre="${c.semestre}">${c.code} — ${c.nom}</option>`).join('');
+      : '<option value="">— Choisir une matière —</option>' + cours.map(c => `<option value="${c.id}" data-semestre="${c.semestre}">${c.code} — ${c.nom}</option>`).join('');
     majSemestreNote();
   } catch { sel.innerHTML = '<option value="">⚠️ Erreur</option>'; }
 }
@@ -752,17 +752,14 @@ function modifierNote(id) {
 
 function fermerModalNote() { document.getElementById('modal-note')?.classList.remove('active'); }
 
-async function trouverCoursIdParNom(nomCours) {
-  const r = await fetch(`${BASE_URL}/api/programme`);
-  const cours = await r.json();
-  const t = cours.find(c => c.nom === nomCours);
-  return t ? t.id : null;
-}
-
 async function sauvegarderNote() {
   const idEdit      = document.getElementById('note-id-edit').value;
   const etudiant_id = document.getElementById('note-etudiant')?.value;
-  const matiereNom  = document.getElementById('note-matiere')?.value;
+  // La valeur de #note-matiere est l'ID du cours (pas son nom) : un même
+  // intitulé existe plusieurs fois au catalogue (une fois par année
+  // académique), chercher par nom pouvait donc accrocher la note au mauvais
+  // exemplaire du cours — voir chargerMatieresPourNote()/chargerCoursEtudiant().
+  const coursIdChoisi = document.getElementById('note-matiere')?.value;
   const ccValeur     = document.getElementById('note-cc').value;
   const examenValeur = document.getElementById('note-examen').value;
   // En modification, un champ vidé doit explicitement effacer la note déjà
@@ -781,7 +778,7 @@ async function sauvegarderNote() {
   if (note_cc     !== undefined && note_cc     !== null && (isNaN(note_cc)     || note_cc     < 0 || note_cc     > 20)) { afficherToast('⚠️ Contrôle continu entre 0 et 20.', 'erreur'); return; }
   if (note_examen !== undefined && note_examen !== null && (isNaN(note_examen) || note_examen < 0 || note_examen > 20)) { afficherToast('⚠️ Examen entre 0 et 20.', 'erreur'); return; }
   if (!idEdit && !etudiant_id) { afficherToast('⚠️ Sélectionnez un étudiant.', 'erreur'); return; }
-  if (!idEdit && !matiereNom) { afficherToast('⚠️ Sélectionnez une matière.', 'erreur'); return; }
+  if (!idEdit && !coursIdChoisi) { afficherToast('⚠️ Sélectionnez une matière.', 'erreur'); return; }
 
   const corps = { annee_academique };
   if (note_cc     !== undefined) corps.note_cc     = note_cc;
@@ -792,10 +789,8 @@ async function sauvegarderNote() {
     if (idEdit) {
       reponse = await fetchAdmin(`${BASE_URL}/api/notes/${idEdit}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(corps) });
     } else {
-      const cours_id = await trouverCoursIdParNom(matiereNom);
-      if (!cours_id) { afficherToast('⚠️ Cours introuvable dans le programme.', 'erreur'); return; }
       corps.etudiant_id = etudiant_id;
-      corps.cours_id = cours_id;
+      corps.cours_id = Number(coursIdChoisi);
       reponse = await fetchAdmin(`${BASE_URL}/api/notes`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(corps) });
     }
     const d = await reponse.json();
