@@ -39,7 +39,7 @@ async function chargerFacultesAccueil() {
         : '<li>✓ Programme non subdivisé en filières</li>';
       const badge = f.master_disponible
         ? '<div class="master-badge">Master disponible</div>'
-        : '<div class="master-badge">non programmé</div>';
+        : '<div class="master-badge">En progression</div>';
       return `
         <div class="faculte-card">
           <div class="faculte-header ${style}"><h3>${f.nom}</h3></div>
