@@ -26,7 +26,8 @@ async function chargerFacultesAccueil() {
   try {
     await chargerFacultesDB();
     if (facultesDB.length === 0) { grille.innerHTML = '<p style="text-align:center;color:#888;grid-column:1/-1">Aucune faculté enregistrée.</p>'; return; }
-    grille.innerHTML = facultesDB.map(f => {
+    const NB_COLONNES = 3;
+    grille.innerHTML = facultesDB.map((f, i) => {
       const style = STYLE_FACULTE[f.nom] || 'theologie';
       // Sépare visuellement Licence/Pré-U (filières sans préfixe) et Master
       // (préfixées "Master ") quand la faculté propose les deux cycles.
@@ -40,8 +41,12 @@ async function chargerFacultesAccueil() {
       const badge = f.master_disponible
         ? '<div class="master-badge">Master disponible</div>'
         : '<div class="master-badge">En progression</div>';
+      // Une faculté au-delà de la première rangée ne redescend pas en colonne
+      // 1 : elle continue de s'empiler sous la dernière colonne (ex. la 4e
+      // faculté se place sous la 3e carte, pas sous la 1re).
+      const placement = i >= NB_COLONNES ? ` style="grid-column:${NB_COLONNES};grid-row:${i - NB_COLONNES + 2}"` : '';
       return `
-        <div class="faculte-card">
+        <div class="faculte-card"${placement}>
           <div class="faculte-header ${style}"><h3>${f.nom}</h3></div>
           <ul class="filieres">${filieres}</ul>
           ${badge}
