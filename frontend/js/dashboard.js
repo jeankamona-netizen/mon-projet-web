@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   mettreAJourNotifications();
   await chargerCursus();
   initialiserNavigation();
+  demarrerSynchronisationEnArrierePlan(etudiant.id);
 
   // Fermer les panneaux déroulants (notifications, menu compte) au clic en dehors.
   document.addEventListener('click', e => {
@@ -52,6 +53,58 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (menu && menuWrap && !menuWrap.contains(e.target)) menu.classList.remove('ouvert');
   });
 });
+
+// =====================
+// SYNCHRONISATION EN ARRIÈRE-PLAN — pour qu'une note/un versement/un cours
+// ajouté côté admin remonte sans que l'étudiant ait à recharger la page.
+// Ne relance QUE le rechargement des données (notes, frais, annonces) et le
+// nécessaire pour la section actuellement affichée ; ne touche jamais à la
+// navigation en cours (ex. semaine choisie dans "Horaires", filtre actif).
+// =====================
+const INTERVALLE_SYNCHRO_MS = 45000;
+
+async function synchroniserDonneesEnArrierePlan(etudiantId) {
+  try {
+    const [rNotes, rHoraires, rFrais] = await Promise.all([
+      fetch(`${BASE_URL}/api/etudiant/${etudiantId}/notes`),
+      fetch(`${BASE_URL}/api/etudiant/${etudiantId}/horaires`),
+      fetch(`${BASE_URL}/api/etudiant/${etudiantId}/paiements`),
+    ]);
+    if (rNotes.ok) notesEtudiant = await rNotes.json();
+    if (rHoraires.ok) horairesEtudiant = await rHoraires.json();
+    if (rFrais.ok) {
+      const d = await rFrais.json();
+      paiementsEtudiant = d.paiements || [];
+      soldeEtudiant = { montant_attendu: d.montant_attendu, solde: d.solde };
+    }
+  } catch { return; } // une synchro ratée est silencieuse, ne doit jamais interrompre la session
+
+  // On ne redessine que ce qui est effectivement à l'écran, pour ne jamais
+  // interrompre une saisie ou une navigation (semaine, filtre...) en cours.
+  const sectionActive = document.querySelector('.dash-section.active')?.id;
+  if (sectionActive === 'tableau-de-bord') {
+    afficherDernieresNotes();
+    afficherStatistiquesNotes();
+    afficherCoursAujourdhui();
+    genererAnalyseIA();
+  } else if (sectionActive === 'mes-notes') {
+    const sessionActive = document.querySelector('.filtre-session .filtre-btn.active')?.dataset.session || 'S1';
+    afficherNotesTableau(sessionActive);
+  } else if (sectionActive === 'frais') {
+    afficherFrais();
+  }
+
+  mettreAJourNotifications();
+}
+
+function demarrerSynchronisationEnArrierePlan(etudiantId) {
+  setInterval(() => synchroniserDonneesEnArrierePlan(etudiantId), INTERVALLE_SYNCHRO_MS);
+  // Resynchronise immédiatement quand l'étudiant revient sur l'onglet/l'appli —
+  // le cas le plus fréquent (il vérifie juste après avoir été prévenu autrement).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') synchroniserDonneesEnArrierePlan(etudiantId);
+  });
+}
 
 // =====================
 // PROFIL HEADER
@@ -248,7 +301,13 @@ function afficherNotesTableau(session = '') {
 function afficherDernieresNotes() {
   const tbody = document.getElementById('dernieres-notes-body');
   if (!tbody) return;
-  const liste = notesDuCursusActif().slice(-4).reverse();
+  // "Dernières" = les notes réellement saisies (pas les cours suivis sans
+  // note), triées par date de saisie/modification réelle (modifie_le) — pas
+  // par code de cours, qui n'a aucun rapport avec la récence.
+  const liste = notesDuCursusActif()
+    .filter(n => n.note_cc !== null || n.note_examen !== null || n.note !== null)
+    .sort((a, b) => new Date(b.modifie_le) - new Date(a.modifie_le))
+    .slice(0, 4);
 
   tbody.innerHTML = liste.length === 0
     ? `<tr><td colspan="3" style="text-align:center;color:#999;padding:20px">Aucune note disponible.</td></tr>`
@@ -696,7 +755,7 @@ function cleNotifications() {
 }
 
 function lireNotificationsVues() {
-  const base = { note: [], horaire: [], annonce: [], evenement: [], info: [] };
+  const base = { note: [], horaire: [], annonce: [], evenement: [], info: [], paiement: [] };
   const cle = cleNotifications();
   if (!cle) return base;
   try { return { ...base, ...JSON.parse(localStorage.getItem(cle) || '{}') }; }
@@ -704,7 +763,7 @@ function lireNotificationsVues() {
 }
 
 // Section du dashboard vers laquelle mène chaque type de notification.
-const NOTIF_SECTION = { note: 'mes-notes', horaire: 'horaires', annonce: 'annonces', evenement: 'annonces', info: 'annonces' };
+const NOTIF_SECTION = { note: 'mes-notes', horaire: 'horaires', annonce: 'annonces', evenement: 'annonces', info: 'annonces', paiement: 'frais' };
 
 function construireNotifications() {
   const items = [];
@@ -737,6 +796,11 @@ function construireNotifications() {
   (communiquesEtudiant || []).forEach(c => items.push({
     categorie: 'info', id: c.id, icone: '📣',
     titre: c.titre, sousTitre: c.description || 'Communiqué de l\'administration'
+  }));
+  (paiementsEtudiant || []).forEach(p => items.push({
+    categorie: 'paiement', id: p.id, icone: '💵',
+    titre: 'Versement enregistré',
+    sousTitre: `${Number(p.montant).toFixed(2)} $ le ${formaterDateAffichage(p.date_paiement)}`
   }));
   return items;
 }
@@ -779,7 +843,7 @@ function mettreAJourNotifications() {
 }
 
 function marquerNotificationsLues() {
-  const vus = { note: [], horaire: [], annonce: [], evenement: [], info: [] };
+  const vus = { note: [], horaire: [], annonce: [], evenement: [], info: [], paiement: [] };
   construireNotifications().forEach(it => vus[it.categorie].push(it.id));
   const cle = cleNotifications();
   if (cle) localStorage.setItem(cle, JSON.stringify(vus));

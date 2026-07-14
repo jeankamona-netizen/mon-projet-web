@@ -113,6 +113,7 @@ CREATE TABLE note (
   note              DECIMAL(4,2), -- moyenne calculée : (note_cc + note_examen) / 2
   session           ENUM('S1','S2') NOT NULL, -- toujours = cours.semestre (dérivé côté serveur)
   annee_academique  VARCHAR(20) NOT NULL,
+  modifie_le        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- pour trier "dernières notes" par vraie récence, pas par code de cours
   -- Un cours appartient à un seul semestre : une seule note par étudiant et par
   -- cours (jamais le même cours dans deux semestres différents).
   UNIQUE KEY etudiant_cours (etudiant_id, cours_id),

@@ -361,7 +361,7 @@ app.get('/api/etudiant/:id/notes', async (req, res) => {
     // session/niveau/année viennent du cours : garantit le bon semestre et
     // permet de séparer les cursus (L1 2025-2026 vs L2 2026-2027) après promotion.
     const [notes] = await pool.query(`
-      SELECT n.id, n.note_cc, n.note_examen, n.note, c.semestre AS session,
+      SELECT n.id, n.note_cc, n.note_examen, n.note, n.modifie_le, c.semestre AS session,
              c.annee_academique, c.niveau,
              c.nom AS matiere, c.code, c.credits
       FROM inscription_cours ic
