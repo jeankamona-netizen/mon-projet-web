@@ -2359,6 +2359,7 @@ async function chargerAgents() {
         <td>${a.email || '—'}</td>
         <td>${a.telephone || '—'}</td>
         <td class="admin-actions-cell">
+          <button class="btn-icone" onclick="reinitialiserMotDePasseAgent(${a.id})" aria-label="Réinitialiser le mot de passe" title="Réinitialiser le mot de passe">${icone('cle')}</button>
           <button class="btn-icone" onclick="modifierAgent(${a.id})" aria-label="Modifier">${icone('crayon')}</button>
           <button class="btn-icone danger" onclick="supprimerAgent(${a.id})" aria-label="Supprimer">${icone('corbeille')}</button>
         </td>
@@ -2421,6 +2422,19 @@ async function supprimerAgent(id) {
   if (!await confirmerAction('Supprimer cet agent ? Il ne pourra plus se connecter.', { titre: 'Supprimer l\'agent', texteConfirmer: 'Supprimer' })) return;
   try { await fetchAdmin(`${BASE_URL}/api/agents/${id}`, { method: 'DELETE' }); afficherToast('🗑️ Agent supprimé.'); chargerAgents(); }
   catch (err) { console.error(err); }
+}
+
+async function reinitialiserMotDePasseAgent(id) {
+  if (!await confirmerAction('Générer un nouveau mot de passe temporaire pour cet agent ? L\'ancien cessera de fonctionner immédiatement.', { titre: 'Réinitialiser le mot de passe', texteConfirmer: 'Réinitialiser' })) return;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/agents/${id}/reinitialiser-mot-de-passe`, { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    await confirmerAction(
+      `Communiquez ce nouveau mot de passe temporaire à l'agent : ${d.motDePasseTemporaire}`,
+      { titre: '✅ Mot de passe réinitialisé', texteConfirmer: 'Compris' }
+    );
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
 // =====================
