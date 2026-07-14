@@ -65,6 +65,12 @@ function initialiserLightbox() {
     carte.setAttribute('tabindex', '0');
     carte.setAttribute('role', 'button');
     carte.setAttribute('aria-label', 'Agrandir la photo : ' + (photosGalerie[i].legende || 'photo'));
+    // Rappelée après l'ajout des photos d'événements : ne pas réattacher un
+    // second écouteur sur les cartes déjà initialisées (double-ouverture du
+    // lightbox au clic sinon). L'index i reste valable pour elles : la
+    // galerie ne fait qu'ajouter des cartes à la fin, jamais en réordonner.
+    if (carte.dataset.lightboxPret) return;
+    carte.dataset.lightboxPret = '1';
     carte.addEventListener('click', () => ouvrirLightbox(i));
     carte.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ouvrirLightbox(i); }
@@ -104,6 +110,37 @@ function afficherPhotoActuelle() {
 // =====================
 const MOIS_COURT = ['JAN','FÉV','MAR','AVR','MAI','JUIN','JUIL','AOÛT','SEP','OCT','NOV','DÉC'];
 
+// Une image téléversée depuis l'admin ("uploads/xxx") est servie par le
+// BACKEND (Render), pas par le site statique (Vercel) : il faut préfixer
+// BASE_URL, sinon le navigateur cherche le fichier sur le mauvais domaine.
+function urlImageAnnonce(image) {
+  if (!image) return 'img/campagne.jpg';
+  return image.startsWith('uploads/') ? `${BASE_URL}/${image}` : `img/${image}`;
+}
+
+// Ajoute une carte galerie (avec lightbox) par événement ayant une vraie
+// photo téléversée — fusionne "Vie universitaire" et événements au même
+// endroit, pour que "Tous les événements" fasse défiler les deux ensemble.
+function ajouterPhotosEvenementsALaGalerie(evenementsAvecImage) {
+  const grille = document.querySelector('.galerie-grid');
+  if (!grille || evenementsAvecImage.length === 0) return;
+
+  const cartesExistantes = new Set(Array.from(grille.querySelectorAll('.galerie-card[data-evenement-id]')).map(c => c.dataset.evenementId));
+  const nouvelles = evenementsAvecImage.filter(e => !cartesExistantes.has(String(e.id)));
+  if (nouvelles.length === 0) return;
+
+  grille.insertAdjacentHTML('beforeend', nouvelles.map(e => `
+    <div class="galerie-card" data-evenement-id="${e.id}">
+      <img src="${urlImageAnnonce(e.image)}" alt="${e.titre}" loading="lazy">
+      <div class="galerie-overlay">
+        <span class="galerie-tag">Événement</span>
+        <p>${e.titre}</p>
+      </div>
+    </div>`).join(''));
+
+  initialiserLightbox();
+}
+
 async function chargerAnnoncesPubliques() {
   const ticker = document.getElementById('ticker-contenu');
   const grille = document.getElementById('evenements-grid');
@@ -133,9 +170,7 @@ async function chargerAnnoncesPubliques() {
             const d = new Date(e.date_annonce);
             const mois = MOIS_COURT[d.getUTCMonth()];
             const jour = String(d.getUTCDate()).padStart(2, '0');
-            // Image téléversée depuis le disque → chemin "uploads/xxx" servi tel quel ;
-            // ancien format (nom de fichier seul dans img/) conservé pour compatibilité.
-            const image = e.image ? (e.image.startsWith('uploads/') ? e.image : `img/${e.image}`) : 'img/campagne.jpg';
+            const image = urlImageAnnonce(e.image);
             return `<div class="event-card">
               <div class="event-img" style="background-image: url('${image}')">
                 <div class="event-date">
@@ -151,6 +186,11 @@ async function chargerAnnoncesPubliques() {
             </div>`;
           }).join('');
     }
+
+    // Fusionne les photos d'événements (qui ont une vraie image téléversée)
+    // dans la galerie "Vie universitaire", pour que le bouton "Tous les
+    // événements" fasse défiler événements ET vie UML au même endroit.
+    ajouterPhotosEvenementsALaGalerie(annonces.filter(a => a.type === 'evenement' && a.image));
   } catch {
     if (ticker) ticker.innerHTML = '<span class="ticker-item">⚠️ Impossible de charger les actualités.</span>';
     if (grille) grille.innerHTML = '<p style="text-align:center;color:#888;grid-column:1/-1">⚠️ Impossible de charger les événements.</p>';

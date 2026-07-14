@@ -1707,7 +1707,7 @@ function modifierAnnonce(id) {
   document.getElementById('annonce-image').value=a.image||'';
   const fchEdit=document.getElementById('annonce-image-fichier'); if(fchEdit) fchEdit.value='';
   const apEdit=document.getElementById('annonce-image-apercu');
-  if(apEdit) apEdit.innerHTML=a.image?`<img src="${a.image.startsWith('uploads/')?a.image:'img/'+a.image}" alt="" style="max-width:120px;border-radius:6px">`:'';
+  if(apEdit) apEdit.innerHTML=a.image?`<img src="${a.image.startsWith('uploads/')?BASE_URL+'/'+a.image:'img/'+a.image}" alt="" style="max-width:120px;border-radius:6px">`:'';
   document.getElementById('annonce-cible').value=a.cible_faculte||'';
   document.getElementById('annonce-actif').checked=!!a.actif;
   gererAffichageChampImage();
