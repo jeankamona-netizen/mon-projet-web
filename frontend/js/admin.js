@@ -2572,7 +2572,7 @@ async function chargerProfesseurs() {
         const listeCours=cours.length===0
           ? '<span class="admin-vide">Aucun cours</span>'
           : cours.map(c=>`${c.nom} <small>(${c.promotion})</small>`).join('<br>');
-        return `<tr><td>${p.nom}</td><td>${p.prenom||'—'}</td><td>${p.grade||'—'}</td><td>${listeCours}</td><td class="admin-actions-cell"><button class="btn-icone" onclick="ouvrirModalAttribution(null,${p.id})" aria-label="Attribuer un cours" title="Attribuer un cours">${icone('plus')}</button><button class="btn-icone" onclick="modifierProfesseur(${p.id})" aria-label="Modifier">${icone('crayon')}</button><button class="btn-icone danger" onclick="supprimerProfesseur(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td></tr>`;
+        return `<tr><td>${p.nom}</td><td>${p.prenom||'—'}</td><td>${p.grade||'—'}</td><td>${listeCours}</td><td class="admin-actions-cell"><button class="btn-icone" onclick="ouvrirModalAttribution(null,${p.id})" aria-label="Attribuer un cours" title="Attribuer un cours">${icone('plus')}</button><button class="btn-icone" onclick="reinitialiserMotDePasseProfesseur(${p.id})" aria-label="Réinitialiser le mot de passe" title="Réinitialiser le mot de passe">${icone('cle')}</button><button class="btn-icone" onclick="modifierProfesseur(${p.id})" aria-label="Modifier">${icone('crayon')}</button><button class="btn-icone danger" onclick="supprimerProfesseur(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td></tr>`;
       }).join('');
   } catch (err) { console.error(err); }
 }
@@ -2634,6 +2634,19 @@ async function sauvegarderProfesseur() {
     } else {
       afficherToast(idEdit?'✅ Modifié !':'✅ Ajouté !');
     }
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function reinitialiserMotDePasseProfesseur(id) {
+  if (!await confirmerAction('Générer un nouveau mot de passe temporaire pour ce professeur ? L\'ancien cessera de fonctionner immédiatement.', { titre: 'Réinitialiser le mot de passe', texteConfirmer: 'Réinitialiser' })) return;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/professeurs/${id}/reinitialiser-mot-de-passe`, { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    await confirmerAction(
+      `Communiquez ce nouveau mot de passe temporaire au professeur : ${d.motDePasseTemporaire}`,
+      { titre: '✅ Mot de passe réinitialisé', texteConfirmer: 'Compris' }
+    );
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 

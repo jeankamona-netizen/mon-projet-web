@@ -70,4 +70,22 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// POST — réinitialiser le mot de passe d'un professeur (pas d'envoi automatique
+// par email pour les professeurs : le mot de passe est renvoyé à l'admin, à
+// communiquer lui-même, comme à la création — voir POST / ci-dessus).
+router.post('/:id/reinitialiser-mot-de-passe', async (req, res) => {
+  try {
+    const [profs] = await pool.query('SELECT id FROM professeur WHERE id = ?', [req.params.id]);
+    if (profs.length === 0) return res.status(404).json({ erreur: 'Professeur non trouvé.' });
+
+    const motDePasseTemporaire = genererMotDePasseTemporaire();
+    const hash = await bcrypt.hash(motDePasseTemporaire, 10);
+    await pool.query('UPDATE professeur SET mot_de_passe = ? WHERE id = ?', [hash, req.params.id]);
+
+    res.json({ motDePasseTemporaire });
+  } catch (erreur) {
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
 module.exports = router;
