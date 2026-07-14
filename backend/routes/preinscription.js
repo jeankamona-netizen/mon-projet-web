@@ -190,6 +190,13 @@ if (statut === 'accepte') {
     else if (dossier.niveau.toLowerCase().includes('doctorat')) niveauCourt = 'D1';
     else niveauCourt = 'L1';
   }
+  // Sciences Informatiques exige une année préparatoire : tout candidat admis
+  // en 1er cycle (ni Master ni Doctorat) dans cette faculté démarre en Pré-U,
+  // jamais directement en L1 (le catalogue de cours Pré-U existe déjà pour
+  // cette faculté — voir "Programme annuel").
+  if (faculteNom === 'Sciences Informatiques' && niveauCourt === 'L1') {
+    niveauCourt = 'Pré-U';
+  }
   // La colonne "promotion" affiche simplement le nom de la filière (même
   // convention que l'ajout manuel d'un inscrit — voir "Gérer les inscrits").
   const promotion = dossier.specialite || '';

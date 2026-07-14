@@ -2487,13 +2487,20 @@ async function promouvoirEtudiant() {
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
+// Le catalogue ne distingue pas explicitement le cycle d'une filière : par
+// convention, une filière dont le nom commence par "Master " est de cycle
+// Master/Doctorat, toutes les autres sont Pré-U/Licence (voir aussi
+// backend/routes/preinscription.js pour la même convention côté serveur).
 function chargerFilieresPourReinscription() {
   const faculte = document.getElementById('reins-faculte')?.value || '';
+  const niveau = document.getElementById('reins-niveau')?.value || '';
   const sel = document.getElementById('reins-filiere');
   if (!sel) return;
-  const filieres = filiereParFaculte[faculte] || [];
+  if (!faculte) { sel.innerHTML = '<option value="">— Choisir une faculté d\'abord —</option>'; return; }
+  const cycleSuperieur = niveau === 'M1' || niveau === 'M2' || niveau === 'D1' || niveau === 'D2';
+  const filieres = (filiereParFaculte[faculte] || []).filter(f => f.startsWith('Master ') === cycleSuperieur);
   sel.innerHTML = filieres.length === 0
-    ? '<option value="">— Choisir une faculté d\'abord —</option>'
+    ? `<option value="">— Aucune filière à ce niveau (faculté non subdivisée) —</option>`
     : '<option value="">— Choisir une filière —</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join('');
 }
 
