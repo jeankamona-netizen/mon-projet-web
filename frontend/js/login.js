@@ -2,16 +2,6 @@
 // LOGIN — connexion étudiant via backend MySQL
 // =====================
 
-// =====================
-// ONGLETS CONNEXION / PRÉ-INSCRIPTION
-// =====================
-function afficherOnglet(nom) {
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(`onglet-${nom}`)?.classList.add('active');
-  document.querySelector(`.tab-btn[onclick="afficherOnglet('${nom}')"]`)?.classList.add('active');
-}
-
 function togglePassword() {
   const input = document.getElementById('mot-de-passe');
   if (input) input.type = input.type === 'password' ? 'text' : 'password';

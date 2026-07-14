@@ -10,55 +10,6 @@ function basculerMenuMobile() {
 }
 
 // =====================
-// FACULTÉS — vitrine de la page d'accueil, chargée depuis la base (jamais
-// codée en dur) pour ne jamais afficher une filière renommée/supprimée.
-// =====================
-const STYLE_FACULTE = {
-  'Faculté de Théologie':                    'theologie',
-  'Sciences Informatiques':                  'informatique',
-  'Sciences Économiques':                    'economie',
-  "Sciences de l'Éducation & Psychologie":  'education',
-};
-
-async function chargerFacultesAccueil() {
-  const grille = document.getElementById('facultes-grid');
-  if (!grille) return;
-  try {
-    await chargerFacultesDB();
-    if (facultesDB.length === 0) { grille.innerHTML = '<p style="text-align:center;color:#888;grid-column:1/-1">Aucune faculté enregistrée.</p>'; return; }
-    const NB_COLONNES = 3;
-    grille.innerHTML = facultesDB.map((f, i) => {
-      const style = STYLE_FACULTE[f.nom] || 'theologie';
-      // Sépare visuellement Licence/Pré-U (filières sans préfixe) et Master
-      // (préfixées "Master ") quand la faculté propose les deux cycles.
-      const licence = (f.filieres || []).filter(nom => !nom.startsWith('Master '));
-      const master  = (f.filieres || []).filter(nom => nom.startsWith('Master '));
-      const filieres = (f.filieres && f.filieres.length > 0)
-        ? licence.map(nom => `<li>✓ ${nom}</li>`).join('')
-          + (licence.length > 0 && master.length > 0 ? '<li class="filiere-separateur" aria-hidden="true"></li>' : '')
-          + master.map(nom => `<li>✓ ${nom}</li>`).join('')
-        : '<li>✓ Programme non subdivisé en filières</li>';
-      const badge = f.master_disponible
-        ? '<div class="master-badge">Master disponible</div>'
-        : '<div class="master-badge">En progression</div>';
-      // Une faculté au-delà de la première rangée ne redescend pas en colonne
-      // 1 : elle continue de s'empiler sous la colonne centrale (ex. la 4e
-      // faculté se place sous la 2e carte, au centre).
-      const colonneCentrale = Math.ceil(NB_COLONNES / 2);
-      const placement = i >= NB_COLONNES ? ` style="grid-column:${colonneCentrale};grid-row:${i - NB_COLONNES + 2}"` : '';
-      return `
-        <div class="faculte-card"${placement}>
-          <div class="faculte-header ${style}"><h3>${f.nom}</h3></div>
-          <ul class="filieres">${filieres}</ul>
-          ${badge}
-        </div>`;
-    }).join('');
-  } catch {
-    grille.innerHTML = '<p style="text-align:center;color:#888;grid-column:1/-1">⚠️ Impossible de charger les facultés.</p>';
-  }
-}
-
-// =====================
 // GALERIE — LIGHTBOX
 // =====================
 let photosGalerie = [];
@@ -132,29 +83,6 @@ function urlImageAnnonce(image) {
   return image.startsWith('uploads/') ? `${BASE_URL}/${image}` : `img/${image}`;
 }
 
-// Ajoute une carte galerie (avec lightbox) par événement ayant une vraie
-// photo téléversée — fusionne "Vie universitaire" et événements au même
-// endroit, pour que "Tous les événements" fasse défiler les deux ensemble.
-function ajouterPhotosEvenementsALaGalerie(evenementsAvecImage) {
-  const grille = document.querySelector('.galerie-grid');
-  if (!grille || evenementsAvecImage.length === 0) return;
-
-  const cartesExistantes = new Set(Array.from(grille.querySelectorAll('.galerie-card[data-evenement-id]')).map(c => c.dataset.evenementId));
-  const nouvelles = evenementsAvecImage.filter(e => !cartesExistantes.has(String(e.id)));
-  if (nouvelles.length === 0) return;
-
-  grille.insertAdjacentHTML('beforeend', nouvelles.map(e => `
-    <div class="galerie-card" data-evenement-id="${e.id}">
-      <img src="${urlImageAnnonce(e.image)}" alt="${e.titre}" loading="lazy">
-      <div class="galerie-overlay">
-        <span class="galerie-tag">Événement</span>
-        <p>${e.titre}</p>
-      </div>
-    </div>`).join(''));
-
-  initialiserLightbox();
-}
-
 async function chargerAnnoncesPubliques() {
   const ticker = document.getElementById('ticker-contenu');
   const grille = document.getElementById('evenements-grid');
@@ -200,11 +128,6 @@ async function chargerAnnoncesPubliques() {
             </div>`;
           }).join('');
     }
-
-    // Fusionne les photos d'événements (qui ont une vraie image téléversée)
-    // dans la galerie "Vie universitaire", pour que le bouton "Tous les
-    // événements" fasse défiler événements ET vie UML au même endroit.
-    ajouterPhotosEvenementsALaGalerie(annonces.filter(a => a.type === 'evenement' && a.image));
   } catch {
     if (ticker) ticker.innerHTML = '<span class="ticker-item">⚠️ Impossible de charger les actualités.</span>';
     if (grille) grille.innerHTML = '<p style="text-align:center;color:#888;grid-column:1/-1">⚠️ Impossible de charger les événements.</p>';
@@ -286,7 +209,6 @@ async function inscrireNewsletter() {
 document.addEventListener('DOMContentLoaded', () => {
   initialiserLightbox();
   chargerAnnoncesPubliques();
-  chargerFacultesAccueil();
 
   const lightbox = document.getElementById('lightbox');
   lightbox?.addEventListener('click', e => { if (e.target === lightbox) fermerLightbox(); });
