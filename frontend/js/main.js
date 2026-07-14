@@ -42,9 +42,10 @@ async function chargerFacultesAccueil() {
         ? '<div class="master-badge">Master disponible</div>'
         : '<div class="master-badge">En progression</div>';
       // Une faculté au-delà de la première rangée ne redescend pas en colonne
-      // 1 : elle continue de s'empiler sous la dernière colonne (ex. la 4e
-      // faculté se place sous la 3e carte, pas sous la 1re).
-      const placement = i >= NB_COLONNES ? ` style="grid-column:${NB_COLONNES};grid-row:${i - NB_COLONNES + 2}"` : '';
+      // 1 : elle continue de s'empiler sous la colonne centrale (ex. la 4e
+      // faculté se place sous la 2e carte, au centre).
+      const colonneCentrale = Math.ceil(NB_COLONNES / 2);
+      const placement = i >= NB_COLONNES ? ` style="grid-column:${colonneCentrale};grid-row:${i - NB_COLONNES + 2}"` : '';
       return `
         <div class="faculte-card"${placement}>
           <div class="faculte-header ${style}"><h3>${f.nom}</h3></div>
