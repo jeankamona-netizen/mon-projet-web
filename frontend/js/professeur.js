@@ -46,6 +46,12 @@ function getProfesseurConnecte() {
 
 function deconnecterProfesseur() {
   sessionStorage.removeItem('professeur');
+  window.location.href = 'login.html?role=professeur';
+}
+
+function basculerMenuCompteProf(event) {
+  if (event) event.stopPropagation();
+  document.getElementById('prof-menu-compte')?.classList.toggle('ouvert');
 }
 
 // =====================
@@ -80,6 +86,8 @@ function afficherProfilProf(p) {
     'prof-nom-complet': nomComplet,
     'prof-email-val': p.email || '—',
     'prof-telephone-val': p.telephone || '—',
+    'prof-menu-nom': nomComplet,
+    'prof-menu-grade': p.grade || 'Professeur',
   };
   Object.entries(texte).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.textContent = val; });
 }
@@ -539,11 +547,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Fermer le panneau de la cloche au clic en dehors.
+  // Fermer le panneau de la cloche et le menu burger au clic en dehors.
   document.addEventListener('click', e => {
     const wrap = document.querySelector('.dash-notif-wrap');
     const panneau = document.getElementById('prof-notif-panneau');
     if (panneau && wrap && !wrap.contains(e.target)) panneau.classList.remove('ouvert');
+
+    const menuWrap = document.querySelector('.dash-menu-wrap');
+    const menu = document.getElementById('prof-menu-compte');
+    if (menu && menuWrap && !menuWrap.contains(e.target)) menu.classList.remove('ouvert');
   });
 });
 

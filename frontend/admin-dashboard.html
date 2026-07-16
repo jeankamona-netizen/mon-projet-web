@@ -719,12 +719,12 @@
         </div>
 
         <div class="attr-sous-onglets">
-          <button class="attr-onglet-btn active" data-onglet="attr-onglet-profs" onclick="basculerOngletAttribution('attr-onglet-profs', this)">Professeurs enregistrés</button>
+          <button class="attr-onglet-btn active" data-onglet="attr-onglet-profs" onclick="basculerOngletAttribution('attr-onglet-profs', this)">Professeurs</button>
           <button class="attr-onglet-btn" data-onglet="attr-onglet-sans-prof" onclick="basculerOngletAttribution('attr-onglet-sans-prof', this)">Cours non attribués</button>
         </div>
 
         <div class="dash-card attr-onglet-contenu active" id="attr-onglet-profs">
-          <h3>Professeurs enregistrés</h3>
+          <h3>Professeurs</h3>
           <table class="dash-table">
             <thead>
               <tr>
@@ -741,6 +741,11 @@
 
         <div class="dash-card attr-onglet-contenu" id="attr-onglet-sans-prof">
           <h3>Cours sans professeur attribué</h3>
+          <div class="admin-toolbar" style="margin-bottom:14px">
+            <select class="admin-recherche" id="filtre-attr-promotion" style="flex:0 0 240px" onchange="chargerCoursSansProf()">
+              <option value="">Toutes les promotions</option>
+            </select>
+          </div>
           <table class="dash-table">
             <thead>
               <tr>
@@ -1163,6 +1168,36 @@
       </table>
 
       <button class="btn-ajouter" style="width:100%" onclick="enregistrerPresencesAdmin()">✅ Enregistrer les présences</button>
+    </div>
+  </div>
+
+  <!-- MODAL RÉPONDRE À UN MESSAGE DE CONTACT -->
+  <div class="admin-modal-overlay" id="modal-repondre-message">
+    <div class="admin-modal" style="max-width:520px">
+      <div class="admin-modal-header">
+        <h3>Répondre au message</h3>
+        <button class="admin-modal-close" onclick="fermerModalRepondreMessage()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="repondre-message-id">
+
+      <div class="form-group-dash">
+        <label>Nom complet</label>
+        <input type="text" id="repondre-nom" disabled style="background:#f0f0f0">
+      </div>
+      <div class="form-group-dash">
+        <label>Adresse email</label>
+        <input type="text" id="repondre-email" disabled style="background:#f0f0f0">
+      </div>
+      <div class="form-group-dash">
+        <label>Votre réponse</label>
+        <textarea id="repondre-texte" rows="6" placeholder="Écrivez votre réponse ici..."></textarea>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalRepondreMessage()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="envoyerReponseMessage()">✉️ Envoyer le message</button>
+      </div>
     </div>
   </div>
 

@@ -320,5 +320,6 @@ CREATE TABLE message_contact (
   sujet        VARCHAR(200),
   message      TEXT NOT NULL,
   lu           TINYINT(1) DEFAULT 0,
+  repondu      TINYINT(1) DEFAULT 0,
   date_envoi   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

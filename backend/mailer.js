@@ -137,4 +137,43 @@ async function envoyerEmailRejet(etudiant) {
   console.log(`📧 Email de rejet envoyé à ${etudiant.email}`);
 }
 
-module.exports = { envoyerEmailAcceptation, envoyerEmailReinitialisation, envoyerEmailRejet };
+// Le message d'origine (et son sujet) viennent du formulaire public de
+// contact : texte libre non fiable, à échapper avant insertion dans le HTML
+// de l'email de réponse.
+const echapperHtml = (texte) => String(texte ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+async function envoyerEmailReponseContact(destinataire, nomDestinataire, sujetOriginal, messageOriginal, reponse) {
+  const options = {
+    from: `"UML — Université Méthodiste de Lubumbashi" <${process.env.EMAIL_USER}>`,
+    to: destinataire,
+    subject: sujetOriginal ? `Re: ${sujetOriginal}` : 'Réponse à votre message — UML',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+        <div style="background:#1a3a6b;padding:20px;text-align:center">
+          <h2 style="color:#f0c020;margin:0">Université Méthodiste de Lubumbashi</h2>
+        </div>
+        <div style="padding:28px 24px;background:#f8f9fa">
+          <h3 style="color:#1a3a6b">Bonjour, ${echapperHtml(nomDestinataire)}</h3>
+          <p style="white-space:pre-wrap">${echapperHtml(reponse)}</p>
+
+          <div style="background:#ffffff;border-left:3px solid #ddd;border-radius:4px;padding:14px 16px;margin:24px 0;color:#777;font-size:13px">
+            <p style="margin:0 0 6px"><strong>Votre message initial :</strong></p>
+            <p style="white-space:pre-wrap;margin:0">${echapperHtml(messageOriginal)}</p>
+          </div>
+
+          <p style="margin-top:24px;font-size:12px;color:#888">
+            Adresse : N°249, Croisement Av. Kasavubu & Likasi, Lubumbashi, RDC<br>
+            Email : lmu.lubumbashi@gmail.com
+          </p>
+        </div>
+      </div>
+    `
+  };
+
+  await transporter.sendMail(options);
+  console.log(`📧 Réponse envoyée à ${destinataire}`);
+}
+
+module.exports = { envoyerEmailAcceptation, envoyerEmailReinitialisation, envoyerEmailRejet, envoyerEmailReponseContact };

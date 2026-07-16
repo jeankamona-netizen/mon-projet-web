@@ -194,6 +194,8 @@ function basculerOngletContact(idOnglet, btn) {
   btn?.classList.add('active');
 }
 
+let messagesContactListe = [];
+
 async function chargerMessagesContact() {
   const tbody = document.getElementById('admin-contact-body');
   if (!tbody) return;
@@ -201,6 +203,7 @@ async function chargerMessagesContact() {
   try {
     const r = await fetchAdmin(`${BASE_URL}/api/contact`);
     const messages = await r.json();
+    messagesContactListe = messages;
     tbody.innerHTML = messages.length === 0
       ? `<tr><td colspan="7" class="admin-vide">Aucun message reçu.</td></tr>`
       : messages.map(m => `
@@ -210,8 +213,9 @@ async function chargerMessagesContact() {
           <td>${m.email}</td>
           <td>${m.sujet || '—'}</td>
           <td style="max-width:260px;white-space:normal">${m.message}</td>
-          <td>${m.lu ? '<span class="badge attente">Lu</span>' : '<span class="badge reussi">Nouveau</span>'}</td>
+          <td>${m.repondu ? '<span class="badge reussi">Répondu</span>' : (m.lu ? '<span class="badge attente">Lu</span>' : '<span class="badge reussi">Nouveau</span>')}</td>
           <td class="admin-actions-cell">
+            <button class="btn-icone" onclick="ouvrirModalRepondreMessage(${m.id})" aria-label="Répondre" title="Répondre">${icone('repondre')}</button>
             ${m.lu ? '' : `<button class="btn-icone" onclick="marquerMessageLu(${m.id})" aria-label="Marquer comme lu" title="Marquer comme lu">${icone('coche')}</button>`}
             <button class="btn-icone danger" onclick="supprimerMessageContact(${m.id})" aria-label="Supprimer">${icone('corbeille')}</button>
           </td>
@@ -228,6 +232,41 @@ async function supprimerMessageContact(id) {
   if (!await confirmerAction('Supprimer ce message ?', { titre: 'Supprimer le message', texteConfirmer: 'Supprimer' })) return;
   try { await fetchAdmin(`${BASE_URL}/api/contact/${id}`, { method: 'DELETE' }); afficherToast('🗑️ Message supprimé.'); chargerMessagesContact(); }
   catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+// =====================
+// RÉPONDRE À UN MESSAGE DE CONTACT (envoi d'un email réel au visiteur)
+// =====================
+function ouvrirModalRepondreMessage(id) {
+  const m = messagesContactListe.find(x => x.id === id);
+  if (!m) return;
+  document.getElementById('repondre-message-id').value = id;
+  document.getElementById('repondre-nom').value = m.nom;
+  document.getElementById('repondre-email').value = m.email;
+  document.getElementById('repondre-texte').value = '';
+  document.getElementById('modal-repondre-message')?.classList.add('active');
+}
+
+function fermerModalRepondreMessage() {
+  document.getElementById('modal-repondre-message')?.classList.remove('active');
+}
+
+async function envoyerReponseMessage() {
+  const id = document.getElementById('repondre-message-id')?.value;
+  const texte = document.getElementById('repondre-texte')?.value.trim();
+  if (!id) return;
+  if (!texte) { afficherToast('⚠️ Écrivez un message avant d\'envoyer.', 'erreur'); return; }
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/contact/${id}/repondre`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: texte })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    afficherToast('✅ Réponse envoyée par email.');
+    fermerModalRepondreMessage();
+    chargerMessagesContact();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
 async function chargerAbonnesNewsletter() {
@@ -1365,8 +1404,8 @@ function basculerVueGroupeeProgramme() {
 // Génère les lignes d'un tableau de cours (un semestre).
 const heuresUE = (v) => v == null ? '—' : `${v}h`;
 
-function lignesCoursProgramme(cours) {
-  if (cours.length === 0) return `<tr><td colspan="7" class="admin-vide">Aucun cours.</td></tr>`;
+function lignesCoursProgramme(cours, messageVide = 'Aucun cours.') {
+  if (cours.length === 0) return `<tr><td colspan="7" class="admin-vide">${messageVide}</td></tr>`;
   return cours.map(p => `<tr><td><span class="prog-code-admin">${p.code}</span></td><td>${p.nom}</td><td>${heuresUE(p.cmi)}</td><td>${heuresUE(p.td)}</td><td>${heuresUE(p.tp)}</td><td>${p.credits} cr.</td><td class="admin-actions-cell"><button class="btn-icone" onclick="ouvrirModalInscriptions(${p.id},'${p.nom.replace(/'/g,"\\'")}','${p.promotion}')" aria-label="Étudiants inscrits" title="Étudiants inscrits">${icone('utilisateurs')}</button><button class="btn-icone" onclick="modifierProgramme(${p.id})" aria-label="Modifier">${icone('crayon')}</button><button class="btn-icone danger" onclick="supprimerProgramme(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td></tr>`).join('');
 }
 
@@ -1462,13 +1501,13 @@ function afficherProgrammeGroupe() {
     return;
   }
   // Un tableau de semestre pour une filière donnée, avec total crédits.
-  const tableauSemestre = (titre, liste) => `
+  const tableauSemestre = (titre, liste, messageVide) => `
     <div class="dash-card">
       <h4 style="margin:0 0 8px">${titre} <span style="font-weight:400;color:#999;font-size:12px">(${liste.reduce((s,p)=>s+p.credits,0)} cr.)</span></h4>
       <div style="overflow-x:auto">
         <table class="dash-table prog-table-groupe">
           <thead><tr><th>Code UE</th><th>Intitulé UE</th><th>CMI</th><th>TD</th><th>TP</th><th>Crédits</th><th>Actions</th></tr></thead>
-          <tbody>${lignesCoursProgramme(liste)}</tbody>
+          <tbody>${lignesCoursProgramme(liste, messageVide)}</tbody>
         </table>
       </div>
     </div>`;
@@ -1519,14 +1558,25 @@ function afficherProgrammeGroupe() {
     const blocs = niveauxFac.map(niv => {
       const coursNiv = coursFac.filter(p => p.niveau === niv);
       const filieres = [...new Set(coursNiv.map(p => p.filiere_nom || COMMUN))].sort((a,b) => a === COMMUN ? 1 : b === COMMUN ? -1 : a.localeCompare(b));
+      // Une filière peut n'avoir aucun cours qui lui soit propre sur un
+      // semestre donné parce que ce semestre est entièrement couvert par un
+      // cours commun (à toute la faculté ou à plusieurs facultés, pour ce
+      // même niveau) : "Aucun cours." serait alors trompeur.
+      const aCoursCommunPourSemestre = sem =>
+        coursNiv.some(p => !p.filiere_nom && p.semestre === sem) ||
+        coursCommuns.some(p => p.niveau === niv && p.semestre === sem);
       const sousBlocs = filieres.map(fil => {
         const coursFil = coursNiv.filter(p => (p.filiere_nom || COMMUN) === fil);
         const s1 = coursFil.filter(p => p.semestre === 'S1');
         const s2 = coursFil.filter(p => p.semestre === 'S2');
+        const estCommun = fil === COMMUN;
+        const msgVideCommun = "Cours en commun avec d'autres promotions.";
+        const msgS1 = !estCommun && aCoursCommunPourSemestre('S1') ? msgVideCommun : undefined;
+        const msgS2 = !estCommun && aCoursCommunPourSemestre('S2') ? msgVideCommun : undefined;
         return `
           <div style="margin-bottom:16px">
             <h4 style="font-size:13px;color:#555;margin:0 0 8px;padding-left:8px;border-left:2px solid #ddd">${fil}</h4>
-            <div style="display:flex;flex-direction:column;gap:14px">${tableauSemestre('Semestre 1', s1)}${tableauSemestre('Semestre 2', s2)}</div>
+            <div style="display:flex;flex-direction:column;gap:14px">${tableauSemestre('Semestre 1', s1, msgS1)}${tableauSemestre('Semestre 2', s2, msgS2)}</div>
           </div>`;
       }).join('');
       return `
@@ -2817,7 +2867,7 @@ async function chargerProfesseurs() {
         const cours=coursParProf[p.id]||[];
         const listeCours=cours.length===0
           ? '<span class="admin-vide">Aucun cours</span>'
-          : cours.map(c=>`${c.nom} <small>(${c.promotion})</small>`).join('<br>');
+          : cours.map((c,i)=>`${i+1}. ${c.nom} <small>(${c.promotion})</small>`).join('<br>');
         return `<tr><td>${p.nom}</td><td>${p.prenom||'—'}</td><td>${p.grade||'—'}</td><td>${listeCours}</td><td class="admin-actions-cell"><button class="btn-icone" onclick="ouvrirModalAttribution(null,${p.id})" aria-label="Attribuer un cours" title="Attribuer un cours">${icone('plus')}</button><button class="btn-icone" onclick="reinitialiserMotDePasseProfesseur(${p.id})" aria-label="Réinitialiser le mot de passe" title="Réinitialiser le mot de passe">${icone('cle')}</button><button class="btn-icone" onclick="modifierProfesseur(${p.id})" aria-label="Modifier">${icone('crayon')}</button><button class="btn-icone danger" onclick="supprimerProfesseur(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td></tr>`;
       }).join('');
   } catch (err) { console.error(err); }
@@ -2827,12 +2877,30 @@ async function chargerCoursSansProf() {
   const tbody=document.getElementById('admin-sans-prof-body');
   if (!tbody) return;
   const annee=document.getElementById('filtre-attr-annee')?.value||'';
+  const promotionSel=document.getElementById('filtre-attr-promotion');
   try {
     const r=await fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`);
     const programme=await r.json();
     const sans=programme.filter(c=>!c.professeur_id);
-    tbody.innerHTML=sans.length===0?`<tr><td colspan="4" class="admin-vide">✅ Tous les cours ont un professeur.</td></tr>`:
-      sans.map(c=>`<tr><td>${c.nom}</td><td>${c.promotion}</td><td>${c.semestre==='S1'?'Semestre 1':'Semestre 2'}</td><td><button class="btn-ajouter" style="padding:4px 10px;font-size:12px" onclick="ouvrirModalAttribution(${c.id},null,'${c.annee_academique}',${c.faculte?`'${c.faculte.replace(/'/g,"\\'")}'`:'null'})">Attribuer</button></td></tr>`).join('');
+
+    // Reconstruit les options de promotion à partir des cours non attribués
+    // de l'année sélectionnée, en conservant la sélection courante si elle
+    // existe toujours.
+    if (promotionSel) {
+      const promoActuelle=promotionSel.value;
+      const promotions=[...new Set(sans.map(c=>c.promotion).filter(Boolean))].sort();
+      promotionSel.innerHTML='<option value="">Toutes les promotions</option>'+
+        promotions.map(p=>`<option value="${p}">${p}</option>`).join('');
+      if (promotions.includes(promoActuelle)) promotionSel.value=promoActuelle;
+    }
+    const promotion=promotionSel?.value||'';
+    const filtres=promotion?sans.filter(c=>c.promotion===promotion):sans;
+
+    tbody.innerHTML=filtres.length===0
+      ? (sans.length===0
+          ? `<tr><td colspan="4" class="admin-vide">✅ Tous les cours ont un professeur.</td></tr>`
+          : `<tr><td colspan="4" class="admin-vide">✅ Tous les cours de cette promotion ont un professeur.</td></tr>`)
+      : filtres.map(c=>`<tr><td>${c.nom}</td><td>${c.promotion}</td><td>${c.semestre==='S1'?'Semestre 1':'Semestre 2'}</td><td><button class="btn-ajouter" style="padding:4px 10px;font-size:12px" onclick="ouvrirModalAttribution(${c.id},null,'${c.annee_academique}',${c.faculte?`'${c.faculte.replace(/'/g,"\\'")}'`:'null'})">Attribuer</button></td></tr>`).join('');
   } catch (err) { console.error(err); }
 }
 

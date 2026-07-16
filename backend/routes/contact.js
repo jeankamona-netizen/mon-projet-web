@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
+const { envoyerEmailReponseContact } = require('../mailer');
 
 const EMAIL_VALIDE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -45,6 +46,27 @@ router.patch('/:id/lu', requireAdmin, async (req, res) => {
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// ===== POST /api/contact/:id/repondre — répondre par email (admin) =====
+router.post('/:id/repondre', requireAdmin, async (req, res) => {
+  const { message } = req.body;
+  if (!message || !message.trim()) {
+    return res.status(400).json({ erreur: 'Le message de réponse est obligatoire.' });
+  }
+  try {
+    const [messages] = await pool.query('SELECT * FROM message_contact WHERE id = ?', [req.params.id]);
+    if (messages.length === 0) return res.status(404).json({ erreur: 'Message introuvable.' });
+    const original = messages[0];
+
+    await envoyerEmailReponseContact(original.email, original.nom, original.sujet, original.message, message.trim());
+    await pool.query('UPDATE message_contact SET lu = 1, repondu = 1 WHERE id = ?', [req.params.id]);
+
+    res.json({ message: 'Réponse envoyée.' });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: "Erreur lors de l'envoi de la réponse." });
   }
 });
 

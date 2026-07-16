@@ -36,8 +36,21 @@
           <div class="notif-liste" id="prof-notif-liste"></div>
         </div>
       </div>
-      <div class="dash-avatar admin-avatar" id="prof-avatar-header"></div>
-      <a href="login.html?role=professeur" class="dash-deconnexion" onclick="deconnecterProfesseur()">Déconnexion</a>
+      <div class="dash-menu-wrap">
+        <button class="dash-menu-btn" id="prof-menu-compte-btn" onclick="basculerMenuCompteProf(event)" aria-label="Menu du compte" aria-haspopup="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="menu-compte" id="prof-menu-compte">
+          <div class="menu-compte-entete">Bonjour, <b id="prof-menu-nom">Professeur</b></div>
+          <div class="menu-compte-titre">Fonction</div>
+          <div class="menu-compte-item" style="cursor:default" id="prof-menu-grade">—</div>
+          <div class="menu-compte-sep"></div>
+          <a href="#" class="menu-compte-item" onclick="deconnecterProfesseur(); return false" style="display:flex;align-items:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+            Se déconnecter
+          </a>
+        </div>
+      </div>
     </div>
   </header>
 

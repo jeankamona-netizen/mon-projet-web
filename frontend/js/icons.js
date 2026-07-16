@@ -30,6 +30,7 @@ const ICONES_SVG = {
   'cle':             '<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.778-7.778zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>',
   'argent':          '<circle cx="12" cy="12" r="10"/><path d="M15 9.5a3 2.5 0 0 0-3-2H11a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-1a3 2.5 0 0 1-3-2"/><line x1="12" y1="6" x2="12" y2="18"/>',
   'carte':           '<rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="10" r="2"/><path d="M5 16a3 3 0 0 1 6 0"/><line x1="14" y1="9" x2="19" y2="9"/><line x1="14" y1="13" x2="19" y2="13"/>',
+  'repondre':        '<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>',
 };
 
 function icone(nom, taille = 18, classe = '') {
