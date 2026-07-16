@@ -201,13 +201,13 @@ h2 {
 .lang-switch-btn {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   background: transparent;
   border: 1.5px solid rgba(255,255,255,0.4);
   color: #fff;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.2s;
@@ -1448,8 +1448,8 @@ h2 {
   }
 
   .lang-switch-btn {
-    padding: 5px 9px;
-    font-size: 12px;
+    padding: 3px 7px;
+    font-size: 10px;
   }
 
   .hero {
