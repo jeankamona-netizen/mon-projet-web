@@ -44,11 +44,18 @@ function deconnecterCaisse() {
 function getAgentCaisse() {
   try { return JSON.parse(sessionStorage.getItem('caisse_agent') || 'null'); } catch { return null; }
 }
-// L'administrateur du budget consulte sans encaisser (lecture seule).
+// L'administrateur du budget consulte sans encaisser (lecture seule des versements).
 function estLectureSeule() { return (getAgentCaisse() || {}).role === 'budget'; }
+// À l'inverse, le barème est fixé par l'administrateur du budget (et l'admin) ;
+// le caissier ne peut que le consulter.
+function peutEditerBareme() { const r = (getAgentCaisse() || {}).role; return r === 'budget' || r === 'admin'; }
 function nomCaissier() {
   const a = getAgentCaisse();
   return a ? `${a.prenom || ''} ${a.noms || ''}`.trim() : '—';
+}
+function libelleFonctionAgent(agent) {
+  const map = { administrateur_budget: 'Administrateur du budget', caissier: 'Caissier(ère)' };
+  return map[agent?.fonction] || agent?.fonction || '';
 }
 
 async function fetchCaisse(url, options = {}) {
@@ -129,18 +136,29 @@ async function chargerAnneesCaisse() {
     if (!r.ok) return;
     const annees = await r.json();
     const courante = annees.find(a => a.est_courante)?.libelle;
-    const sel = document.getElementById('caisse-filtre-annee');
-    if (sel) {
-      sel.innerHTML = '<option value="">Toutes les années</option>' +
-        annees.map(a => `<option value="${a.libelle}">${a.libelle}</option>`).join('');
-      if (courante) sel.value = courante;
-    }
-    const selBareme = document.getElementById('bareme-annee');
-    if (selBareme) {
-      selBareme.innerHTML = annees.map(a => `<option value="${a.libelle}">${a.libelle}</option>`).join('');
-      if (courante) selBareme.value = courante;
-    }
+    const opts = annees.map(a => `<option value="${a.libelle}">${a.libelle}</option>`).join('');
+    // Filtre étudiants : « Toutes » + défaut année en cours.
+    const selEtu = document.getElementById('caisse-filtre-annee');
+    if (selEtu) { selEtu.innerHTML = '<option value="">Toutes les années</option>' + opts; if (courante) selEtu.value = courante; }
+    // Filtre barème (consultation) : « Toutes » + défaut année en cours.
+    const selBf = document.getElementById('bareme-filtre-annee');
+    if (selBf) { selBf.innerHTML = '<option value="">Toutes les années</option>' + opts; if (courante) selBf.value = courante; }
+    // Saisie barème (AB) : défaut année en cours.
+    const selBa = document.getElementById('bareme-annee');
+    if (selBa) { selBa.innerHTML = opts; if (courante) selBa.value = courante; }
   } catch { /* silencieux */ }
+}
+
+// Remplit la liste des promotions (= filières) selon la faculté choisie.
+// cible = 'filtre' (bareme-filtre-*) ou 'form' (bareme-*).
+function majPromotionsBareme(cible) {
+  const facSel = document.getElementById(cible === 'form' ? 'bareme-faculte' : 'bareme-filtre-faculte');
+  const promoSel = document.getElementById(cible === 'form' ? 'bareme-promotion' : 'bareme-filtre-promotion');
+  if (!facSel || !promoSel) return;
+  const fac = (facultesDB || []).find(f => f.nom === facSel.value);
+  const filieres = (fac && fac.filieres ? fac.filieres : []).map(fl => (typeof fl === 'string' ? fl : fl.nom));
+  const tete = cible === 'form' ? '<option value="">— Promotion —</option>' : '<option value="">Toutes les promotions</option>';
+  promoSel.innerHTML = tete + filieres.map(fl => `<option value="${fl}">${fl}</option>`).join('');
 }
 
 // =====================
@@ -149,35 +167,46 @@ async function chargerAnneesCaisse() {
 async function chargerBareme() {
   const tbody = document.getElementById('bareme-body');
   if (!tbody) return;
-  const formulaire = document.getElementById('bareme-form');
-  if (formulaire) formulaire.style.display = estLectureSeule() ? 'none' : '';
-  tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
+  const editable = peutEditerBareme();
+  const form = document.getElementById('bareme-form');
+  if (form) form.style.display = editable ? '' : 'none';
+  const colAction = document.getElementById('bareme-col-action');
+  if (colAction) colAction.style.display = editable ? '' : 'none';
+  tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Chargement...</td></tr>`;
   try {
-    const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite`);
+    const params = new URLSearchParams();
+    const annee = document.getElementById('bareme-filtre-annee')?.value || '';
+    const faculte = document.getElementById('bareme-filtre-faculte')?.value || '';
+    const promotion = document.getElementById('bareme-filtre-promotion')?.value || '';
+    if (annee) params.append('annee', annee);
+    if (faculte) params.append('faculte', faculte);
+    if (promotion) params.append('promotion', promotion);
+    const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite?${params}`);
     const lignes = await r.json();
-    if (!lignes.length) { tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">Aucun barème défini pour l'instant.</td></tr>`; return; }
-    const lecture = estLectureSeule();
-    tbody.innerHTML = lignes.map(l => `
+    if (!lignes.length) { tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Aucun barème défini pour cette sélection.</td></tr>`; return; }
+    tbody.innerHTML = lignes.map((l, i) => `
       <tr>
-        <td><span class="annee-badge">${l.niveau}</span></td>
-        <td>${l.annee_academique}</td>
+        <td>${i + 1}</td>
+        <td>${l.faculte}</td>
+        <td><span class="annee-badge">${l.promotion}</span></td>
         <td><strong>${montant(l.montant)} $</strong></td>
-        <td class="admin-actions-cell">${lecture ? '' : `<button class="btn-icone danger" onclick="supprimerBareme(${l.id})" aria-label="Supprimer">${icone('corbeille')}</button>`}</td>
+        ${editable ? `<td class="admin-actions-cell"><button class="btn-icone danger" onclick="supprimerBareme(${l.id})" aria-label="Supprimer">${icone('corbeille')}</button></td>` : ''}
       </tr>`).join('');
-  } catch { tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+  } catch { tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
 async function enregistrerBareme() {
-  if (estLectureSeule()) { afficherToast('⚠️ Consultation seule.', 'erreur'); return; }
-  const niveau = document.getElementById('bareme-niveau')?.value;
+  if (!peutEditerBareme()) { afficherToast('⚠️ Seul l\'administrateur du budget peut modifier le barème.', 'erreur'); return; }
+  const faculte = document.getElementById('bareme-faculte')?.value;
+  const promotion = document.getElementById('bareme-promotion')?.value;
   const annee_academique = document.getElementById('bareme-annee')?.value;
   const montantVal = parseFloat(document.getElementById('bareme-montant')?.value);
-  if (!niveau || !annee_academique) { afficherToast('⚠️ Choisissez un niveau et une année.', 'erreur'); return; }
+  if (!faculte || !promotion || !annee_academique) { afficherToast('⚠️ Choisissez faculté, promotion et année.', 'erreur'); return; }
   if (isNaN(montantVal) || montantVal < 0) { afficherToast('⚠️ Entrez un montant valide.', 'erreur'); return; }
   try {
     const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ niveau, annee_academique, montant: montantVal })
+      body: JSON.stringify({ faculte, promotion, annee_academique, montant: montantVal })
     });
     const d = await r.json();
     if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
@@ -189,6 +218,7 @@ async function enregistrerBareme() {
 }
 
 async function supprimerBareme(id) {
+  if (!peutEditerBareme()) return;
   if (!await confirmerAction('Supprimer cette ligne de barème ? Le solde des étudiants concernés ne sera plus calculable tant qu\'aucune autre ligne ne la remplace.', { titre: 'Supprimer le barème', texteConfirmer: 'Supprimer' })) return;
   try {
     await fetchCaisse(`${BASE_URL}/api/frais-scolarite/${id}`, { method: 'DELETE' });
@@ -282,17 +312,19 @@ async function chargerPaiementsCaisse() {
 
     const lecture = estLectureSeule();
     tbody.innerHTML = paiements.length === 0
-      ? `<tr><td colspan="4" class="admin-vide">Aucun versement enregistré.</td></tr>`
+      ? `<tr><td colspan="6" class="admin-vide">Aucun versement enregistré.</td></tr>`
       : paiements.map(p => `<tr>
           <td>${formaterDateCaisse(p.date_paiement)}</td>
           <td>${Number(p.montant).toFixed(2)} $</td>
-          <td>${p.rubrique || p.mode_paiement || '—'}</td>
+          <td>${p.rubrique || '—'}</td>
+          <td>${p.reference || '—'}</td>
+          <td>${p.mode_paiement || '—'}</td>
           <td class="admin-actions-cell">
             <button class="btn-icone" onclick='reimprimerRecu(${JSON.stringify(p)})' title="Réimprimer le reçu">🧾</button>
             ${lecture ? '' : `<button class="btn-icone danger" onclick="supprimerPaiementCaisse(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button>`}
           </td>
         </tr>`).join('');
-  } catch { tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+  } catch { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
 async function ajouterPaiementCaisse() {
@@ -316,7 +348,7 @@ async function ajouterPaiementCaisse() {
     if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
     afficherToast('✅ Versement enregistré.');
     // Reçu imprimé automatiquement après encaissement.
-    imprimerRecu({ id: d.id, montant: montantVal, date_paiement, rubrique, mode_paiement }, etudiantCourantCaisse, nomCaissier());
+    imprimerRecu({ id: d.id, montant: montantVal, date_paiement, rubrique, reference, mode_paiement }, etudiantCourantCaisse, nomCaissier());
     document.getElementById('paiement-montant').value = '';
     document.getElementById('paiement-reference').value = '';
     chargerPaiementsCaisse();
@@ -392,15 +424,16 @@ function imprimerRecu(p, etu, caissier) {
       ${ligne('Matricule', etu.id)}
       ${ligne('Étudiant', nomComplet)}
       ${ligne('Filière', etu.filiere || etu.promotion)}
-      ${ligne('Promotion', etu.promotion)}
+      ${ligne('Niveau', etu.niveau)}
       ${ligne('Année académique', etu.annee_academique)}
       ${ligne('Motif (rubrique)', p.rubrique)}
+      ${ligne('Référence', p.reference)}
       ${ligne('Mode de paiement', p.mode_paiement)}
     </table>
     <div class="r-montant"><span class="l">Montant perçu</span><span class="m">${montant(p.montant)} $</span></div>
     <div class="r-sign">
-      <div class="b"><span class="l">Le caissier — ${esc(caissier)}</span></div>
-      <div class="b"><span class="l">L'étudiant</span></div>
+      <div class="b"><span class="l">Le/La caissier(e) — ${esc(caissier)}</span></div>
+      <div class="b"><span class="l">Sceau</span></div>
     </div>
     <div class="r-pied">Reçu généré électroniquement — Université Méthodiste de Lubumbashi</div>
   </div>
@@ -485,7 +518,7 @@ function afficherRapport(d) {
       <td>${l.nom} ${l.postnom || ''} ${l.prenom}</td>
       <td>${l.filiere || l.promotion || '—'}</td>
       <td>${l.rubrique || '—'}</td>
-      <td>${(l.agent_prenom || '') + ' ' + (l.agent_noms || '') || '—'}</td>
+      <td>${l.reference || '—'}</td>
       <td>${montant(l.montant)} $</td>
     </tr>`).join('') || '<tr><td colspan="7" class="admin-vide">Aucun versement sur cette période.</td></tr>';
 
@@ -500,7 +533,7 @@ function afficherRapport(d) {
     </div>
     <div class="dash-card">
       <h3>Détail des versements</h3>
-      <table class="dash-table"><thead><tr><th>Date</th><th>Matricule</th><th>Étudiant</th><th>Filière</th><th>Rubrique</th><th>Caissier</th><th>Montant</th></tr></thead><tbody>${lignes}</tbody></table>
+      <table class="dash-table"><thead><tr><th>Date</th><th>Matricule</th><th>Étudiant</th><th>Filière</th><th>Rubrique</th><th>Référence</th><th>Montant</th></tr></thead><tbody>${lignes}</tbody></table>
     </div>`;
 }
 
@@ -516,7 +549,7 @@ function imprimerRapport() {
       <td>${esc(`${l.nom} ${l.postnom || ''} ${l.prenom}`)}</td>
       <td>${esc(l.filiere || l.promotion || '')}</td>
       <td>${esc(l.rubrique || '')}</td>
-      <td>${esc(`${l.agent_prenom || ''} ${l.agent_noms || ''}`.trim())}</td>
+      <td>${esc(l.reference || '')}</td>
       <td class="n">${montant(l.montant)} $</td>
     </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:#999">Aucun versement.</td></tr>';
 
@@ -561,14 +594,69 @@ function imprimerRapport() {
   <h2>Répartition par rubrique</h2>
   <table><thead><tr><th>Rubrique</th><th>Nombre</th><th class="n">Total</th></tr></thead><tbody>${rub || '<tr><td colspan="3" style="text-align:center;color:#999">—</td></tr>'}</tbody></table>
   <h2>Détail des versements</h2>
-  <table><thead><tr><th>Date</th><th>Matricule</th><th>Étudiant</th><th>Filière</th><th>Rubrique</th><th>Caissier</th><th class="n">Montant</th></tr></thead><tbody>${lignes}</tbody></table>
-  <div class="signe"><span>Le caissier — ${esc(nomCaissier())}</span></div>
+  <table><thead><tr><th>Date</th><th>Matricule</th><th>Étudiant</th><th>Filière</th><th>Rubrique</th><th>Référence</th><th class="n">Montant</th></tr></thead><tbody>${lignes}</tbody></table>
+  <div class="signe"><span>Le/La caissier(e) — ${esc(nomCaissier())}</span></div>
 <script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>
 </body></html>`;
 
   const w = window.open('', '_blank', 'width=900,height=700');
   if (!w) { afficherToast('⚠️ Autorisez les pop-ups pour imprimer.', 'erreur'); return; }
   w.document.open(); w.document.write(html); w.document.close();
+}
+
+// =====================
+// CLOCHE — communiqués de l'admin destinés au rôle de l'agent (caisse / budget)
+// =====================
+let communiquesCaisse = [];
+
+async function chargerCommuniquesCaisse() {
+  const agent = getAgentCaisse();
+  if (!agent) return;
+  try {
+    const r = await fetch(`${BASE_URL}/api/annonces?type=communique&role=${encodeURIComponent(agent.role)}&actif=true`);
+    if (!r.ok) throw new Error();
+    communiquesCaisse = await r.json();
+    majNotifsCaisse();
+  } catch { /* silencieux */ }
+}
+
+function cleNotifsCaisse() { const a = getAgentCaisse(); return a ? `notif_vus_caisse_${a.id}` : null; }
+function lireNotifsCaisseVus() { const c = cleNotifsCaisse(); if (!c) return []; try { return JSON.parse(localStorage.getItem(c) || '[]'); } catch { return []; } }
+
+function majNotifsCaisse() {
+  const vus = lireNotifsCaisseVus();
+  const nouvelles = communiquesCaisse.filter(c => !vus.includes(c.id));
+  const badge = document.getElementById('caisse-notif-badge');
+  if (badge) { if (nouvelles.length) { badge.textContent = nouvelles.length > 99 ? '99+' : nouvelles.length; badge.style.display = ''; } else badge.style.display = 'none'; }
+  const liste = document.getElementById('caisse-notif-liste');
+  if (liste) {
+    liste.innerHTML = communiquesCaisse.length === 0
+      ? '<p class="notif-vide">Aucune information pour le moment.</p>'
+      : communiquesCaisse.map(c => `
+          <div class="notif-item">
+            <span class="notif-item-icone">📣</span>
+            <div><span class="notif-item-titre">${c.titre}</span><span class="notif-item-sous">${c.description || ''}</span></div>
+          </div>`).join('');
+  }
+}
+
+function basculerNotifsCaisse(event) {
+  if (event) event.stopPropagation();
+  const p = document.getElementById('caisse-notif-panneau');
+  if (!p) return;
+  document.getElementById('caisse-menu')?.classList.remove('ouvert');
+  const ouvert = p.classList.toggle('ouvert');
+  if (ouvert) {
+    const cle = cleNotifsCaisse();
+    if (cle) localStorage.setItem(cle, JSON.stringify(communiquesCaisse.map(c => c.id)));
+    const badge = document.getElementById('caisse-notif-badge'); if (badge) badge.style.display = 'none';
+  }
+}
+
+function basculerMenuCaisse(event) {
+  if (event) event.stopPropagation();
+  document.getElementById('caisse-notif-panneau')?.classList.remove('ouvert');
+  document.getElementById('caisse-menu')?.classList.toggle('ouvert');
 }
 
 // =====================
@@ -581,13 +669,34 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('caisse-etudiants-body')) {
     if (!exigerConnexionCaisse()) return;
     const agent = getAgentCaisse();
-    const nomEl = document.getElementById('caisse-agent-nom');
-    if (nomEl && agent) {
-      const fct = agent.fonction === 'administrateur_budget' ? 'Administrateur du budget' : 'Caissier';
-      nomEl.textContent = `${agent.prenom || ''} ${agent.noms || ''} · ${fct}`.trim();
+    if (agent) {
+      const nomComplet = `${agent.prenom || ''} ${agent.noms || ''}`.trim();
+      const fct = libelleFonctionAgent(agent);
+      const initiales = `${(agent.prenom || '')[0] || ''}${(agent.noms || '')[0] || ''}`.toUpperCase() || 'AG';
+      // Bloc profil bleu de la barre latérale (comme l'admin).
+      const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      set('caisse-avatar-sidebar', initiales);
+      set('caisse-nom-sidebar', nomComplet);
+      set('caisse-fonction-sidebar', fct);
+      // Menu burger (bonjour + fonction).
+      set('caisse-menu-prenom', agent.prenom || nomComplet);
+      set('caisse-menu-fonction', fct);
     }
     chargerAnneesCaisse();
     chargerStatsCaisse();
-    chargerFacultesDB().then(() => remplirSelectFacultes('caisse-filtre-faculte'));
+    chargerCommuniquesCaisse();
+    chargerFacultesDB().then(() => {
+      remplirSelectFacultes('caisse-filtre-faculte');
+      remplirSelectFacultes('bareme-filtre-faculte');
+      remplirSelectFacultes('bareme-faculte');
+    });
+
+    // Fermer les panneaux (cloche, menu) au clic en dehors.
+    document.addEventListener('click', e => {
+      const notifWrap = document.querySelector('.dash-notif-wrap');
+      if (notifWrap && !notifWrap.contains(e.target)) document.getElementById('caisse-notif-panneau')?.classList.remove('ouvert');
+      const menuWrap = document.querySelector('.dash-menu-wrap');
+      if (menuWrap && !menuWrap.contains(e.target)) document.getElementById('caisse-menu')?.classList.remove('ouvert');
+    });
   }
 });

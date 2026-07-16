@@ -2075,7 +2075,7 @@ async function supprimerAnnonce(id) {
 // Réutilisent la table annonce (type='communique', cible_role='etudiant'|'professeur'|'tous').
 // =====================
 let communiquesAdmin = [];
-const LIBELLE_ROLE = { etudiant: 'Étudiants', professeur: 'Enseignants', tous: 'Tout le monde' };
+const LIBELLE_ROLE = { etudiant: 'Étudiants', professeur: 'Enseignants', caisse: 'Caisse', budget: 'Administrateur du budget', doyen: 'Doyen & vice-doyen', appariteur: 'Appariteur', tous: 'Tout le monde' };
 
 async function chargerCommuniques() {
   const tbody = document.getElementById('admin-communiques-body');

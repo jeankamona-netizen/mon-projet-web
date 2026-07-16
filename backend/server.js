@@ -438,22 +438,22 @@ app.get('/api/etudiant/:id/cursus', async (req, res) => {
 // =====================
 app.get('/api/etudiant/:id/paiements', async (req, res) => {
   try {
-    const [etudiants] = await pool.query('SELECT id, niveau, annee_academique FROM etudiant WHERE id = ?', [req.params.id]);
+    const [etudiants] = await pool.query('SELECT id, faculte, promotion, niveau, annee_academique FROM etudiant WHERE id = ?', [req.params.id]);
     if (etudiants.length === 0) return res.status(404).json({ erreur: 'Étudiant non trouvé.' });
     const etu = etudiants[0];
 
     const [paiements] = await pool.query(
-      'SELECT id, montant, date_paiement, mode_paiement, reference, annee_academique FROM paiement WHERE etudiant_id = ? ORDER BY date_paiement DESC',
+      'SELECT id, montant, date_paiement, mode_paiement, rubrique, reference, annee_academique FROM paiement WHERE etudiant_id = ? ORDER BY date_paiement DESC',
       [req.params.id]
     );
     const total = paiements.reduce((s, p) => s + Number(p.montant), 0);
 
-    // Solde restant = barème (frais_scolarite) du niveau/année courant de
-    // l'étudiant − ses versements pour cette même année. null si aucun
-    // barème n'a encore été défini pour ce couple niveau/année.
+    // Solde restant = barème (frais_scolarite) de la faculté/promotion/année de
+    // l'étudiant − ses versements pour cette même année. null si aucun barème
+    // n'a encore été défini pour ce triplet.
     const [[bareme]] = await pool.query(
-      'SELECT montant FROM frais_scolarite WHERE niveau = ? AND annee_academique = ?',
-      [etu.niveau, etu.annee_academique]
+      'SELECT montant FROM frais_scolarite WHERE faculte = ? AND promotion = ? AND annee_academique = ?',
+      [etu.faculte, etu.promotion, etu.annee_academique]
     );
     const totalAnneeCourante = paiements
       .filter(p => p.annee_academique === etu.annee_academique)

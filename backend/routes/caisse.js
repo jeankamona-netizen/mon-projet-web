@@ -9,9 +9,9 @@ router.use(requireFinance);
 // ===== GET /api/caisse/etudiants — étudiants + total déjà versé (avec filtres) =====
 // La caisse a besoin de la liste des étudiants et de leur solde ; on renvoie le
 // cumul des versements par étudiant plutôt que d'ouvrir la route admin.
-// montant_attendu/solde viennent du barème (frais_scolarite) pour le niveau +
-// année de l'étudiant ; null si aucune ligne de barème n'existe encore pour ce
-// couple niveau/année (pas confondu avec un solde de 0 $).
+// montant_attendu/solde viennent du barème (frais_scolarite) pour la faculté +
+// promotion + année de l'étudiant ; null si aucune ligne de barème n'existe
+// encore pour ce triplet (pas confondu avec un solde de 0 $).
 router.get('/etudiants', async (req, res) => {
   try {
     const { nom, annee, niveau, faculte } = req.query;
@@ -24,7 +24,7 @@ router.get('/etudiants', async (req, res) => {
       FROM etudiant e
       LEFT JOIN filiere f ON e.filiere_id = f.id
       LEFT JOIN paiement p ON p.etudiant_id = e.id
-      LEFT JOIN frais_scolarite fs ON fs.niveau = e.niveau AND fs.annee_academique = e.annee_academique
+      LEFT JOIN frais_scolarite fs ON fs.faculte = e.faculte AND fs.promotion = e.promotion AND fs.annee_academique = e.annee_academique
       WHERE 1=1
     `;
     const params = [];
@@ -102,8 +102,8 @@ router.get('/rapport', async (req, res) => {
 
   try {
     const [lignes] = await pool.query(
-      `SELECT p.id, p.date_paiement, p.montant, p.rubrique, p.mode_paiement,
-              e.id AS matricule, e.nom, e.postnom, e.prenom, f.nom AS filiere, e.promotion,
+      `SELECT p.id, p.date_paiement, p.montant, p.rubrique, p.mode_paiement, p.reference,
+              e.id AS matricule, e.nom, e.postnom, e.prenom, f.nom AS filiere, e.promotion, e.niveau,
               a.noms AS agent_noms, a.prenom AS agent_prenom
        FROM paiement p
        JOIN etudiant e ON p.etudiant_id = e.id

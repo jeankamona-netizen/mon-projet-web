@@ -26,8 +26,30 @@
       </div>
     </div>
     <div class="dash-header-right">
-      <span id="caisse-agent-nom" style="font-size:13px;color:var(--bleu);font-weight:600;margin-right:14px"></span>
-      <a href="login.html?role=caissier" class="dash-deconnexion" onclick="deconnecterCaisse()">Déconnexion</a>
+      <div class="dash-notif-wrap">
+        <button class="dash-notif" id="caisse-notif-bouton" style="color:#fff" onclick="basculerNotifsCaisse(event)" aria-label="Notifications" aria-haspopup="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-badge" id="caisse-notif-badge" style="display:none">0</span>
+        </button>
+        <div class="notif-panneau" id="caisse-notif-panneau">
+          <div class="notif-entete">Infos &amp; communiqués</div>
+          <div class="notif-liste" id="caisse-notif-liste"></div>
+        </div>
+      </div>
+      <div class="dash-menu-wrap">
+        <button class="dash-menu-btn" id="caisse-menu-btn" style="color:#fff" onclick="basculerMenuCaisse(event)" aria-label="Menu du compte" aria-haspopup="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="menu-compte" id="caisse-menu">
+          <div class="menu-compte-entete">Bonjour, <b id="caisse-menu-prenom"></b></div>
+          <div class="menu-compte-titre" id="caisse-menu-fonction"></div>
+          <div class="menu-compte-sep"></div>
+          <a href="login.html?role=caissier" class="menu-compte-item" onclick="deconnecterCaisse()" style="display:flex;align-items:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+            Se déconnecter
+          </a>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -36,6 +58,13 @@
 
     <!-- SIDEBAR -->
     <aside class="dash-sidebar">
+      <div class="sidebar-profil admin-sidebar-profil">
+        <div class="profil-avatar admin-avatar" id="caisse-avatar-sidebar"></div>
+        <div class="profil-info">
+          <span class="profil-nom" id="caisse-nom-sidebar"></span>
+          <span class="profil-promo" id="caisse-fonction-sidebar"></span>
+        </div>
+      </div>
       <nav class="sidebar-nav">
         <a href="#" class="nav-item active" onclick="afficherSectionCaisse('caisse-accueil', this)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
@@ -108,22 +137,29 @@
         <div class="dash-card" style="margin-bottom:20px">
           <div class="card-header-action">
             <h3>Barème des frais attendus</h3>
-            <span class="info" style="font-size:12px">Sert à calculer le solde restant de chaque étudiant</span>
+            <span class="info" style="font-size:12px">Fixé par l'administrateur du budget · sert à calculer le solde de chaque étudiant</span>
           </div>
-          <div class="admin-toolbar" id="bareme-form" style="flex-wrap:wrap;gap:8px">
-            <select class="admin-recherche" id="bareme-niveau" style="flex:0 0 130px">
-              <option value="Pré-U">Pré-U</option>
-              <option value="L1">L1</option><option value="L2">L2</option><option value="L3">L3</option>
-              <option value="M1">M1</option><option value="M2">M2</option>
-            </select>
-            <select class="admin-recherche" id="bareme-annee" style="flex:0 0 170px"></select>
+
+          <!-- Filtres de consultation (année par défaut = année en cours) -->
+          <div class="admin-toolbar" style="flex-wrap:wrap;gap:8px">
+            <select class="admin-recherche" id="bareme-filtre-annee" onchange="chargerBareme()" style="flex:0 0 160px"></select>
+            <select class="admin-recherche" id="bareme-filtre-faculte" onchange="majPromotionsBareme('filtre'); chargerBareme()" style="flex:0 0 220px"><option value="">Toutes les facultés</option></select>
+            <select class="admin-recherche" id="bareme-filtre-promotion" onchange="chargerBareme()" style="flex:0 0 200px"><option value="">Toutes les promotions</option></select>
+          </div>
+
+          <!-- Saisie (administrateur du budget uniquement) -->
+          <div class="admin-toolbar" id="bareme-form" style="flex-wrap:wrap;gap:8px;border-top:1px dashed #e0e6ef;padding-top:12px;margin-top:4px">
+            <select class="admin-recherche" id="bareme-faculte" onchange="majPromotionsBareme('form')" style="flex:0 0 220px"><option value="">— Faculté —</option></select>
+            <select class="admin-recherche" id="bareme-promotion" style="flex:0 0 200px"><option value="">— Promotion —</option></select>
+            <select class="admin-recherche" id="bareme-annee" style="flex:0 0 160px"></select>
             <input type="number" class="admin-recherche" id="bareme-montant" placeholder="Montant attendu ($)" min="0" step="0.01" style="flex:0 0 180px">
             <button class="btn-ajouter" onclick="enregistrerBareme()">✅ Enregistrer</button>
           </div>
+
           <div style="overflow-x:auto">
             <table class="dash-table">
-              <thead><tr><th>Niveau</th><th>Année académique</th><th>Montant attendu ($)</th><th>Action</th></tr></thead>
-              <tbody id="bareme-body"><tr><td colspan="4" class="admin-vide">Chargement...</td></tr></tbody>
+              <thead><tr><th style="width:52px">N°</th><th>Faculté</th><th>Promotion</th><th>Montant attendu ($)</th><th id="bareme-col-action">Action</th></tr></thead>
+              <tbody id="bareme-body"><tr><td colspan="5" class="admin-vide">Chargement...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -198,8 +234,8 @@
       </div>
 
       <table class="dash-table" style="margin-bottom:16px">
-        <thead><tr><th>Date</th><th>Montant</th><th>Mode</th><th></th></tr></thead>
-        <tbody id="paiements-body"><tr><td colspan="4" class="admin-vide">Chargement...</td></tr></tbody>
+        <thead><tr><th>Date</th><th>Montant</th><th>Motif</th><th>Référence</th><th>Mode</th><th></th></tr></thead>
+        <tbody id="paiements-body"><tr><td colspan="6" class="admin-vide">Chargement...</td></tr></tbody>
       </table>
 
       <div id="paiement-saisie">

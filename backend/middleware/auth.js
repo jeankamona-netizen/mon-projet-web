@@ -50,5 +50,8 @@ const requireFinance  = exigerRoles(['admin', 'caisse', 'budget'], 'Accès rése
 // uniquement — l'administrateur du budget (role 'budget') est en lecture
 // seule (voir estLectureSeule() côté frontend caisse.js).
 const requireCaissier = exigerRoles(['admin', 'caisse'], 'Accès réservé à la caisse.');
+// Barème des frais attendus : fixé par l'administrateur du budget (et l'admin) ;
+// la caisse (caissier) est en lecture seule.
+const requireBudget   = exigerRoles(['admin', 'budget'], 'Réservé à l\'administrateur du budget.');
 
-module.exports = { requireAdmin, requireFinance, requireCaissier };
+module.exports = { requireAdmin, requireFinance, requireCaissier, requireBudget };
