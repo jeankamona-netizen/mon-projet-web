@@ -724,7 +724,10 @@
         </div>
 
         <div class="dash-card attr-onglet-contenu active" id="attr-onglet-profs">
-          <h3>Professeurs</h3>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <h3 style="margin:0">Professeurs</h3>
+            <button class="btn-ajouter" style="background:var(--bleu)" onclick="imprimerAttributionsProfesseurs()" title="Imprimer les cours attribués pour l'année sélectionnée">🖨️ Imprimer les attributions</button>
+          </div>
           <table class="dash-table">
             <thead>
               <tr>

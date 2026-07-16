@@ -104,7 +104,7 @@ const SELECTS_ANNEES = [
   { id: 'filtre-annee-prog',   all: '— Année —' },
   { id: 'filtre-note-annee',   all: '' },
   { id: 'notes-filtre-annee',  all: 'Toutes les années' },
-  { id: 'filtre-attr-annee',   all: 'Toutes les années' },
+  { id: 'filtre-attr-annee',   all: 'Toutes les années', defautCourante: true },
   { id: 'horaire-annee',       all: '' },
   { id: 'prog-annee',          all: '' },
   { id: 'inscrit-annee',       all: '' },
@@ -127,7 +127,7 @@ async function chargerAnnees() {
       sel.innerHTML = (cfg.all !== '' ? `<option value="">${cfg.all}</option>` : '') +
         annees.map(a => `<option value="${a.libelle}">${a.libelle}</option>`).join('');
       if (ancienne && annees.some(a => a.libelle === ancienne)) sel.value = ancienne;
-      else if (cfg.all === '' && courante) sel.value = courante;
+      else if ((cfg.all === '' || cfg.defautCourante) && courante) sel.value = courante;
     });
   } catch { /* en cas d'échec, on garde les options statiques du HTML */ }
 }
@@ -1623,16 +1623,20 @@ function imprimerProgrammeFaculte(fac) {
   const blocsFilieres = niveaux.map(niv => {
     const coursNiv = coursFac.filter(p => p.niveau === niv);
     const filieres = [...new Set(coursNiv.map(p => p.filiere_nom || COMMUN))].sort((a,b) => a === COMMUN ? 1 : b === COMMUN ? -1 : a.localeCompare(b));
+    // Un semestre sans cours propre (couvert par un cours commun, ou
+    // simplement vide) ne s'imprime pas du tout — ni titre ni tableau vide.
     const sousBlocs = filieres.map(fil => {
       const coursFil = coursNiv.filter(p => (p.filiere_nom || COMMUN) === fil);
       const s1 = coursFil.filter(p => p.semestre === 'S1');
       const s2 = coursFil.filter(p => p.semestre === 'S2');
-      return `
-        <h3>${esc(fil)}</h3>
+      const blocS1 = s1.length === 0 ? '' : `
         <h4>Semestre 1 <span>(${s1.reduce((s,p)=>s+p.credits,0)} cr.)</span></h4>
-        <table><thead>${entete}</thead><tbody>${tableauHtml(s1)}</tbody></table>
+        <table><thead>${entete}</thead><tbody>${tableauHtml(s1)}</tbody></table>`;
+      const blocS2 = s2.length === 0 ? '' : `
         <h4>Semestre 2 <span>(${s2.reduce((s,p)=>s+p.credits,0)} cr.)</span></h4>
         <table><thead>${entete}</thead><tbody>${tableauHtml(s2)}</tbody></table>`;
+      if (!blocS1 && !blocS2) return '';
+      return `<h3>${esc(fil)}</h3>${blocS1}${blocS2}`;
     }).join('');
     return `<h2>${libelleNiveauProg(niv)}</h2>${sousBlocs}`;
   }).join('');
@@ -2873,6 +2877,80 @@ async function chargerProfesseurs() {
   } catch (err) { console.error(err); }
 }
 
+// Document imprimable des cours déjà attribués, par professeur, pour
+// l'année sélectionnée dans le filtre (ou toutes années si aucune n'est
+// choisie) — même numérotation que la vue à l'écran.
+async function imprimerAttributionsProfesseurs() {
+  const annee = document.getElementById('filtre-attr-annee')?.value || '';
+  try {
+    const [rProfs, rProgramme] = await Promise.all([
+      fetchAdmin(`${BASE_URL}/api/professeurs`),
+      fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`)
+    ]);
+    const profs = await rProfs.json();
+    const programme = await rProgramme.json();
+    const coursParProf = {};
+    programme.forEach(c => { if (!c.professeur_id) return; (coursParProf[c.professeur_id] ||= []).push(c); });
+
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const logoSrc = `${location.origin}/img/logo.png`;
+
+    const blocsProfs = profs.map(p => {
+      const cours = coursParProf[p.id] || [];
+      if (cours.length === 0) return '';
+      const lignes = cours.map((c, i) => `
+        <div class="ligne-cours">${i + 1}. ${esc(c.nom)}
+          <span class="promo">(${esc(c.promotion)} · ${c.semestre === 'S1' ? 'Semestre 1' : 'Semestre 2'})</span>
+        </div>`).join('');
+      return `
+        <div class="bloc-prof">
+          <h3>${esc(p.nom)} ${esc(p.prenom || '')} <span class="grade">${esc(p.grade || '')}</span></h3>
+          ${lignes}
+        </div>`;
+    }).join('');
+
+    const contenu = blocsProfs.trim() === ''
+      ? '<p style="text-align:center;color:#999;margin-top:30px">Aucune attribution pour cette sélection.</p>'
+      : blocsProfs;
+
+    const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Attributions des cours${annee ? ' — ' + esc(annee) : ''}</title>
+<style>
+  :root { --bleu:#1a3a6b; --jaune:#f0c020; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI',Arial,sans-serif; color:#1a1a1a; padding:24px; }
+  .barre { text-align:center; margin-bottom:16px; }
+  .barre button { font-size:14px; padding:9px 20px; border:none; border-radius:6px; background:var(--bleu); color:#fff; cursor:pointer; }
+  .tete { display:flex; align-items:center; gap:12px; border-bottom:3px solid var(--jaune); padding-bottom:10px; margin-bottom:6px; }
+  .tete img { width:46px; height:46px; object-fit:contain; }
+  .tete .u { font-size:16px; font-weight:800; color:var(--bleu); line-height:1.2; }
+  .tete .u small { display:block; font-size:10px; font-weight:600; color:#666; }
+  h1 { font-size:16px; color:var(--bleu); margin:14px 0 2px; }
+  .periode { color:#666; font-size:12px; margin-bottom:16px; }
+  .bloc-prof { margin-bottom:18px; page-break-inside:avoid; }
+  .bloc-prof h3 { font-size:13px; color:var(--bleu); padding-left:8px; border-left:3px solid var(--jaune); margin-bottom:6px; page-break-after:avoid; }
+  .bloc-prof h3 .grade { font-weight:400; color:#666; font-size:11px; }
+  .ligne-cours { font-size:12px; padding:4px 0 4px 16px; border-bottom:1px solid #eef1f5; }
+  .ligne-cours .promo { color:#888; font-size:11px; }
+  @media print { .barre { display:none; } body { padding:0; } @page { size:A4; margin:14mm; }
+    * { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+</style></head><body>
+  <div class="barre"><button onclick="window.print()">🖨️ Imprimer</button></div>
+  <div class="tete">
+    <img src="${logoSrc}" alt="" onerror="this.style.display='none'">
+    <div class="u">UNIVERSITÉ MÉTHODISTE DE LUBUMBASHI<small>Scientia, Sanctitas et Veritas</small></div>
+  </div>
+  <h1>Attributions des cours par professeur</h1>
+  <div class="periode">${annee ? 'Année académique ' + esc(annee) : 'Toutes années confondues'} · Édité le ${new Date().toLocaleDateString('fr-FR')}</div>
+  ${contenu}
+<script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>
+</body></html>`;
+
+    const w = window.open('', '_blank', 'width=900,height=700');
+    if (!w) { afficherToast('⚠️ Autorisez les pop-ups pour imprimer.', 'erreur'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  } catch (err) { console.error(err); afficherToast('⚠️ Impossible de générer le document.', 'erreur'); }
+}
+
 async function chargerCoursSansProf() {
   const tbody=document.getElementById('admin-sans-prof-body');
   if (!tbody) return;
@@ -2900,7 +2978,7 @@ async function chargerCoursSansProf() {
       ? (sans.length===0
           ? `<tr><td colspan="4" class="admin-vide">✅ Tous les cours ont un professeur.</td></tr>`
           : `<tr><td colspan="4" class="admin-vide">✅ Tous les cours de cette promotion ont un professeur.</td></tr>`)
-      : filtres.map(c=>`<tr><td>${c.nom}</td><td>${c.promotion}</td><td>${c.semestre==='S1'?'Semestre 1':'Semestre 2'}</td><td><button class="btn-ajouter" style="padding:4px 10px;font-size:12px" onclick="ouvrirModalAttribution(${c.id},null,'${c.annee_academique}',${c.faculte?`'${c.faculte.replace(/'/g,"\\'")}'`:'null'})">Attribuer</button></td></tr>`).join('');
+      : filtres.map(c=>`<tr><td>${c.nom}</td><td>${c.promotion}</td><td style="white-space:nowrap">${c.semestre==='S1'?'Semestre 1':'Semestre 2'}</td><td><button class="btn-ajouter" style="padding:4px 10px;font-size:12px" onclick="ouvrirModalAttribution(${c.id},null,'${c.annee_academique}',${c.faculte?`'${c.faculte.replace(/'/g,"\\'")}'`:'null'})">Attribuer</button></td></tr>`).join('');
   } catch (err) { console.error(err); }
 }
 
