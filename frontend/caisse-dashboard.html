@@ -122,10 +122,12 @@
 
         <div class="dash-card" style="margin-top:20px">
           <h3>Derniers versements</h3>
-          <table class="dash-table">
-            <thead><tr><th>Date</th><th>Étudiant</th><th>Mode</th><th>Montant ($)</th></tr></thead>
-            <tbody id="caisse-recents"><tr><td colspan="4" class="admin-vide">Chargement...</td></tr></tbody>
-          </table>
+          <div style="overflow-x:auto">
+            <table class="dash-table">
+              <thead><tr><th>Date</th><th>Étudiant</th><th>Niveau</th><th>Filière</th><th>Rubrique</th><th>Référence</th><th>Montant ($)</th></tr></thead>
+              <tbody id="caisse-recents"><tr><td colspan="7" class="admin-vide">Chargement...</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -140,26 +142,29 @@
             <span class="info" style="font-size:12px">Fixé par l'administrateur du budget · sert à calculer le solde de chaque étudiant</span>
           </div>
 
-          <!-- Filtres de consultation (année par défaut = année en cours) -->
-          <div class="admin-toolbar" style="flex-wrap:wrap;gap:8px">
-            <select class="admin-recherche" id="bareme-filtre-annee" onchange="chargerBareme()" style="flex:0 0 160px"></select>
-            <select class="admin-recherche" id="bareme-filtre-faculte" onchange="majPromotionsBareme('filtre'); chargerBareme()" style="flex:0 0 220px"><option value="">Toutes les facultés</option></select>
-            <select class="admin-recherche" id="bareme-filtre-promotion" onchange="chargerBareme()" style="flex:0 0 200px"><option value="">Toutes les promotions</option></select>
+          <!-- Année académique (filtre d'affichage + année de la ligne saisie) -->
+          <div class="admin-toolbar" style="flex-wrap:wrap;gap:8px;align-items:center">
+            <label style="font-size:13px;color:#555">Année académique</label>
+            <select class="admin-recherche" id="bareme-annee" onchange="chargerBareme()" style="flex:0 0 170px"></select>
           </div>
 
-          <!-- Saisie (administrateur du budget uniquement) -->
+          <!-- Saisie d'une nouvelle ligne (administrateur du budget uniquement) -->
           <div class="admin-toolbar" id="bareme-form" style="flex-wrap:wrap;gap:8px;border-top:1px dashed #e0e6ef;padding-top:12px;margin-top:4px">
-            <select class="admin-recherche" id="bareme-faculte" onchange="majPromotionsBareme('form')" style="flex:0 0 220px"><option value="">— Faculté —</option></select>
-            <select class="admin-recherche" id="bareme-promotion" style="flex:0 0 200px"><option value="">— Promotion —</option></select>
-            <select class="admin-recherche" id="bareme-annee" style="flex:0 0 160px"></select>
-            <input type="number" class="admin-recherche" id="bareme-montant" placeholder="Montant attendu ($)" min="0" step="0.01" style="flex:0 0 180px">
+            <select class="admin-recherche" id="bareme-faculte" onchange="majPromotionsBareme()" style="flex:0 0 220px"><option value="">— Faculté —</option></select>
+            <select class="admin-recherche" id="bareme-promotion" style="flex:0 0 190px"><option value="">— Filière —</option></select>
+            <select class="admin-recherche" id="bareme-niveau" style="flex:0 0 120px">
+              <option value="">— Niveau —</option>
+              <option value="Pré-U">Pré-U</option><option value="L1">L1</option><option value="L2">L2</option><option value="L3">L3</option>
+              <option value="M1">M1</option><option value="M2">M2</option><option value="D1">D1</option><option value="D2">D2</option>
+            </select>
+            <input type="number" class="admin-recherche" id="bareme-montant" placeholder="Montant ($)" min="0" step="0.01" style="flex:0 0 150px">
             <button class="btn-ajouter" onclick="enregistrerBareme()">✅ Enregistrer</button>
           </div>
 
           <div style="overflow-x:auto">
             <table class="dash-table">
-              <thead><tr><th style="width:52px">N°</th><th>Faculté</th><th>Promotion</th><th>Montant attendu ($)</th><th id="bareme-col-action">Action</th></tr></thead>
-              <tbody id="bareme-body"><tr><td colspan="5" class="admin-vide">Chargement...</td></tr></tbody>
+              <thead><tr><th style="width:52px">N°</th><th>Faculté</th><th>Filière</th><th>Niveau</th><th>Montant attendu ($)</th><th id="bareme-col-action">Action</th></tr></thead>
+              <tbody id="bareme-body"><tr><td colspan="6" class="admin-vide">Chargement...</td></tr></tbody>
             </table>
           </div>
         </div>

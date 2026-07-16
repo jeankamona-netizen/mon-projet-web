@@ -24,7 +24,7 @@ router.get('/etudiants', async (req, res) => {
       FROM etudiant e
       LEFT JOIN filiere f ON e.filiere_id = f.id
       LEFT JOIN paiement p ON p.etudiant_id = e.id
-      LEFT JOIN frais_scolarite fs ON fs.faculte = e.faculte AND fs.promotion = e.promotion AND fs.annee_academique = e.annee_academique
+      LEFT JOIN frais_scolarite fs ON fs.faculte = e.faculte AND fs.promotion = e.promotion AND fs.niveau = e.niveau AND fs.annee_academique = e.annee_academique
       WHERE 1=1
     `;
     const params = [];
@@ -66,9 +66,10 @@ router.get('/stats', async (req, res) => {
     );
     // 8 derniers versements, tous étudiants confondus.
     const [recents] = await pool.query(
-      `SELECT p.id, p.montant, p.date_paiement, p.mode_paiement,
-              e.nom, e.postnom, e.prenom, e.id AS etudiant_id
+      `SELECT p.id, p.montant, p.date_paiement, p.mode_paiement, p.rubrique, p.reference,
+              e.nom, e.postnom, e.prenom, e.id AS etudiant_id, e.niveau, f.nom AS filiere, e.promotion
        FROM paiement p JOIN etudiant e ON p.etudiant_id = e.id
+       LEFT JOIN filiere f ON e.filiere_id = f.id
        ORDER BY p.date_paiement DESC, p.id DESC LIMIT 8`
     );
     res.json({

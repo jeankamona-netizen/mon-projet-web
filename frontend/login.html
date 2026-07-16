@@ -47,19 +47,9 @@
 
         <form autocomplete="on" onsubmit="return false">
           <div class="form-group">
-            <label for="role-connexion">Type de compte (Rôle)</label>
-            <select id="role-connexion" onchange="ajusterChampIdentifiant()">
-              <option value="etudiant">Étudiant(e)</option>
-              <option value="professeur">Professeur</option>
-              <option value="admin">Administration</option>
-              <option value="caissier">Caisse</option>
-              <option value="administrateur_budget">Administrateur du budget</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="identifiant-connexion" id="label-identifiant">Numéro étudiant</label>
-            <input type="text" id="identifiant-connexion" placeholder="ex: UML-2024-0012" autocomplete="username">
+            <label for="identifiant-connexion" id="label-identifiant">Identifiant</label>
+            <input type="text" id="identifiant-connexion" placeholder="Matricule, e-mail ou identifiant" autocomplete="username">
+            <span class="form-aide" style="font-size:12px;color:#888">Le système reconnaît automatiquement votre type de compte.</span>
           </div>
 
           <div class="form-group">

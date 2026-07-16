@@ -452,8 +452,8 @@ app.get('/api/etudiant/:id/paiements', async (req, res) => {
     // l'étudiant − ses versements pour cette même année. null si aucun barème
     // n'a encore été défini pour ce triplet.
     const [[bareme]] = await pool.query(
-      'SELECT montant FROM frais_scolarite WHERE faculte = ? AND promotion = ? AND annee_academique = ?',
-      [etu.faculte, etu.promotion, etu.annee_academique]
+      'SELECT montant FROM frais_scolarite WHERE faculte = ? AND promotion = ? AND niveau = ? AND annee_academique = ?',
+      [etu.faculte, etu.promotion, etu.niveau, etu.annee_academique]
     );
     const totalAnneeCourante = paiements
       .filter(p => p.annee_academique === etu.annee_academique)

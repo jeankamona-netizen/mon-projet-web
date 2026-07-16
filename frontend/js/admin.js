@@ -2913,14 +2913,26 @@ async function imprimerAttributionsProfesseurs(profId = null) {
     const blocsProfs = profs.map(p => {
       const cours = coursParProf[p.id] || [];
       if (cours.length === 0) return '';
+      const vol = v => (v === null || v === undefined || v === '') ? '—' : v;
       const lignes = cours.map((c, i) => `
-        <div class="ligne-cours">${i + 1}. ${esc(c.nom)}
-          <span class="promo">(${esc(c.promotion)} · ${c.semestre === 'S1' ? 'Semestre 1' : 'Semestre 2'})</span>
-        </div>`).join('');
+        <tr>
+          <td>${i + 1}</td>
+          <td class="g">${esc(c.nom)}${c.code ? ` <small>(${esc(c.code)})</small>` : ''}</td>
+          <td>${vol(c.cmi)}</td>
+          <td>${vol(c.td)}</td>
+          <td>${vol(c.tp)}</td>
+          <td>${vol(c.credits)}</td>
+          <td>${esc(c.niveau || '')}</td>
+          <td class="g">${esc(c.faculte || '')}${(c.filiere_nom || c.promotion) ? ' / ' + esc(c.filiere_nom || c.promotion) : ''}</td>
+          <td>${c.semestre || ''}</td>
+        </tr>`).join('');
       return `
         <div class="bloc-prof">
           <h3>${esc(p.nom)} ${esc(p.prenom || '')} <span class="grade">${esc(p.grade || '')}</span></h3>
-          ${lignes}
+          <table class="cours-table">
+            <thead><tr><th>N°</th><th>Intitulé UE</th><th>CMI</th><th>TD</th><th>TP</th><th>Crédit</th><th>Niveau</th><th>Faculté / Filière</th><th>Sem.</th></tr></thead>
+            <tbody>${lignes}</tbody>
+          </table>
         </div>`;
     }).join('');
 
@@ -2948,8 +2960,11 @@ async function imprimerAttributionsProfesseurs(profId = null) {
   .bloc-prof { margin-bottom:18px; page-break-inside:avoid; }
   .bloc-prof h3 { font-size:13px; color:var(--bleu); padding-left:8px; border-left:3px solid var(--jaune); margin-bottom:6px; page-break-after:avoid; }
   .bloc-prof h3 .grade { font-weight:400; color:#666; font-size:11px; }
-  .ligne-cours { font-size:12px; padding:4px 0 4px 16px; border-bottom:1px solid #eef1f5; }
-  .ligne-cours .promo { color:#888; font-size:11px; }
+  .cours-table { width:100%; border-collapse:collapse; font-size:10px; }
+  .cours-table th { background:#eef1f5; color:var(--bleu); padding:4px 6px; border:1px solid #dce3ec; text-align:center; font-size:9px; }
+  .cours-table td { padding:4px 6px; border:1px solid #eef1f5; text-align:center; }
+  .cours-table td.g { text-align:left; }
+  .cours-table td small { color:#888; }
   @media print { .barre { display:none; } body { padding:0; } @page { size:A4; margin:14mm; }
     * { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
 </style></head><body>

@@ -203,8 +203,8 @@ h2 {
   align-items: center;
   gap: 5px;
   background: transparent;
-  border: 1.5px solid rgba(26,58,107,0.2);
-  color: var(--bleu);
+  border: 1.5px solid rgba(255,255,255,0.4);
+  color: #fff;
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 13px;
@@ -213,7 +213,7 @@ h2 {
   transition: background 0.2s;
 }
 
-.lang-switch-btn:hover { background: rgba(26,58,107,0.06); }
+.lang-switch-btn:hover { background: rgba(255,255,255,0.14); }
 
 .lang-menu {
   display: none;

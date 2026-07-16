@@ -75,6 +75,76 @@ router.post('/agent', async (req, res) => {
 });
 
 // =====================
+// CONNEXION UNIVERSELLE — détecte automatiquement le type de compte à partir
+// de l'identifiant saisi (matricule agent, identifiant admin, email professeur
+// ou matricule étudiant), vérifie le mot de passe, et renvoie le type + la
+// session appropriée. La page de connexion n'a plus besoin de choisir un rôle.
+// =====================
+router.post('/login', async (req, res) => {
+  const { identifiant, mot_de_passe } = req.body;
+  if (!identifiant || !mot_de_passe)
+    return res.status(400).json({ erreur: 'Identifiant et mot de passe requis.' });
+  if (!process.env.JWT_SECRET)
+    return res.status(500).json({ erreur: 'Configuration serveur manquante.' });
+
+  const echec = () => res.status(401).json({ erreur: 'Identifiant ou mot de passe incorrect.' });
+
+  try {
+    // 1) Agent (caissier / administrateur du budget) — reconnu par le matricule.
+    const [agents] = await pool.query('SELECT * FROM agent WHERE matricule = ?', [identifiant]);
+    if (agents.length) {
+      const agent = agents[0];
+      const ok = await bcrypt.compare(mot_de_passe, agent.mot_de_passe || '');
+      if (!ok) return echec();
+      const role = ROLE_PAR_FONCTION[agent.fonction];
+      if (!role) return res.status(403).json({ erreur: "Votre fonction ne donne accès à aucune interface." });
+      const token = jwt.sign(
+        { role, fonction: agent.fonction, agent_id: agent.id, matricule: agent.matricule, nom: `${agent.prenom || ''} ${agent.noms}`.trim() },
+        process.env.JWT_SECRET, { expiresIn: '8h' }
+      );
+      return res.json({ type: 'caisse', token, agent: { id: agent.id, matricule: agent.matricule, noms: agent.noms, prenom: agent.prenom, fonction: agent.fonction, role } });
+    }
+
+    // 2) Administration — identifiant + mot de passe dans .env.
+    if (process.env.ADMIN_USER && identifiant === process.env.ADMIN_USER) {
+      if (mot_de_passe !== process.env.ADMIN_PASS) return echec();
+      const token = jwt.sign({ user: process.env.ADMIN_USER, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '8h' });
+      return res.json({ type: 'admin', token });
+    }
+
+    // 3) Professeur — reconnu par son adresse email.
+    const [profs] = await pool.query('SELECT * FROM professeur WHERE email = ?', [identifiant]);
+    if (profs.length && profs[0].mot_de_passe) {
+      const ok = await bcrypt.compare(mot_de_passe, profs[0].mot_de_passe);
+      if (!ok) return echec();
+      const { mot_de_passe: _, ...infos } = profs[0];
+      return res.json({ type: 'professeur', professeur: infos });
+    }
+
+    // 4) Étudiant — reconnu par son matricule (id).
+    const [etus] = await pool.query('SELECT * FROM etudiant WHERE id = ?', [identifiant]);
+    if (etus.length) {
+      const etu = etus[0];
+      let ok = false;
+      if (etu.mot_de_passe && etu.mot_de_passe.startsWith('$2')) {
+        ok = await bcrypt.compare(mot_de_passe, etu.mot_de_passe);
+      } else {
+        ok = etu.mot_de_passe === mot_de_passe;
+        if (ok) { const hash = await bcrypt.hash(mot_de_passe, 10); await pool.query('UPDATE etudiant SET mot_de_passe = ? WHERE id = ?', [hash, etu.id]); }
+      }
+      if (!ok) return echec();
+      const { mot_de_passe: _, ...infos } = etu;
+      return res.json({ type: 'etudiant', etudiant: infos });
+    }
+
+    return echec();
+  } catch (erreur) {
+    console.error('Erreur connexion universelle:', erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// =====================
 // AUTHENTIFICATION ÉTUDIANT — mot de passe hashé avec bcrypt
 // =====================
 router.post('/etudiant', async (req, res) => {

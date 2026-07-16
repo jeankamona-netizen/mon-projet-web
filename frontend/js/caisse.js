@@ -117,10 +117,13 @@ async function chargerStatsCaisse() {
       ? d.recents.map(p => `<tr>
           <td>${formaterDateCaisse(p.date_paiement)}</td>
           <td>${p.nom} ${p.postnom || ''} ${p.prenom}</td>
-          <td>${p.mode_paiement || '—'}</td>
+          <td>${p.niveau || '—'}</td>
+          <td>${p.filiere || p.promotion || '—'}</td>
+          <td>${p.rubrique || '—'}</td>
+          <td>${p.reference || '—'}</td>
           <td>${montant(p.montant)}</td>
         </tr>`).join('')
-      : `<tr><td colspan="4" class="admin-vide">Aucun versement récent.</td></tr>`;
+      : `<tr><td colspan="7" class="admin-vide">Aucun versement récent.</td></tr>`;
   } catch { /* redirigé si 401 */ }
 }
 
@@ -140,25 +143,20 @@ async function chargerAnneesCaisse() {
     // Filtre étudiants : « Toutes » + défaut année en cours.
     const selEtu = document.getElementById('caisse-filtre-annee');
     if (selEtu) { selEtu.innerHTML = '<option value="">Toutes les années</option>' + opts; if (courante) selEtu.value = courante; }
-    // Filtre barème (consultation) : « Toutes » + défaut année en cours.
-    const selBf = document.getElementById('bareme-filtre-annee');
-    if (selBf) { selBf.innerHTML = '<option value="">Toutes les années</option>' + opts; if (courante) selBf.value = courante; }
-    // Saisie barème (AB) : défaut année en cours.
+    // Barème : année en cours par défaut (sert de filtre d'affichage + année de saisie).
     const selBa = document.getElementById('bareme-annee');
     if (selBa) { selBa.innerHTML = opts; if (courante) selBa.value = courante; }
   } catch { /* silencieux */ }
 }
 
-// Remplit la liste des promotions (= filières) selon la faculté choisie.
-// cible = 'filtre' (bareme-filtre-*) ou 'form' (bareme-*).
-function majPromotionsBareme(cible) {
-  const facSel = document.getElementById(cible === 'form' ? 'bareme-faculte' : 'bareme-filtre-faculte');
-  const promoSel = document.getElementById(cible === 'form' ? 'bareme-promotion' : 'bareme-filtre-promotion');
+// Remplit la liste des filières selon la faculté choisie (formulaire de saisie).
+function majPromotionsBareme() {
+  const facSel = document.getElementById('bareme-faculte');
+  const promoSel = document.getElementById('bareme-promotion');
   if (!facSel || !promoSel) return;
   const fac = (facultesDB || []).find(f => f.nom === facSel.value);
   const filieres = (fac && fac.filieres ? fac.filieres : []).map(fl => (typeof fl === 'string' ? fl : fl.nom));
-  const tete = cible === 'form' ? '<option value="">— Promotion —</option>' : '<option value="">Toutes les promotions</option>';
-  promoSel.innerHTML = tete + filieres.map(fl => `<option value="${fl}">${fl}</option>`).join('');
+  promoSel.innerHTML = '<option value="">— Filière —</option>' + filieres.map(fl => `<option value="${fl}">${fl}</option>`).join('');
 }
 
 // =====================
@@ -172,41 +170,39 @@ async function chargerBareme() {
   if (form) form.style.display = editable ? '' : 'none';
   const colAction = document.getElementById('bareme-col-action');
   if (colAction) colAction.style.display = editable ? '' : 'none';
-  tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
   try {
+    const annee = document.getElementById('bareme-annee')?.value || '';
     const params = new URLSearchParams();
-    const annee = document.getElementById('bareme-filtre-annee')?.value || '';
-    const faculte = document.getElementById('bareme-filtre-faculte')?.value || '';
-    const promotion = document.getElementById('bareme-filtre-promotion')?.value || '';
     if (annee) params.append('annee', annee);
-    if (faculte) params.append('faculte', faculte);
-    if (promotion) params.append('promotion', promotion);
     const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite?${params}`);
     const lignes = await r.json();
-    if (!lignes.length) { tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Aucun barème défini pour cette sélection.</td></tr>`; return; }
+    if (!lignes.length) { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Aucun barème défini pour cette année.</td></tr>`; return; }
     tbody.innerHTML = lignes.map((l, i) => `
       <tr>
         <td>${i + 1}</td>
         <td>${l.faculte}</td>
-        <td><span class="annee-badge">${l.promotion}</span></td>
+        <td>${l.promotion}</td>
+        <td><span class="annee-badge">${l.niveau}</span></td>
         <td><strong>${montant(l.montant)} $</strong></td>
         ${editable ? `<td class="admin-actions-cell"><button class="btn-icone danger" onclick="supprimerBareme(${l.id})" aria-label="Supprimer">${icone('corbeille')}</button></td>` : ''}
       </tr>`).join('');
-  } catch { tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+  } catch { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
 async function enregistrerBareme() {
   if (!peutEditerBareme()) { afficherToast('⚠️ Seul l\'administrateur du budget peut modifier le barème.', 'erreur'); return; }
+  const annee_academique = document.getElementById('bareme-annee')?.value;
   const faculte = document.getElementById('bareme-faculte')?.value;
   const promotion = document.getElementById('bareme-promotion')?.value;
-  const annee_academique = document.getElementById('bareme-annee')?.value;
+  const niveau = document.getElementById('bareme-niveau')?.value;
   const montantVal = parseFloat(document.getElementById('bareme-montant')?.value);
-  if (!faculte || !promotion || !annee_academique) { afficherToast('⚠️ Choisissez faculté, promotion et année.', 'erreur'); return; }
+  if (!annee_academique || !faculte || !promotion || !niveau) { afficherToast('⚠️ Choisissez année, faculté, filière et niveau.', 'erreur'); return; }
   if (isNaN(montantVal) || montantVal < 0) { afficherToast('⚠️ Entrez un montant valide.', 'erreur'); return; }
   try {
     const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ faculte, promotion, annee_academique, montant: montantVal })
+      body: JSON.stringify({ faculte, promotion, niveau, annee_academique, montant: montantVal })
     });
     const d = await r.json();
     if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
@@ -514,8 +510,8 @@ function afficherRapport(d) {
     || '<tr><td colspan="3" class="admin-vide">—</td></tr>';
   const lignes = (d.lignes || []).map(l => `<tr>
       <td>${formaterDateCaisse(l.date_paiement)}</td>
-      <td><code style="font-size:11px">${l.matricule}</code></td>
       <td>${l.nom} ${l.postnom || ''} ${l.prenom}</td>
+      <td>${l.niveau || '—'}</td>
       <td>${l.filiere || l.promotion || '—'}</td>
       <td>${l.rubrique || '—'}</td>
       <td>${l.reference || '—'}</td>
@@ -533,7 +529,7 @@ function afficherRapport(d) {
     </div>
     <div class="dash-card">
       <h3>Détail des versements</h3>
-      <table class="dash-table"><thead><tr><th>Date</th><th>Matricule</th><th>Étudiant</th><th>Filière</th><th>Rubrique</th><th>Référence</th><th>Montant</th></tr></thead><tbody>${lignes}</tbody></table>
+      <table class="dash-table"><thead><tr><th>Date</th><th>Étudiant</th><th>Niveau</th><th>Filière</th><th>Rubrique</th><th>Référence</th><th>Montant</th></tr></thead><tbody>${lignes}</tbody></table>
     </div>`;
 }
 
@@ -545,8 +541,8 @@ function imprimerRapport() {
   const rub = (d.par_rubrique || []).map(r => `<tr><td>${esc(r.rubrique)}</td><td>${r.nb}</td><td class="n">${montant(r.total)} $</td></tr>`).join('');
   const lignes = (d.lignes || []).map(l => `<tr>
       <td>${formaterDateCaisse(l.date_paiement)}</td>
-      <td>${esc(l.matricule)}</td>
       <td>${esc(`${l.nom} ${l.postnom || ''} ${l.prenom}`)}</td>
+      <td>${esc(l.niveau || '')}</td>
       <td>${esc(l.filiere || l.promotion || '')}</td>
       <td>${esc(l.rubrique || '')}</td>
       <td>${esc(l.reference || '')}</td>
@@ -594,7 +590,7 @@ function imprimerRapport() {
   <h2>Répartition par rubrique</h2>
   <table><thead><tr><th>Rubrique</th><th>Nombre</th><th class="n">Total</th></tr></thead><tbody>${rub || '<tr><td colspan="3" style="text-align:center;color:#999">—</td></tr>'}</tbody></table>
   <h2>Détail des versements</h2>
-  <table><thead><tr><th>Date</th><th>Matricule</th><th>Étudiant</th><th>Filière</th><th>Rubrique</th><th>Référence</th><th class="n">Montant</th></tr></thead><tbody>${lignes}</tbody></table>
+  <table><thead><tr><th>Date</th><th>Étudiant</th><th>Niveau</th><th>Filière</th><th>Rubrique</th><th>Référence</th><th class="n">Montant</th></tr></thead><tbody>${lignes}</tbody></table>
   <div class="signe"><span>Le/La caissier(e) — ${esc(nomCaissier())}</span></div>
 <script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>
 </body></html>`;
@@ -687,7 +683,6 @@ document.addEventListener('DOMContentLoaded', () => {
     chargerCommuniquesCaisse();
     chargerFacultesDB().then(() => {
       remplirSelectFacultes('caisse-filtre-faculte');
-      remplirSelectFacultes('bareme-filtre-faculte');
       remplirSelectFacultes('bareme-faculte');
     });
 
