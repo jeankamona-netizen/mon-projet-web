@@ -85,8 +85,9 @@ function afficherSectionCaisse(id, lien) {
   document.getElementById(id)?.classList.add('active');
   lien?.classList.add('active');
   if (id === 'caisse-accueil')  chargerStatsCaisse();
-  if (id === 'caisse-frais')    { chargerEtudiantsCaisse(); chargerBareme(); }
+  if (id === 'caisse-frais')    chargerEtudiantsCaisse();
   if (id === 'caisse-rapports') initRapports();
+  if (id === 'caisse-bareme')   chargerBareme();
 }
 
 function formaterDateCaisse(dateStr) {
@@ -150,13 +151,19 @@ async function chargerAnneesCaisse() {
 }
 
 // Remplit la liste des filières selon la faculté choisie (formulaire de saisie).
+function filieresDeFaculte(nomFaculte) {
+  const fac = (facultesDB || []).find(f => f.nom === nomFaculte);
+  return (fac && fac.filieres ? fac.filieres : []).map(fl => (typeof fl === 'string' ? fl : fl.nom));
+}
 function majPromotionsBareme() {
   const facSel = document.getElementById('bareme-faculte');
   const promoSel = document.getElementById('bareme-promotion');
   if (!facSel || !promoSel) return;
-  const fac = (facultesDB || []).find(f => f.nom === facSel.value);
-  const filieres = (fac && fac.filieres ? fac.filieres : []).map(fl => (typeof fl === 'string' ? fl : fl.nom));
-  promoSel.innerHTML = '<option value="">— Filière —</option>' + filieres.map(fl => `<option value="${fl}">${fl}</option>`).join('');
+  const filieres = filieresDeFaculte(facSel.value);
+  // Option « Toutes les filières » : applique le même barème à toutes les filières de la faculté.
+  const optToutes = filieres.length ? '<option value="__toutes__">— Toutes les filières —</option>' : '';
+  promoSel.innerHTML = '<option value="">— Filière —</option>' + optToutes +
+    filieres.map(fl => `<option value="${fl}">${fl}</option>`).join('');
 }
 
 // =====================
@@ -199,14 +206,25 @@ async function enregistrerBareme() {
   const montantVal = parseFloat(document.getElementById('bareme-montant')?.value);
   if (!annee_academique || !faculte || !promotion || !niveau) { afficherToast('⚠️ Choisissez année, faculté, filière et niveau.', 'erreur'); return; }
   if (isNaN(montantVal) || montantVal < 0) { afficherToast('⚠️ Entrez un montant valide.', 'erreur'); return; }
+
+  // « Toutes les filières » : on applique le barème à chacune des filières de la faculté.
+  const cibles = promotion === '__toutes__' ? filieresDeFaculte(faculte) : [promotion];
+  if (!cibles.length) { afficherToast('⚠️ Aucune filière trouvée pour cette faculté.', 'erreur'); return; }
+
   try {
-    const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ faculte, promotion, niveau, annee_academique, montant: montantVal })
-    });
-    const d = await r.json();
-    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
-    afficherToast('✅ Barème enregistré.');
+    let ok = 0, echecs = 0, dernierMsg = '';
+    for (const fil of cibles) {
+      const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ faculte, promotion: fil, niveau, annee_academique, montant: montantVal })
+      });
+      const d = await r.json();
+      if (r.ok) ok++; else { echecs++; dernierMsg = d.erreur || ''; }
+    }
+    if (echecs && !ok) { afficherToast('❌ ' + (dernierMsg || 'Échec de l\'enregistrement.'), 'erreur'); return; }
+    afficherToast(cibles.length > 1
+      ? `✅ Barème appliqué à ${ok} filière(s)${echecs ? ` · ${echecs} échec(s)` : ''}.`
+      : '✅ Barème enregistré.');
     document.getElementById('bareme-montant').value = '';
     chargerBareme();
     chargerEtudiantsCaisse();
