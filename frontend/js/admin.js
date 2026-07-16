@@ -99,8 +99,11 @@ async function chargerFiliereParFaculte() {
 // pour ne plus avoir à modifier le code chaque année.
 // Chaque select : id + libellé de l'option « toutes » ('' = pas d'option toutes).
 // =====================
+// Année académique courante (définie par l'admin dans « Années académiques »).
+// Sert de valeur par défaut partout et de filtre implicite de la Vue d'ensemble.
+let anneeCourante = '';
+
 const SELECTS_ANNEES = [
-  { id: 'filtre-annee-accueil', all: 'Toutes les années', defautCourante: true },
   { id: 'filtre-annee',        all: 'Toutes les années', defautCourante: true },
   { id: 'filtre-annee-prog',   all: '— Année —', defautCourante: true },
   { id: 'filtre-note-annee',   all: '' },
@@ -121,6 +124,9 @@ async function chargerAnnees() {
     const annees = await r.json();
     if (!Array.isArray(annees) || annees.length === 0) return;
     const courante = annees.find(a => a.est_courante)?.libelle;
+    anneeCourante = courante || '';
+    const badgeAccueil = document.getElementById('annee-courante-accueil');
+    if (badgeAccueil) badgeAccueil.textContent = anneeCourante || '—';
     SELECTS_ANNEES.forEach(cfg => {
       const sel = document.getElementById(cfg.id);
       if (!sel) return;
@@ -462,7 +468,7 @@ function formaterDate(dateStr) {
 // =====================
 async function chargerStats() {
   try {
-    const annee = document.getElementById('filtre-annee-accueil')?.value || '';
+    const annee = anneeCourante;
     const reponse = await fetchAdmin(`${BASE_URL}/api/stats${annee ? '?annee=' + encodeURIComponent(annee) : ''}`);
     if (!reponse.ok) throw new Error('Erreur serveur');
     const stats = await reponse.json();
@@ -486,7 +492,7 @@ async function chargerGraphiqueFacultes() {
   if (!canvas || typeof Chart === 'undefined') return;
 
   try {
-    const annee = document.getElementById('filtre-annee-accueil')?.value || '';
+    const annee = anneeCourante;
     const r = await fetchAdmin(`${BASE_URL}/api/etudiants${annee ? '?annee=' + encodeURIComponent(annee) : ''}`);
     const etudiants = await r.json();
 
@@ -2869,13 +2875,17 @@ async function chargerProfesseurs() {
     const coursParProf={};
     programme.forEach(c=>{ if (!c.professeur_id) return; (coursParProf[c.professeur_id]||=[]).push(c); });
 
-    tbody.innerHTML=profs.length===0?`<tr><td colspan="5" class="admin-vide">Aucun professeur.</td></tr>`:
-      profs.map(p=>{
+    // Recherche d'un professeur par nom/prénom (filtrage côté client).
+    const q=(document.getElementById('recherche-prof')?.value||'').trim().toLowerCase();
+    const profsAff=q ? profs.filter(p=>`${p.nom} ${p.prenom||''}`.toLowerCase().includes(q)) : profs;
+
+    tbody.innerHTML=profsAff.length===0?`<tr><td colspan="5" class="admin-vide">${q?'Aucun professeur ne correspond à cette recherche.':'Aucun professeur.'}</td></tr>`:
+      profsAff.map(p=>{
         const cours=coursParProf[p.id]||[];
         const listeCours=cours.length===0
           ? '<span class="admin-vide">Aucun cours</span>'
           : cours.map((c,i)=>`${i+1}. ${c.nom} <small>(${c.promotion})</small>`).join('<br>');
-        return `<tr><td>${p.nom}</td><td>${p.prenom||'—'}</td><td>${p.grade||'—'}</td><td>${listeCours}</td><td class="admin-actions-cell"><button class="btn-icone" onclick="ouvrirModalAttribution(null,${p.id})" aria-label="Attribuer un cours" title="Attribuer un cours">${icone('plus')}</button><button class="btn-icone" onclick="reinitialiserMotDePasseProfesseur(${p.id})" aria-label="Réinitialiser le mot de passe" title="Réinitialiser le mot de passe">${icone('cle')}</button><button class="btn-icone" onclick="modifierProfesseur(${p.id})" aria-label="Modifier">${icone('crayon')}</button><button class="btn-icone danger" onclick="supprimerProfesseur(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td></tr>`;
+        return `<tr><td>${p.nom}</td><td>${p.prenom||'—'}</td><td>${p.grade||'—'}</td><td>${listeCours}</td><td class="admin-actions-cell"><button class="btn-icone" onclick="imprimerAttributionsProfesseurs(${p.id})" aria-label="Imprimer ses cours" title="Imprimer les cours de ce professeur">${icone('imprimante')}</button><button class="btn-icone" onclick="ouvrirModalAttribution(null,${p.id})" aria-label="Attribuer un cours" title="Attribuer un cours">${icone('plus')}</button><button class="btn-icone" onclick="reinitialiserMotDePasseProfesseur(${p.id})" aria-label="Réinitialiser le mot de passe" title="Réinitialiser le mot de passe">${icone('cle')}</button><button class="btn-icone" onclick="modifierProfesseur(${p.id})" aria-label="Modifier">${icone('crayon')}</button><button class="btn-icone danger" onclick="supprimerProfesseur(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td></tr>`;
       }).join('');
   } catch (err) { console.error(err); }
 }
@@ -2883,14 +2893,16 @@ async function chargerProfesseurs() {
 // Document imprimable des cours déjà attribués, par professeur, pour
 // l'année sélectionnée dans le filtre (ou toutes années si aucune n'est
 // choisie) — même numérotation que la vue à l'écran.
-async function imprimerAttributionsProfesseurs() {
+async function imprimerAttributionsProfesseurs(profId = null) {
   const annee = document.getElementById('filtre-attr-annee')?.value || '';
   try {
     const [rProfs, rProgramme] = await Promise.all([
       fetchAdmin(`${BASE_URL}/api/professeurs`),
       fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`)
     ]);
-    const profs = await rProfs.json();
+    let profs = await rProfs.json();
+    // profId fourni → on n'imprime que ce professeur.
+    if (profId) profs = profs.filter(p => p.id === profId);
     const programme = await rProgramme.json();
     const coursParProf = {};
     programme.forEach(c => { if (!c.professeur_id) return; (coursParProf[c.professeur_id] ||= []).push(c); });
@@ -2915,6 +2927,10 @@ async function imprimerAttributionsProfesseurs() {
     const contenu = blocsProfs.trim() === ''
       ? '<p style="text-align:center;color:#999;margin-top:30px">Aucune attribution pour cette sélection.</p>'
       : blocsProfs;
+
+    const titreDoc = (profId && profs[0])
+      ? `Attributions de ${esc(profs[0].nom)} ${esc(profs[0].prenom || '')}`.trim()
+      : 'Attributions des cours par professeur';
 
     const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Attributions des cours${annee ? ' — ' + esc(annee) : ''}</title>
 <style>
@@ -2942,7 +2958,7 @@ async function imprimerAttributionsProfesseurs() {
     <img src="${logoSrc}" alt="" onerror="this.style.display='none'">
     <div class="u">UNIVERSITÉ MÉTHODISTE DE LUBUMBASHI<small>Scientia, Sanctitas et Veritas</small></div>
   </div>
-  <h1>Attributions des cours par professeur</h1>
+  <h1>${titreDoc}</h1>
   <div class="periode">${annee ? 'Année académique ' + esc(annee) : 'Toutes années confondues'} · Édité le ${new Date().toLocaleDateString('fr-FR')}</div>
   ${contenu}
 <script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>
