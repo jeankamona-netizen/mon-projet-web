@@ -130,10 +130,34 @@ app.use('/api/contact',        contactRoutes);
 // =====================
 app.get('/api/stats', requireAdmin, async (req, res) => {
   try {
-    const [[{ etudiants }]]       = await pool.query('SELECT COUNT(*) AS etudiants FROM etudiant');
+    const { annee } = req.query;
+
+    // Étudiants : profil courant OU historique d'inscription_cours pour
+    // cette année (même logique que /api/etudiants) — un étudiant promu ne
+    // doit pas disparaître du décompte d'une année qu'il a réellement suivie.
+    const [[{ etudiants }]] = annee
+      ? await pool.query(`
+          SELECT COUNT(DISTINCT id) AS etudiants FROM (
+            SELECT e.id FROM etudiant e WHERE e.annee_academique = ?
+            UNION
+            SELECT ic.etudiant_id AS id FROM inscription_cours ic JOIN cours c ON c.id = ic.cours_id WHERE c.annee_academique = ?
+          ) x
+        `, [annee, annee])
+      : await pool.query('SELECT COUNT(*) AS etudiants FROM etudiant');
+
+    // Les pré-inscriptions n'ont pas de notion d'année académique (un
+    // candidat postule une seule fois, sans cursus) : décompte global,
+    // non affecté par le filtre d'année.
     const [[{ preinscriptions }]] = await pool.query('SELECT COUNT(*) AS preinscriptions FROM preinscription WHERE statut = "en_attente"');
-    const [[{ cours }]]           = await pool.query('SELECT COUNT(*) AS cours FROM horaire');
-    const [[{ annonces }]]        = await pool.query('SELECT COUNT(*) AS annonces FROM annonce WHERE actif = 1');
+
+    const [[{ cours }]] = annee
+      ? await pool.query('SELECT COUNT(*) AS cours FROM horaire WHERE annee_academique = ?', [annee])
+      : await pool.query('SELECT COUNT(*) AS cours FROM horaire');
+
+    // Les annonces (site public) ne sont pas non plus rattachées à une année
+    // académique : décompte global lui aussi.
+    const [[{ annonces }]] = await pool.query('SELECT COUNT(*) AS annonces FROM annonce WHERE actif = 1');
+
     res.json({ etudiants, preinscriptions, cours, annonces });
   } catch (erreur) {
     console.error('Erreur stats:', erreur);

@@ -128,12 +128,15 @@ async function chargerAnneesCaisse() {
     const r = await fetch(`${BASE_URL}/api/annees`);
     if (!r.ok) return;
     const annees = await r.json();
+    const courante = annees.find(a => a.est_courante)?.libelle;
     const sel = document.getElementById('caisse-filtre-annee');
-    if (sel) sel.innerHTML = '<option value="">Toutes les années</option>' +
-      annees.map(a => `<option value="${a.libelle}">${a.libelle}</option>`).join('');
+    if (sel) {
+      sel.innerHTML = '<option value="">Toutes les années</option>' +
+        annees.map(a => `<option value="${a.libelle}">${a.libelle}</option>`).join('');
+      if (courante) sel.value = courante;
+    }
     const selBareme = document.getElementById('bareme-annee');
     if (selBareme) {
-      const courante = annees.find(a => a.est_courante)?.libelle;
       selBareme.innerHTML = annees.map(a => `<option value="${a.libelle}">${a.libelle}</option>`).join('');
       if (courante) selBareme.value = courante;
     }

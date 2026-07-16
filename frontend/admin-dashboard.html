@@ -151,8 +151,15 @@
 
       <!-- ==================== VUE D'ENSEMBLE ==================== -->
       <section id="admin-accueil" class="dash-section active">
-        <h2>Vue d'ensemble</h2>
-        <p class="dash-sous-titre">Résumé de l'activité de la plateforme UML</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div>
+            <h2>Vue d'ensemble</h2>
+            <p class="dash-sous-titre">Résumé de l'activité de la plateforme UML</p>
+          </div>
+          <select class="admin-recherche" id="filtre-annee-accueil" style="flex:0 0 170px" onchange="chargerStats()">
+            <option value="">Toutes les années</option>
+          </select>
+        </div>
 
         <div class="stats-grid">
           <div class="stat-card stat-card-clickable" role="button" tabindex="0"

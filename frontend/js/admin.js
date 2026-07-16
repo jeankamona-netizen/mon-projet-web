@@ -100,17 +100,18 @@ async function chargerFiliereParFaculte() {
 // Chaque select : id + libellé de l'option « toutes » ('' = pas d'option toutes).
 // =====================
 const SELECTS_ANNEES = [
-  { id: 'filtre-annee',        all: 'Toutes les années' },
-  { id: 'filtre-annee-prog',   all: '— Année —' },
+  { id: 'filtre-annee-accueil', all: 'Toutes les années', defautCourante: true },
+  { id: 'filtre-annee',        all: 'Toutes les années', defautCourante: true },
+  { id: 'filtre-annee-prog',   all: '— Année —', defautCourante: true },
   { id: 'filtre-note-annee',   all: '' },
-  { id: 'notes-filtre-annee',  all: 'Toutes les années' },
+  { id: 'notes-filtre-annee',  all: 'Toutes les années', defautCourante: true },
   { id: 'filtre-attr-annee',   all: 'Toutes les années', defautCourante: true },
   { id: 'horaire-annee',       all: '' },
   { id: 'prog-annee',          all: '' },
   { id: 'inscrit-annee',       all: '' },
   { id: 'reins-annee-promo',   all: '' },
   { id: 'reins-annee-nouveau', all: '' },
-  { id: 'filtre-inscrits-annee', all: 'Toutes les années' },
+  { id: 'filtre-inscrits-annee', all: 'Toutes les années', defautCourante: true },
 ];
 
 async function chargerAnnees() {
@@ -461,7 +462,8 @@ function formaterDate(dateStr) {
 // =====================
 async function chargerStats() {
   try {
-    const reponse = await fetchAdmin(`${BASE_URL}/api/stats`);
+    const annee = document.getElementById('filtre-annee-accueil')?.value || '';
+    const reponse = await fetchAdmin(`${BASE_URL}/api/stats${annee ? '?annee=' + encodeURIComponent(annee) : ''}`);
     if (!reponse.ok) throw new Error('Erreur serveur');
     const stats = await reponse.json();
     const ids = { 'cpt-etudiants': stats.etudiants, 'cpt-preinscriptions': stats.preinscriptions, 'cpt-cours': stats.cours, 'cpt-annonces': stats.annonces };
@@ -484,7 +486,8 @@ async function chargerGraphiqueFacultes() {
   if (!canvas || typeof Chart === 'undefined') return;
 
   try {
-    const r = await fetchAdmin(`${BASE_URL}/api/etudiants`);
+    const annee = document.getElementById('filtre-annee-accueil')?.value || '';
+    const r = await fetchAdmin(`${BASE_URL}/api/etudiants${annee ? '?annee=' + encodeURIComponent(annee) : ''}`);
     const etudiants = await r.json();
 
     // Regroupe par (faculté → filière) selon les inscriptions réelles.
