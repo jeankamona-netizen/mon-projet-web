@@ -635,7 +635,10 @@ async function chargerPresencesDashboard(id) {
   resumeBody.innerHTML = '<tr><td colspan="5" class="admin-vide">Chargement...</td></tr>';
   histoBody.innerHTML = '<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>';
   try {
-    const r = await fetch(`${BASE_URL}/api/etudiant/${id}/presences`);
+    // Scopé sur l'année du cursus consulté (voir cursusActif) : un étudiant
+    // promu ne doit pas voir son taux d'assiduité mélanger plusieurs années.
+    const annee = cursusActif?.annee_academique;
+    const r = await fetch(`${BASE_URL}/api/etudiant/${id}/presences${annee ? '?annee=' + encodeURIComponent(annee) : ''}`);
     if (!r.ok) throw new Error();
     const parCours = await r.json();
 
@@ -941,6 +944,11 @@ function rafraichirSectionsCursus() {
   afficherAnnonces();
   majTitreNotes();
   genererAnalyseIA();
+  // Présences : contrairement aux autres sections (filtrées côté client sur
+  // des données déjà en cache), l'assiduité est filtrée par année côté
+  // serveur — il faut donc une nouvelle requête à chaque changement de cursus.
+  const etu = getEtudiantConnecte();
+  if (etu) chargerPresencesDashboard(etu.id);
 }
 
 function selectionnerCursus(niveau, annee_academique) {

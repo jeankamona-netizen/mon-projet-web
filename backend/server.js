@@ -454,13 +454,27 @@ app.get('/api/etudiant/:id/bulletin', requireAdmin, async (req, res) => {
     if (etudiants.length === 0) return res.status(404).json({ erreur: 'Étudiant non trouvé.' });
 
     const [notes] = await pool.query(`
-      SELECT n.note, n.note_cc, n.note_examen, n.session, c.nom AS matiere, c.code, c.credits, c.annee_academique
+      SELECT n.note, n.note_cc, n.note_examen, n.session, c.id AS cours_id, c.nom AS matiere, c.code, c.credits, c.annee_academique
       FROM note n JOIN cours c ON n.cours_id = c.id
       WHERE n.etudiant_id = ?
       ORDER BY n.session, c.code
     `, [req.params.id]);
 
-    genererBulletinPDF(res, etudiants[0], notes);
+    // Assiduité par cours, agrégée pour être répartie ensuite par semestre
+    // (chaque note connaît déjà son cours_id et sa session S1/S2).
+    const [presenceLignes] = await pool.query(`
+      SELECT h.cours_id, p.statut
+      FROM presence p JOIN horaire h ON h.id = p.horaire_id
+      WHERE p.etudiant_id = ?
+    `, [req.params.id]);
+    const presencesParCours = {};
+    for (const l of presenceLignes) {
+      if (!presencesParCours[l.cours_id]) presencesParCours[l.cours_id] = { cours_id: l.cours_id, total: 0, present: 0, absent: 0, retard: 0 };
+      presencesParCours[l.cours_id].total++;
+      presencesParCours[l.cours_id][l.statut]++;
+    }
+
+    genererBulletinPDF(res, etudiants[0], notes, Object.values(presencesParCours));
   } catch (erreur) {
     console.error('Erreur bulletin:', erreur);
     res.status(500).json({ erreur: erreur.message });
@@ -697,6 +711,12 @@ app.post('/api/professeur/:id/horaires/:horaireId/presences', async (req, res) =
   if (presences.some(p => !p.etudiant_id || !statutsValides.includes(p.statut))) {
     return res.status(400).json({ erreur: "Chaque présence doit préciser un étudiant et un statut valide." });
   }
+  // La saisie/modification n'est autorisée que le jour même de la séance
+  // (comparaison en UTC, cohérente avec les dates de colonnes du calendrier
+  // envoyées par le frontend).
+  if (date_seance !== new Date().toISOString().slice(0, 10)) {
+    return res.status(403).json({ erreur: "Les présences ne peuvent être saisies ou modifiées que le jour même du cours." });
+  }
   try {
     const [autorise] = await pool.query(
       'SELECT 1 FROM horaire WHERE id = ? AND professeur_id = ? LIMIT 1',
@@ -716,19 +736,77 @@ app.post('/api/professeur/:id/horaires/:horaireId/presences', async (req, res) =
 });
 
 // =====================
+// PRÉSENCES — feuille d'appel d'une séance (espace admin, tous les cours,
+// même règle de verrouillage au jour même que côté professeur)
+// =====================
+app.get('/api/admin/horaires/:horaireId/presences', requireAdmin, async (req, res) => {
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ erreur: "Le paramètre date est obligatoire." });
+  try {
+    const [horaireLigne] = await pool.query('SELECT cours_id FROM horaire WHERE id = ? LIMIT 1', [req.params.horaireId]);
+    if (horaireLigne.length === 0) return res.status(404).json({ erreur: "Créneau introuvable." });
+
+    const [etudiants] = await pool.query(`
+      SELECT e.id, e.nom, e.postnom, e.prenom, p.statut
+      FROM inscription_cours ic
+      JOIN etudiant e ON e.id = ic.etudiant_id
+      LEFT JOIN presence p ON p.etudiant_id = e.id AND p.horaire_id = ? AND p.date_seance = ?
+      WHERE ic.cours_id = ?
+      ORDER BY e.nom, e.prenom
+    `, [req.params.horaireId, date, horaireLigne[0].cours_id]);
+    res.json(etudiants);
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+app.post('/api/admin/horaires/:horaireId/presences', requireAdmin, async (req, res) => {
+  const { date_seance, presences } = req.body;
+  if (!date_seance || !Array.isArray(presences) || presences.length === 0) {
+    return res.status(400).json({ erreur: "Date de séance et liste de présences obligatoires." });
+  }
+  const statutsValides = ['present', 'absent', 'retard'];
+  if (presences.some(p => !p.etudiant_id || !statutsValides.includes(p.statut))) {
+    return res.status(400).json({ erreur: "Chaque présence doit préciser un étudiant et un statut valide." });
+  }
+  if (date_seance !== new Date().toISOString().slice(0, 10)) {
+    return res.status(403).json({ erreur: "Les présences ne peuvent être saisies ou modifiées que le jour même du cours." });
+  }
+  try {
+    const [horaireLigne] = await pool.query('SELECT 1 FROM horaire WHERE id = ? LIMIT 1', [req.params.horaireId]);
+    if (horaireLigne.length === 0) return res.status(404).json({ erreur: "Créneau introuvable." });
+
+    for (const p of presences) {
+      await pool.query(
+        `INSERT INTO presence (horaire_id, etudiant_id, date_seance, statut) VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE statut = VALUES(statut)`,
+        [req.params.horaireId, p.etudiant_id, date_seance, p.statut]
+      );
+    }
+    res.status(201).json({ message: 'Présences enregistrées.' });
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+// =====================
 // PRÉSENCES — consultation par l'étudiant (taux d'assiduité par cours + historique)
 // =====================
 app.get('/api/etudiant/:id/presences', async (req, res) => {
   try {
+    // Scopé sur l'année académique du cursus consulté (voir cursusActif côté
+    // frontend) : un étudiant promu ne doit pas voir son taux d'assiduité
+    // mélanger plusieurs années.
+    const { annee } = req.query;
+    const params = [req.params.id];
+    let filtreAnnee = '';
+    if (annee) { filtreAnnee = 'AND h.annee_academique = ?'; params.push(annee); }
+
     const [lignes] = await pool.query(`
       SELECT p.date_seance, p.statut, h.heure_debut, h.heure_fin, h.salle,
              c.id AS cours_id, c.nom AS cours, c.code
       FROM presence p
       JOIN horaire h ON h.id = p.horaire_id
       JOIN cours c ON c.id = h.cours_id
-      WHERE p.etudiant_id = ?
+      WHERE p.etudiant_id = ? ${filtreAnnee}
       ORDER BY p.date_seance DESC
-    `, [req.params.id]);
+    `, params);
 
     const parCours = {};
     for (const l of lignes) {

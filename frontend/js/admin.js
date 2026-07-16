@@ -1087,11 +1087,82 @@ function afficherCalendrierHorairesAdmin() {
                     <span class="cours-info"><strong>${h.promotion}</strong> · ${h.annee_academique}</span>
                     <span class="cours-info">${h.professeur ? (h.grade ? h.grade+' ' : '')+(h.professeur_prenom ? h.professeur_prenom+' ' : '')+h.professeur : '— aucun professeur'}</span>
                     <span class="cours-info">${h.salle} · ${h.nb_etudiants ?? 0} étudiant(s)</span>
+                    ${memeJourUTCAdmin(dateColonne, auj) ? `<button class="btn-icone" style="margin-top:6px;width:100%" onclick="ouvrirModalPresencesAdmin(${h.id}, '${h.cours.replace(/'/g, "\\'")} · ${h.promotion.replace(/'/g, "\\'")}', '${dateColonne.toISOString().slice(0,10)}')">📋 Présences</button>` : ''}
                   </div>
                 </div>`).join('')}
         </div>
       </div>`;
   }).join('');
+}
+
+// =====================
+// PRÉSENCES — prise d'appel côté admin (mêmes règles que côté professeur :
+// visible uniquement le jour même du cours, verrouillé ensuite)
+// =====================
+let presencesAdminModalCache = [];
+
+function ouvrirModalPresencesAdmin(horaireId, coursLibelle, dateSeance) {
+  document.getElementById('presences-admin-horaire-id').value = horaireId;
+  document.getElementById('presences-admin-cours-nom').textContent = coursLibelle;
+  document.getElementById('presences-admin-date').value = dateSeance;
+  const affichage = document.getElementById('presences-admin-date-affichage');
+  if (affichage) affichage.value = formaterDate(dateSeance);
+  document.getElementById('modal-presences-admin')?.classList.add('active');
+  chargerPresencesModalAdmin();
+}
+
+function fermerModalPresencesAdmin() {
+  document.getElementById('modal-presences-admin')?.classList.remove('active');
+}
+
+async function chargerPresencesModalAdmin() {
+  const horaireId = document.getElementById('presences-admin-horaire-id')?.value;
+  const date = document.getElementById('presences-admin-date')?.value;
+  const tbody = document.getElementById('presences-admin-body');
+  if (!tbody || !horaireId || !date) return;
+  tbody.innerHTML = '<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>';
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/admin/horaires/${horaireId}/presences?date=${date}`);
+    if (!r.ok) throw new Error();
+    presencesAdminModalCache = await r.json();
+    if (presencesAdminModalCache.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="admin-vide">Aucun étudiant inscrit à ce cours.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = presencesAdminModalCache.map(e => {
+      const statut = e.statut || 'present'; // par défaut : présent tant que rien n'est saisi
+      return `<tr data-etudiant-id="${e.id}">
+        <td>${e.nom} ${e.postnom || ''} ${e.prenom}</td>
+        <td style="text-align:center"><input type="radio" name="presence-admin-${e.id}" value="present" ${statut === 'present' ? 'checked' : ''}></td>
+        <td style="text-align:center"><input type="radio" name="presence-admin-${e.id}" value="retard" ${statut === 'retard' ? 'checked' : ''}></td>
+        <td style="text-align:center"><input type="radio" name="presence-admin-${e.id}" value="absent" ${statut === 'absent' ? 'checked' : ''}></td>
+      </tr>`;
+    }).join('');
+  } catch {
+    tbody.innerHTML = '<tr><td colspan="4" class="admin-vide">⚠️ Erreur de chargement.</td></tr>';
+  }
+}
+
+async function enregistrerPresencesAdmin() {
+  const horaireId = document.getElementById('presences-admin-horaire-id')?.value;
+  const date_seance = document.getElementById('presences-admin-date')?.value;
+  if (!horaireId || !date_seance || presencesAdminModalCache.length === 0) return;
+
+  const presences = presencesAdminModalCache.map(e => ({
+    etudiant_id: e.id,
+    statut: document.querySelector(`input[name="presence-admin-${e.id}"]:checked`)?.value || 'present',
+  }));
+
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/admin/horaires/${horaireId}/presences`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date_seance, presences })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    afficherToast('✅ Présences enregistrées.');
+    fermerModalPresencesAdmin();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
 async function remplirListeProfesseurs() {

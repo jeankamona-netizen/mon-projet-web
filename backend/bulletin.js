@@ -230,10 +230,10 @@ function dessinerTotalGeneral(doc, notes) {
   doc.y = y + 17;
 }
 
-// Les absences ne sont pas encore suivies dans l'application : les champs
-// restent volontairement vides (pas de valeur inventée) en attendant.
-// Bloc compact sur deux lignes plutôt que deux grandes boîtes.
-function dessinerAbsencesEtMoyenne(doc, notesSession) {
+// Assiduité agrégée depuis la table presence (jointe côté serveur), scopée
+// aux cours du semestre affiché. Si aucune séance n'a encore été enregistrée
+// pour ces cours, on garde un texte neutre plutôt qu'une valeur inventée.
+function dessinerAbsencesEtMoyenne(doc, notesSession, presenceSession) {
   assurerEspace(doc, 26);
   const y = doc.y;
 
@@ -243,8 +243,15 @@ function dessinerAbsencesEtMoyenne(doc, notesSession) {
 
   doc.rect(X_DEPART, y, LARGEUR_PAGE, 22).fillAndStroke(COULEUR_FOND_BOITE, COULEUR_BORDURE);
 
+  const taux = presenceSession && presenceSession.total > 0
+    ? Math.round((presenceSession.present / presenceSession.total) * 1000) / 10
+    : null;
+  const texteAssiduite = taux === null
+    ? 'Assiduité — Aucune séance enregistrée pour ce semestre.'
+    : `Assiduité — Séances : ${presenceSession.total} · Présences : ${presenceSession.present} · Retards : ${presenceSession.retard} · Absences : ${presenceSession.absent} · Taux : ${taux}%`;
+
   doc.fontSize(7.5).font('Helvetica').fillColor(COULEUR_TEXTE)
-    .text('Absences — Total : — · Justifiées : — · Non justifiées : — · Assiduité : —/20', X_DEPART + 8, y + 4, { width: LARGEUR_PAGE - 16 });
+    .text(texteAssiduite, X_DEPART + 8, y + 4, { width: LARGEUR_PAGE - 16 });
 
   doc.font('Helvetica-Bold').fillColor(COULEUR_BLEU)
     .text(`Moyenne semestrielle : ${moyenne !== null ? moyenne.toFixed(2) + '/20' : '—'}`, X_DEPART + 8, y + 13, { continued: true });
@@ -267,7 +274,7 @@ function dessinerObservation(doc, notesSession, numero) {
   doc.y = y + 14;
 }
 
-function dessinerSemestre(doc, etudiant, notesSession, numero) {
+function dessinerSemestre(doc, etudiant, notesSession, numero, presences) {
   assurerEspace(doc, 40);
   doc.fontSize(10.5).font('Helvetica-Bold').fillColor(COULEUR_BLEU).text(`Semestre ${numero}`, X_DEPART, doc.y);
   doc.y += 12;
@@ -284,7 +291,18 @@ function dessinerSemestre(doc, etudiant, notesSession, numero) {
 
   dessinerTableauNotes(doc, notesSession);
   dessinerTotalGeneral(doc, notesSession);
-  dessinerAbsencesEtMoyenne(doc, notesSession);
+
+  // L'assiduité par semestre est déduite des cours notés dans ce semestre
+  // (la table presence n'a pas de notion de session S1/S2 propre).
+  const coursIds = new Set(notesSession.map(n => n.cours_id));
+  const presenceSession = (presences || [])
+    .filter(p => coursIds.has(p.cours_id))
+    .reduce((acc, p) => ({
+      total: acc.total + p.total, present: acc.present + p.present,
+      absent: acc.absent + p.absent, retard: acc.retard + p.retard,
+    }), { total: 0, present: 0, absent: 0, retard: 0 });
+
+  dessinerAbsencesEtMoyenne(doc, notesSession, presenceSession);
   dessinerObservation(doc, notesSession, numero);
 }
 
@@ -380,7 +398,7 @@ function dessinerPiedDePage(doc) {
     );
 }
 
-function genererBulletinPDF(res, etudiant, notes) {
+function genererBulletinPDF(res, etudiant, notes, presences = []) {
   const doc = new PDFDocument({ margin: 50, size: 'A4' });
   const nomFichier = `bulletin_${etudiant.id}.pdf`;
 
@@ -394,8 +412,8 @@ function genererBulletinPDF(res, etudiant, notes) {
   dessinerEnTete(doc);
   dessinerInfosEtudiant(doc, etudiant);
 
-  dessinerSemestre(doc, etudiant, s1, 1);
-  dessinerSemestre(doc, etudiant, s2, 2);
+  dessinerSemestre(doc, etudiant, s1, 1, presences);
+  dessinerSemestre(doc, etudiant, s2, 2, presences);
 
   dessinerResumeEtSignature(doc, notes);
   dessinerDateEtNote(doc);

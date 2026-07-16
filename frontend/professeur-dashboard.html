@@ -274,7 +274,9 @@
 
       <div class="form-group-dash" style="margin-bottom:14px">
         <label>Date de la séance</label>
-        <input type="date" id="presences-date" onchange="chargerPresencesModal()">
+        <input type="text" id="presences-date-affichage" disabled style="background:#f0f0f0">
+        <input type="hidden" id="presences-date">
+        <small style="color:#999">Les présences ne peuvent être saisies que le jour même du cours.</small>
       </div>
 
       <table class="dash-table" style="margin-bottom:16px">

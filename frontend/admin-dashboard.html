@@ -1140,6 +1140,32 @@
     </div>
   </div>
 
+  <!-- MODAL PRÉSENCES (prise d'appel côté admin, jour même uniquement) -->
+  <div class="admin-modal-overlay" id="modal-presences-admin">
+    <div class="admin-modal" style="max-width:560px">
+      <div class="admin-modal-header">
+        <h3>Présences — <span id="presences-admin-cours-nom"></span></h3>
+        <button class="admin-modal-close" onclick="fermerModalPresencesAdmin()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="presences-admin-horaire-id">
+
+      <div class="form-group-dash" style="margin-bottom:14px">
+        <label>Date de la séance</label>
+        <input type="text" id="presences-admin-date-affichage" disabled style="background:#f0f0f0">
+        <input type="hidden" id="presences-admin-date">
+        <small style="color:#999">Les présences ne peuvent être saisies que le jour même du cours.</small>
+      </div>
+
+      <table class="dash-table" style="margin-bottom:16px">
+        <thead><tr><th>Étudiant</th><th>Présent</th><th>Retard</th><th>Absent</th></tr></thead>
+        <tbody id="presences-admin-body"><tr><td colspan="4" class="admin-vide">Chargement...</td></tr></tbody>
+      </table>
+
+      <button class="btn-ajouter" style="width:100%" onclick="enregistrerPresencesAdmin()">✅ Enregistrer les présences</button>
+    </div>
+  </div>
+
   <!-- MODAL AJOUT/MODIFICATION ANNONCE -->
   <div class="admin-modal-overlay" id="modal-annonce">
     <div class="admin-modal">

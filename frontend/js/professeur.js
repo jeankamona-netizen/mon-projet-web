@@ -278,7 +278,7 @@ function filtrerHoraireProf() {
                     <span class="cours-nom">${h.cours} <span style="color:#999;font-weight:400">(${h.code})</span></span>
                     <span class="cours-info">${h.promotion}</span>
                     <span class="cours-info">${h.salle} · ${h.nb_etudiants ?? 0} étudiant(s)</span>
-                    <button class="btn-icone" style="margin-top:6px;width:100%" onclick="ouvrirModalPresences(${h.id}, '${(h.cours + ' (' + h.code + ')').replace(/'/g, "\\'")}', '${dateColonne.toISOString().slice(0,10)}')">📋 Présences</button>
+                    ${memeJourUTCProf(dateColonne, auj) ? `<button class="btn-icone" style="margin-top:6px;width:100%" onclick="ouvrirModalPresences(${h.id}, '${(h.cours + ' (' + h.code + ')').replace(/'/g, "\\'")}', '${dateColonne.toISOString().slice(0,10)}')">📋 Présences</button>` : ''}
                   </div>
                 </div>`).join('')}
         </div>
@@ -295,6 +295,8 @@ function ouvrirModalPresences(horaireId, coursLibelle, dateSeance) {
   document.getElementById('presences-horaire-id').value = horaireId;
   document.getElementById('presences-cours-nom').textContent = coursLibelle;
   document.getElementById('presences-date').value = dateSeance;
+  const affichage = document.getElementById('presences-date-affichage');
+  if (affichage) affichage.value = formaterDateHoraire(dateSeance);
   document.getElementById('modal-presences')?.classList.add('active');
   chargerPresencesModal();
 }
