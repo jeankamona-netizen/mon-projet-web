@@ -1,0 +1,114 @@
+// =====================
+// UI PARTAGÉE — toasts et confirmation, remplace alert()/confirm() natifs
+// Chargé sur toutes les pages, avant login.js/dashboard.js/admin.js
+// =====================
+
+// =====================
+// FACULTÉS & FILIÈRES — chargées une seule fois depuis la base de données,
+// jamais codées en dur, partagées par toutes les pages qui chargent ui.js.
+// Toute zone qui affiche des facultés/filières doit passer par facultesDB
+// (ou remplirSelectFacultes ci-dessous), pour ne jamais se désynchroniser
+// des filières réellement en base (créées/renommées/fusionnées côté admin).
+// =====================
+let facultesDB = []; // [{id, nom, master_disponible, filieres:[...]}]
+
+async function chargerFacultesDB() {
+  try {
+    const r = await fetch(`${BASE_URL}/api/facultes`);
+    facultesDB = await r.json();
+  } catch (err) { console.error('Impossible de charger les facultés :', err); }
+  return facultesDB;
+}
+
+// Régénère les <option> d'un <select> de faculté à partir de facultesDB, en
+// conservant ses N premières options (placeholder(s) fixes du select, ex.
+// « — Choisir — » ou « Toutes les facultés ») telles quelles.
+// options.garder : nombre d'options de tête à préserver (défaut 1).
+// options.libelleCourt(nom) : libellé d'affichage alternatif (ex. abréviation
+// pour un filtre étroit) — la VALEUR reste toujours le nom exact en base ;
+// seul l'affichage est raccourci, et retombe sur le nom complet si absent.
+function remplirSelectFacultes(selectId, options = {}) {
+  const sel = document.getElementById(selectId);
+  if (!sel || facultesDB.length === 0) return;
+  const { garder = 1, libelleCourt = null } = options;
+  const valeurActuelle = sel.value;
+  const placeholders = [...sel.options].slice(0, garder).map(o => o.outerHTML).join('');
+  sel.innerHTML = placeholders + facultesDB.map(f => {
+    const libelle = (libelleCourt && libelleCourt(f.nom)) || f.nom;
+    return `<option value="${f.nom}">${libelle}</option>`;
+  }).join('');
+  if ([...sel.options].some(o => o.value === valeurActuelle)) sel.value = valeurActuelle;
+}
+
+// Régénère un groupe de cases à cocher « une par faculté » (ex. ciblage
+// multi-facultés d'un cours commun) à partir de facultesDB.
+function remplirCheckboxesFacultes(conteneurId) {
+  const conteneur = document.getElementById(conteneurId);
+  if (!conteneur || facultesDB.length === 0) return;
+  conteneur.innerHTML = facultesDB.map(f =>
+    `<label class="faculte-checkbox-item"><input type="checkbox" value="${f.nom}"> ${f.nom}</label>`
+  ).join('');
+}
+
+function afficherToast(message, type = 'succes') {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = `toast${type === 'erreur' ? ' erreur' : ''}`;
+  requestAnimationFrame(() => toast.classList.add('visible'));
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove('visible'), 3500);
+}
+
+function confirmerAction(message, options = {}) {
+  const { titre = 'Confirmation', texteConfirmer = 'Confirmer' } = options;
+
+  return new Promise(resolve => {
+    let overlay = document.getElementById('confirm-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'confirm-overlay';
+      overlay.className = 'confirm-overlay';
+      overlay.innerHTML = `
+        <div class="confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="confirm-titre">
+          <h3 id="confirm-titre"></h3>
+          <p class="confirm-message"></p>
+          <div class="confirm-actions">
+            <button type="button" class="btn-neutre" data-role="annuler">Annuler</button>
+            <button type="button" class="btn-danger" data-role="confirmer"></button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+    }
+
+    overlay.querySelector('#confirm-titre').textContent = titre;
+    overlay.querySelector('.confirm-message').textContent = message;
+    const btnConfirmer = overlay.querySelector('[data-role="confirmer"]');
+    const btnAnnuler   = overlay.querySelector('[data-role="annuler"]');
+    btnConfirmer.textContent = texteConfirmer;
+    overlay.classList.add('active');
+
+    const nettoyer = (resultat) => {
+      overlay.classList.remove('active');
+      btnConfirmer.removeEventListener('click', surConfirmer);
+      btnAnnuler.removeEventListener('click', surAnnuler);
+      overlay.removeEventListener('click', surClicExterieur);
+      document.removeEventListener('keydown', surEchap);
+      resolve(resultat);
+    };
+    const surConfirmer     = () => nettoyer(true);
+    const surAnnuler       = () => nettoyer(false);
+    const surClicExterieur = (e) => { if (e.target === overlay) nettoyer(false); };
+    const surEchap         = (e) => { if (e.key === 'Escape') nettoyer(false); };
+
+    btnConfirmer.addEventListener('click', surConfirmer);
+    btnAnnuler.addEventListener('click', surAnnuler);
+    overlay.addEventListener('click', surClicExterieur);
+    document.addEventListener('keydown', surEchap);
+    btnConfirmer.focus();
+  });
+}

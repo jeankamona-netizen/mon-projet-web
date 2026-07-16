@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Espace Étudiant — UML</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="icon" href="img/logo.png" type="image/png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a3a6b">
+  <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body class="dashboard-body">
+
+  <!-- HEADER -->
+  <header class="dash-header">
+    <div class="dash-header-left">
+      <img src="img/logo.png" alt="Logo UML" class="dash-logo">
+      <div>
+        <span class="dash-brand">Université Méthodiste de Lubumbashi</span>
+        <span class="dash-brand-sub">Espace Étudiant</span>
+      </div>
+    </div>
+    <div class="dash-header-right">
+      <div class="dash-notif-wrap">
+        <button class="dash-notif" id="notif-bouton" onclick="basculerNotifications(event)" aria-label="Notifications" aria-haspopup="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-badge" id="notif-badge" style="display:none">0</span>
+        </button>
+        <div class="notif-panneau" id="notif-panneau">
+          <div class="notif-entete">Notifications</div>
+          <div class="notif-liste" id="notif-liste"></div>
+        </div>
+      </div>
+      <div class="dash-menu-wrap">
+        <button class="dash-menu-btn" id="menu-compte-btn" onclick="basculerMenuCompte(event)" aria-label="Menu du compte" aria-haspopup="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="menu-compte" id="menu-compte">
+          <div class="menu-compte-entete">Bienvenue, <b id="menu-prenom"></b></div>
+          <a href="#" class="menu-compte-item" onclick="ouvrirDepuisMenuCompte('profil'); return false">👤 Données personnelles</a>
+          <div class="menu-compte-sep"></div>
+          <div class="menu-compte-titre">Cursus actuel</div>
+          <div id="menu-cursus-actuel"></div>
+          <div class="menu-compte-titre" id="menu-autres-titre" style="display:none">Autres cursus</div>
+          <div id="menu-cursus-autres"></div>
+          <div class="menu-compte-sep"></div>
+          <a href="#" class="menu-compte-item" onclick="deconnecter(); return false" style="display:flex;align-items:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+            Se déconnecter
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- LAYOUT PRINCIPAL -->
+  <div class="dash-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="dash-sidebar">
+      <div class="sidebar-profil">
+        <div class="profil-avatar" id="avatar-sidebar"></div>
+        <div class="profil-info">
+          <span class="profil-nom" id="etudiant-nom"></span>
+          <span class="profil-promo" id="etudiant-promo"></span>
+          <span class="profil-annee" id="etudiant-annee"></span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#" data-section="tableau-de-bord" class="nav-item">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+          Tableau de bord
+        </a>
+        <a href="#" data-section="mes-notes" class="nav-item" onclick="afficherSectionDashboard('mes-notes', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+          Mes notes
+        </a>
+        <a href="#" data-section="horaires" class="nav-item" onclick="afficherSectionDashboard('horaires', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Horaires
+        </a>
+        <a href="#" data-section="presences" class="nav-item" onclick="afficherSectionDashboard('presences', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Présences
+        </a>
+        <a href="#" data-section="programme" class="nav-item" onclick="afficherSectionDashboard('programme', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Programme annuel
+        </a>
+        <a href="#" data-section="frais" class="nav-item" onclick="afficherSectionDashboard('frais', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M15 9.5a3 2.5 0 0 0-3-2h-1a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-1a3 2.5 0 0 1-3-2"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+          Mes frais
+        </a>
+        <a href="#" data-section="annonces" class="nav-item" onclick="afficherSectionDashboard('annonces', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+          Annonces
+        </a>
+        <a href="#" data-section="profil" class="nav-item" onclick="afficherSectionDashboard('profil', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Mon profil
+        </a>
+      </nav>
+    </aside>
+
+    <!-- CONTENU PRINCIPAL -->
+    <main class="dash-main">
+
+      <!-- ===== TABLEAU DE BORD ===== -->
+      <section id="tableau-de-bord" class="dash-section active">
+        <h2>Tableau de bord</h2>
+        <p class="dash-sous-titre">Bienvenue, <span id="etudiant-prenom-accueil"></span> ! Voici un résumé de votre parcours.</p>
+
+        <div class="stats-grid">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="allerVersSection('mes-notes')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <span class="stat-icon bleu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
+            <span class="stat-valeur" id="stat-moyenne">—</span>
+            <span class="stat-label">Moyenne générale</span>
+          </div>
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="allerVersSection('programme')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <span class="stat-icon jaune"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+            <span class="stat-valeur" id="stat-cours">—</span>
+            <span class="stat-label">Cours ce semestre</span>
+          </div>
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="allerVersSection('mes-notes')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <span class="stat-icon vert"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+            <span class="stat-valeur" id="stat-reussis">—</span>
+            <span class="stat-label">Matières réussies</span>
+          </div>
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="allerVersSection('mes-notes')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <span class="stat-icon rouge"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h12v6a6 6 0 0 1-12 0V2z"/><path d="M6 22h12v-6a6 6 0 0 0-12 0v6z"/></svg></span>
+            <span class="stat-valeur" id="stat-attente">—</span>
+            <span class="stat-label">En attente</span>
+          </div>
+        </div>
+
+        <!-- BLOC IA — ANALYSE DU SEMESTRE -->
+<div class="ia-block" id="ia-analyse">
+  <div class="ia-head">
+    <div class="ia-icon">✨</div>
+    <span class="ia-title">Analyse de votre semestre</span>
+    <span class="ia-time" id="ia-heure"></span>
+  </div>
+  <div class="ia-alertes" id="ia-alertes">
+    <!-- Généré dynamiquement par JS -->
+  </div>
+</div>
+
+        <div class="dash-row">
+          <div class="dash-card">
+            <h3>Dernières notes</h3>
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>Matière</th>
+                  <th>Note</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody id="dernieres-notes-body">
+                <tr><td colspan="3" style="text-align:center;color:#999;padding:20px">Chargement...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="dash-card">
+            <h3>Cours aujourd'hui</h3>
+            <div class="cours-liste" id="cours-aujourdhui">
+              <p style="color:#999;font-size:13px">Chargement...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== MES NOTES ===== -->
+      <section id="mes-notes" class="dash-section">
+        <div class="card-header-action" style="border:none;margin-bottom:0;padding-bottom:0">
+          <div>
+            <h2 style="margin-bottom:4px">Mes notes</h2>
+            <p class="dash-sous-titre" id="mes-notes-sous-titre" style="margin-bottom:0">Résultats académiques</p>
+          </div>
+        </div>
+
+        <div class="filtre-session" style="margin-top:20px">
+          <button class="filtre-btn active" data-session="S1" onclick="filtrerSession('S1', this)">Semestre 1</button>
+          <button class="filtre-btn" data-session="S2" onclick="filtrerSession('S2', this)">Semestre 2</button>
+        </div>
+
+        <div class="dash-card" style="margin-top:20px">
+          <table class="dash-table" id="table-notes">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Matière</th>
+                <th>Crédits</th>
+                <th>CC /20</th>
+                <th>Examen /20</th>
+                <th>Moyenne /20</th>
+                <th>Session</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody id="notes-body">
+              <tr><td colspan="8" style="text-align:center;color:#999;padding:20px">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="notes-resume">
+          <div class="resume-item">
+            <span class="resume-label">Moyenne <span id="resume-session-label">S1</span></span>
+            <span class="resume-valeur" id="resume-moyenne">—</span>
+          </div>
+          <div class="resume-item">
+            <span class="resume-label">Crédits validés <span id="resume-session-label-2">S1</span></span>
+            <span class="resume-valeur" id="resume-credits">—</span>
+          </div>
+          <div class="resume-item">
+            <span class="resume-label">Mention</span>
+            <span class="resume-valeur" id="resume-mention">—</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== HORAIRES ===== -->
+      <section id="horaires" class="dash-section">
+        <h2>Horaires de la semaine</h2>
+        <p class="dash-sous-titre" id="horaires-promo-label">Chargement...</p>
+
+        <div class="dash-card">
+          <div class="cal-nav">
+            <button class="cal-nav-btn" onclick="changerSemaineHoraires(-1)" aria-label="Semaine précédente">‹</button>
+            <span class="cal-nav-label" id="horaires-semaine-label"></span>
+            <button class="cal-nav-btn" onclick="changerSemaineHoraires(1)" aria-label="Semaine suivante">›</button>
+          </div>
+          <div class="calendrier-semaine" id="horaires-calendrier">
+            <p style="color:#999;font-size:13px">Chargement...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== PRÉSENCES ===== -->
+      <section id="presences" class="dash-section">
+        <h2>Présences</h2>
+        <p class="dash-sous-titre">Votre taux d'assiduité, cours par cours</p>
+
+        <div class="dash-card">
+          <table class="dash-table">
+            <thead><tr><th>Cours</th><th>Présent</th><th>Retard</th><th>Absent</th><th>Taux de présence</th></tr></thead>
+            <tbody id="presences-resume-body"><tr><td colspan="5" class="admin-vide">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="dash-card" style="margin-top:20px">
+          <h3 style="margin-bottom:12px">Historique détaillé</h3>
+          <table class="dash-table">
+            <thead><tr><th>Date</th><th>Cours</th><th>Horaire</th><th>Statut</th></tr></thead>
+            <tbody id="presences-historique-body"><tr><td colspan="4" class="admin-vide">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== PROGRAMME ANNUEL ===== -->
+      <section id="programme" class="dash-section">
+        <h2>Programme annuel</h2>
+        <p class="dash-sous-titre" id="programme-label">Chargement...</p>
+
+        <div class="dash-row">
+          <div class="dash-card">
+            <h3>Semestre 1</h3>
+            <div class="prog-liste" id="programme-s1-liste">
+              <p style="color:#999;font-size:13px">Chargement...</p>
+            </div>
+          </div>
+
+          <div class="dash-card">
+            <h3>Semestre 2</h3>
+            <div class="prog-liste" id="programme-s2-liste">
+              <p style="color:#999;font-size:13px">Chargement...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== MES FRAIS ===== -->
+      <section id="frais" class="dash-section">
+        <h2>Mes frais</h2>
+        <p class="dash-sous-titre">Historique de vos versements</p>
+
+        <div class="stats-grid" style="grid-template-columns:1fr 1fr">
+          <div class="stat-card">
+            <span class="stat-icon vert">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M15 9.5a3 2.5 0 0 0-3-2h-1a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-1a3 2.5 0 0 1-3-2"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+            </span>
+            <span class="stat-valeur" id="frais-total">—</span>
+            <span class="stat-label">Total versé</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-icon rouge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </span>
+            <span class="stat-valeur" id="frais-solde">—</span>
+            <span class="stat-label">Solde restant</span>
+          </div>
+        </div>
+
+        <div class="dash-card" style="margin-top:20px">
+          <table class="dash-table">
+            <thead>
+              <tr><th>Date</th><th>Montant</th><th>Mode</th><th>Référence</th></tr>
+            </thead>
+            <tbody id="frais-body">
+              <tr><td colspan="4" style="text-align:center;color:#999;padding:20px">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== ANNONCES ===== -->
+      <section id="annonces" class="dash-section">
+        <h2>Annonces</h2>
+        <p class="dash-sous-titre">Actualités de l'UML et de votre faculté</p>
+
+        <div class="dash-card">
+          <div id="annonces-liste" class="ia-alertes">
+            <p class="ia-vide">Chargement...</p>
+          </div>
+        </div>
+      </section>
+
+
+<!-- ===== PROFIL ===== -->
+<section id="profil" class="dash-section">
+  <h2>Mon profil</h2>
+  <p class="dash-sous-titre">Vos informations personnelles et académiques</p>
+
+  <div class="dash-row">
+
+    <!-- INFOS PERSONNELLES -->
+    <div class="dash-card">
+      <div class="card-header-action">
+        <h3>Informations personnelles</h3>
+        <button class="btn-edit" id="btn-edit-perso" onclick="toggleEdit('perso')">
+          ✏️ Modifier
+        </button>
+      </div>
+
+      <div class="profil-details" id="view-perso">
+        <div class="profil-ligne">
+          <span class="profil-cle">Nom complet</span>
+          <span class="profil-val" id="profil-nom">—</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Date de naissance</span>
+          <span class="profil-val" id="profil-ddn">—</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Nationalité</span>
+          <span class="profil-val" id="profil-nationalite">—</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Téléphone</span>
+          <span class="profil-val" id="profil-telephone">—</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Email</span>
+          <span class="profil-val" id="profil-email">—</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Adresse</span>
+          <span class="profil-val" id="profil-adresse">—</span>
+        </div>
+      </div>
+
+      <!-- FORMULAIRE EDITION -->
+      <div class="profil-edit-form" id="edit-perso" style="display:none">
+        <div class="form-group-dash">
+          <label>Nom complet</label>
+          <input type="text" id="e-nom">
+        </div>
+        <div class="form-group-dash">
+          <label>Date de naissance</label>
+          <input type="date" id="e-ddn">
+        </div>
+        <div class="form-group-dash">
+          <label>Nationalité</label>
+          <input type="text" id="e-nationalite">
+        </div>
+        <div class="form-group-dash">
+          <label>Téléphone</label>
+          <input type="tel" id="e-tel">
+        </div>
+        <div class="form-group-dash">
+          <label>Email</label>
+          <input type="email" id="e-email">
+        </div>
+        <div class="form-group-dash">
+          <label>Adresse</label>
+          <input type="text" id="e-adresse">
+        </div>
+        <div class="edit-actions">
+          <button class="btn-annuler" onclick="annulerEdit('perso')">Annuler</button>
+          <button class="btn-sauvegarder" onclick="sauvegarder('perso')">✅ Sauvegarder</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INFOS ACADEMIQUES -->
+    <div class="dash-card">
+      <div class="card-header-action">
+        <h3>Informations académiques</h3>
+        <span class="badge attente" style="font-size:11px">Non modifiable</span>
+      </div>
+      <div class="profil-details">
+        <div class="profil-ligne">
+          <span class="profil-cle">Numéro étudiant</span>
+          <span class="profil-val" id="profil-id">—</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Faculté</span>
+          <span class="profil-val" id="profil-faculte">—</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Filière</span>
+          <span class="profil-val" id="profil-filiere">—</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Niveau</span>
+          <span class="profil-val" id="profil-niveau">—</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Année académique</span>
+          <span class="profil-val" id="profil-annee">—</span>
+        </div>
+        <div class="profil-ligne">
+          <span class="profil-cle">Statut</span>
+          <span class="profil-val" id="profil-statut">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MOT DE PASSE -->
+  <div class="dash-card" style="margin-top:20px">
+    <div class="card-header-action">
+      <h3>Modifier le mot de passe</h3>
+    </div>
+    <div class="mdp-form">
+      <form autocomplete="off" onsubmit="return false">
+        <div class="form-group-dash">
+          <label>Mot de passe actuel</label>
+          <input type="password" id="mdp-actuel" placeholder="••••••••">
+        </div>
+        <div class="form-group-dash">
+          <label>Nouveau mot de passe</label>
+          <input type="password" id="mdp-nouveau" placeholder="••••••••">
+        </div>
+        <div class="form-group-dash">
+          <label>Confirmer le nouveau mot de passe</label>
+          <input type="password" id="mdp-confirm" placeholder="••••••••">
+        </div>
+        <button type="button" class="btn-dash-submit" style="margin-top:14px" onclick="changerMotDePasse()">Changer le mot de passe</button>
+      </form>
+    </div>
+    <p id="mdp-message" style="margin-top:10px;font-size:13px;display:none"></p>
+  </div>
+
+</section>
+
+    </main>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/login.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

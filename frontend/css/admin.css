@@ -1,0 +1,438 @@
+/* =====================
+   PAGE CONNEXION ADMIN — variante de login.css
+   ===================== */
+.admin-login-main {
+  background: linear-gradient(135deg, #0c2347 0%, #14305C 100%);
+}
+
+.admin-box {
+  max-width: 420px;
+}
+
+.admin-box-header {
+  text-align: center;
+  padding: 8px 0 4px;
+}
+
+.admin-box-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--gris);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin: 0 auto 14px;
+}
+
+.admin-box-header h2 {
+  font-size: 20px;
+  color: var(--bleu);
+  margin-bottom: 4px;
+}
+
+.admin-erreur {
+  background: #fde8e8;
+  color: var(--rouge);
+  font-size: 12px;
+  padding: 9px 12px;
+  border-radius: 7px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.admin-footer-note {
+  color: #999;
+  font-size: 11px;
+}
+
+/* =====================
+   HEADER & SIDEBAR ADMIN-DASHBOARD (variante couleur)
+   ===================== */
+.admin-header {
+  border-bottom-color: #F0B429;
+}
+
+.admin-badge-header {
+  color: #F0B429 !important;
+}
+
+.admin-avatar {
+  background: #2D6FE0 !important;
+  color: var(--blanc) !important;
+}
+
+.admin-sidebar-profil {
+  background: #14305C !important;
+}
+
+/* =====================
+   TABLEAUX D'ADMINISTRATION (réutilisés aux étapes suivantes)
+   ===================== */
+.admin-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-ajouter {
+  background: var(--vert);
+  color: var(--blanc);
+  border: none;
+  border-radius: 7px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-ajouter:hover {
+  background: #1d5c1d;
+}
+
+.btn-icone {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  transition: background 0.2s;
+}
+
+.btn-icone:hover {
+  background: var(--gris);
+}
+
+.btn-icone.danger:hover {
+  background: #fde8e8;
+}
+
+/* =====================
+   BARRE DE RECHERCHE ADMIN
+   ===================== */
+.admin-recherche {
+  flex: 1;
+  min-width: 220px;
+  padding: 9px 14px;
+  border: 1.5px solid #ddd;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.admin-recherche:focus {
+  outline: none;
+  border-color: var(--bleu);
+}
+
+/* =====================
+   BOUTONS ACTIONS TABLEAU
+   ===================== */
+.admin-actions-cell {
+  display: flex;
+  gap: 6px;
+}
+
+/* =====================
+   MODAL (formulaire popup)
+   ===================== */
+.admin-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 30, 70, 0.55);
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.admin-modal-overlay.active {
+  display: flex;
+}
+
+.admin-modal {
+  background: var(--blanc);
+  border-radius: 14px;
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.admin-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.admin-modal-header h3 {
+  font-size: 17px;
+  color: var(--bleu);
+}
+
+.admin-modal-close {
+  background: var(--gris);
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  cursor: pointer;
+  color: #666;
+}
+
+.admin-modal-close:hover {
+  background: #e0e0e0;
+}
+
+.form-row-admin {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.admin-modal select,
+.admin-modal input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid #ddd;
+  border-radius: 7px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.admin-modal select:focus,
+.admin-modal input:focus {
+  outline: none;
+  border-color: var(--bleu);
+}
+
+.admin-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.admin-vide {
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+  padding: 24px 0;
+}
+.annee-badge {
+  background: var(--gris);
+  color: var(--bleu);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 5px;
+}
+
+.badge.actif {
+  background: #e8f5e8;
+  color: var(--vert);
+}
+
+.badge.inactif {
+  background: #f0f0f0;
+  color: #888;
+}
+
+.type-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 5px;
+}
+
+.type-badge.annonce {
+  background: #e8eef8;
+  color: var(--bleu);
+}
+
+.type-badge.evenement {
+  background: #fef8e0;
+  color: #8a6d00;
+}
+
+.prog-code-admin {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--blanc);
+  background: var(--bleu);
+  padding: 3px 9px;
+  border-radius: 5px;
+}
+/* =====================
+   FICHE DETAIL PRE-INSCRIPTION
+   ===================== */
+.fiche-entete {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 3px solid var(--jaune);
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+}
+
+.fiche-logo {
+  height: 48px;
+}
+
+.fiche-titre-uni {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bleu);
+  margin: 0;
+}
+
+.fiche-sous-titre {
+  font-size: 12px;
+  color: #888;
+  margin: 2px 0 0;
+}
+
+.fiche-section-titre {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bleu);
+  margin: 16px 0 6px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.fiche-section-titre:first-of-type {
+  border-top: none;
+  margin-top: 0;
+}
+
+/* =====================
+   LISTE DE CASES À COCHER — ex. facultés d'une inscription en masse
+   ===================== */
+.faculte-checkbox-liste {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.faculte-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #444;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.faculte-checkbox-item:has(input:checked) {
+  border-color: var(--bleu);
+  background: #f0f4fb;
+  color: var(--bleu);
+}
+
+.faculte-checkbox-item:hover {
+  border-color: var(--bleu);
+}
+
+.faculte-checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--bleu);
+  cursor: pointer;
+}
+
+/* =====================
+   SOUS-ONGLETS — ex. "Attributions des cours", "Gérer les notes"
+   ===================== */
+.attr-sous-onglets,
+.notes-sous-onglets,
+.reins-sous-onglets {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid #f0f0f0;
+  margin-bottom: 20px;
+}
+
+.attr-onglet-btn,
+.notes-onglet-btn,
+.reins-onglet-btn,
+.contact-onglet-btn {
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.attr-onglet-btn.active,
+.notes-onglet-btn.active,
+.reins-onglet-btn.active,
+.contact-onglet-btn.active {
+  color: var(--bleu);
+  border-bottom-color: var(--bleu);
+}
+
+.attr-onglet-btn:hover:not(.active),
+.notes-onglet-btn:hover:not(.active),
+.reins-onglet-btn:hover:not(.active),
+.contact-onglet-btn:hover:not(.active) {
+  color: var(--bleu);
+  background: #f5f7fb;
+}
+
+.attr-onglet-contenu,
+.notes-onglet-contenu,
+.reins-onglet-contenu,
+.contact-onglet-contenu {
+  display: none;
+}
+
+.attr-onglet-contenu.active,
+.notes-onglet-contenu.active,
+.reins-onglet-contenu.active,
+.contact-onglet-contenu.active {
+  display: block;
+}
+
+/* =====================
+   RESPONSIVE — mobile
+   ===================== */
+@media (max-width: 640px) {
+  .admin-recherche {
+    min-width: 0;
+  }
+
+  .form-row-admin {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-modal {
+    padding: 18px;
+  }
+
+  .admin-actions-cell {
+    flex-wrap: wrap;
+  }
+}

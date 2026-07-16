@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Université Méthodiste de Lubumbashi — Inscription, facultés, espace étudiant">
+  <title>Université Méthodiste de Lubumbashi</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="img/logo.png" type="image/png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a3a6b">
+  <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+
+  <!-- ========== NAVBAR ========== -->
+  <nav class="navbar">
+    <div class="nav-container">
+
+      <a href="#accueil" class="nav-brand">
+        <img src="img/logo.png" alt="Logo UML" class="nav-logo">
+        <div>
+          <span class="brand-name">Université Méthodiste de Lubumbashi</span>
+          <span class="brand-devise">Scientia, Sanctitas et Veritas</span>
+        </div>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="#accueil" data-i18n="nav.accueil">Accueil</a></li>
+        <li><a href="#facultes" data-i18n="nav.facultes">Facultés</a></li>
+        <li><a href="#galerie" data-i18n="nav.galerie">Galerie</a></li>
+        <li><a href="#lmd" data-i18n="nav.lmd">LMD</a></li>
+        <li><a href="#apropos" data-i18n="nav.apropos">À propos</a></li>
+        <li><a href="#contact" data-i18n="nav.contact">Contact</a></li>
+        <li class="nav-links-mobile-only"><a href="login.html" data-i18n="nav.connexion">Connexion</a></li>
+      </ul>
+
+      <div class="lang-switch">
+        <button class="lang-switch-btn" onclick="basculerMenuLangue(event)" aria-haspopup="true" aria-expanded="false">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span id="lang-actuelle">FR</span>
+        </button>
+        <div class="lang-menu" id="lang-menu">
+          <button type="button" onclick="definirLangue('fr')">Français</button>
+          <button type="button" onclick="definirLangue('en')">English</button>
+        </div>
+      </div>
+
+      <a href="login.html" class="btn-connexion" data-i18n="nav.connexion">Connexion</a>
+
+      <button class="nav-toggle" onclick="basculerMenuMobile()" aria-label="Ouvrir le menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+
+    </div>
+  </nav>
+
+  <!-- ========== HERO ========== -->
+  <section class="hero" id="accueil">
+      <div class="hero-overlay">
+      <h1>Université Méthodiste de Lubumbashi</h1>
+      <p class="hero-devise" data-i18n="hero.devise">Intégrité, Efficacité &amp; Excellence Académique</p>
+      <span class="hero-lmd" data-i18n="hero.systeme">Système LMD — Licence · Master · Doctorat</span>
+      <div class="hero-btns">
+        <a href="preinscription.html" class="btn-primary" data-i18n="hero.btn_preinscription">Faire une pré-inscription</a>
+        <a href="#facultes" class="btn-outline" data-i18n="hero.btn_facultes">Nos facultés</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== TICKER ========== -->
+  <div class="ticker-section">
+    <span class="ticker-label" data-i18n="ticker.label">📢 Actualités</span>
+    <div class="ticker-wrap">
+      <div class="ticker" id="ticker-contenu">
+        <span class="ticker-item">Chargement des actualités...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== FACULTES ========== -->
+  <section class="facultes" id="facultes">
+    <div class="container">
+      <h2 data-i18n="facultes.titre">Facultés organisées</h2>
+      <p class="sous-titre" data-i18n="facultes.soustitre">4 facultés avec plusieurs filières spécialisées</p>
+      <div class="facultes-grid" id="facultes-grid">
+
+        <div class="faculte-card">
+          <div class="faculte-header theologie"><h3>Faculté de Théologie</h3></div>
+          <ul class="filieres">
+            <li>✓ Master Théologie Pastorale</li>
+            <li>✓ Master Exégèse et Théologie : Ancien Testament</li>
+            <li>✓ Master Exégèse et Théologie : Nouveau Testament</li>
+            <li>✓ Master Théologie Systématique et Éthique</li>
+            <li>✓ Master Histoire de l'Église</li>
+            <li>✓ Master Sciences de la Mission, Œcuménisme et de la Religion</li>
+            <li>✓ Master Théologie Pratique</li>
+          </ul>
+          <div class="master-badge">Master disponible</div>
+        </div>
+
+        <div class="faculte-card">
+          <div class="faculte-header informatique"><h3>Sciences Informatiques</h3></div>
+          <ul class="filieres">
+            <li>✓ Génie Logiciel</li>
+            <li>✓ Design</li>
+            <li>✓ Systèmes Informatiques</li>
+            <li>✓ Intelligence Artificielle</li>
+            <li class="filiere-separateur" aria-hidden="true"></li>
+            <li>✓ Master Ingénierie Logiciel</li>
+            <li>✓ Master Ingénierie Sécurité Informatique</li>
+            <li>✓ Master Ingénierie Réseaux et Télécommunication</li>
+          </ul>
+          <div class="master-badge">Master disponible</div>
+        </div>
+
+        <div class="faculte-card">
+          <div class="faculte-header economie"><h3>Sciences Économiques</h3></div>
+          <ul class="filieres">
+            <li>✓ Sciences de Gestion</li>
+            <li>✓ Sciences Économiques</li>
+          </ul>
+          <div class="master-badge">En progression</div>
+        </div>
+
+        <div class="faculte-card" style="grid-column:2;grid-row:2">
+          <div class="faculte-header education"><h3>Sciences de l'Éducation &amp; Psychologie</h3></div>
+          <ul class="filieres">
+            <li>✓ Sciences de l'Éducation</li>
+            <li>✓ Sciences Psychologiques</li>
+          </ul>
+          <div class="master-badge">En progression</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+    <!-- EVENEMENTS -->
+<section class="evenements" id="evenements">
+  <div class="container">
+    <h2 data-i18n="evenements.titre">Calendrier des événements</h2>
+  
+    <!-- PARTIE STATIQUE — temps forts récurrents (modifiable directement ici) -->
+    <h3 class="evenements-sous-titre" data-i18n="evenements.statique_titre">Temps forts de l'année académique</h3>
+    <div class="events-statiques">
+      <div class="event-statique">
+        <span class="event-statique-icone">🎓</span>
+        <h4 data-i18n="evenements.s1_titre">Rentrée académique</h4>
+        <p data-i18n="evenements.s1_desc">Accueil des nouveaux étudiants et ouverture solennelle de l'année.</p>
+      </div>
+      <div class="event-statique">
+        <span class="event-statique-icone">🔬</span>
+        <h4 data-i18n="evenements.s2_titre">Semaine scientifique</h4>
+        <p data-i18n="evenements.s2_desc">Conférences, ateliers et présentation des travaux de recherche.</p>
+      </div>
+      <div class="event-statique">
+        <span class="event-statique-icone">🏅</span>
+        <h4 data-i18n="evenements.s3_titre">Collation des grades</h4>
+        <p data-i18n="evenements.s3_desc">Cérémonie solennelle de remise des diplômes aux lauréats.</p>
+      </div>
+    </div>
+
+    <!-- PARTIE DYNAMIQUE — événements ajoutés par l'administration (Annonces & événements) -->
+    <h3 class="evenements-sous-titre" data-i18n="evenements.dynamique_titre">Prochains événements</h3>
+    <div class="events-grid" id="evenements-grid">
+      <p style="text-align:center;color:#888;grid-column:1/-1">Chargement des événements...</p>
+    </div>
+
+     <div class="events-btns">
+      <a href="#galerie" class="btn-events" data-i18n="evenements.btn_tous">📅 Tous les événements</a>
+      <a href="preinscription.html" class="btn-events-outline" data-i18n="evenements.btn_preinscription">🎓 Faire une pré-inscription</a>
+      </div>
+
+   
+  </div>
+</section>
+
+  <!-- ========== GALERIE ========== -->
+  <section class="galerie" id="galerie">
+    <div class="container">
+      <h2 data-i18n="galerie.titre">Vie universitaire</h2>
+      <p class="sous-titre" data-i18n="galerie.soustitre">Découvrez l'UML à travers ses événements et activités</p>
+      <div class="galerie-grid">
+
+        <div class="galerie-card grand">
+          <img src="img/collation.jpg" alt="Collation des grades UML" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag" data-i18n="galerie.tag1">Cérémonie</span>
+            <p data-i18n="galerie.legende1">Collation des grades — promotion 2025</p>
+          </div>
+        </div>
+
+        <div class="galerie-card">
+          <img src="img/collation2.jpg" alt="Diplômés UML" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag" data-i18n="galerie.tag2">Diplômés</span>
+            <p data-i18n="galerie.legende2">Nos lauréats fiers et diplômés</p>
+          </div>
+        </div>
+
+        <div class="galerie-card">
+          <img src="img/grade.jpg" alt="Remise de diplôme" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag" data-i18n="galerie.tag3">Remise</span>
+            <p data-i18n="galerie.legende3">Remise officielle des diplômes</p>
+          </div>
+        </div>
+
+        <div class="galerie-card">
+          <img src="img/corps.jpg" alt="Corps académique UML" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag" data-i18n="galerie.tag4">Équipe</span>
+            <p data-i18n="galerie.legende4">Notre corps académique dévoué</p>
+          </div>
+        </div>
+
+        <div class="galerie-card">
+          <img src="img/salle.jpg" alt="Salle informatique UML" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag" data-i18n="galerie.tag5">Infrastructures</span>
+            <p data-i18n="galerie.legende5">Salle informatique équipée</p>
+          </div>
+        </div>
+
+        <div class="galerie-card grand">
+          <img src="img/cours.jpg" alt="Déroulement des cours à l'UML" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag" data-i18n="galerie.tag6">Dispense de cours</span>
+            <p>Université Méthodiste de Lubumbashi</p>
+          </div>
+        </div>
+
+        
+        <div class="galerie-card">
+          <img src="img/acquisition.jpg" alt="Acquisition de nouvelles machines pour la salle informatique" loading="lazy">
+          <div class="galerie-overlay">
+            <span class="galerie-tag" data-i18n="galerie.tag7">Acquisition</span>
+            <p data-i18n="galerie.legende7">Modernisation des infrastructures informatiques</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+
+
+
+  <!-- ========== SYSTEME LMD ========== -->
+  <section class="lmd" id="lmd">
+    <div class="container">
+      <h2 data-i18n="lmd.titre">Système LMD</h2>
+      <p class="sous-titre" data-i18n="lmd.soustitre">Licence · Master · Doctorat — reconnu internationalement</p>
+      <div class="lmd-grid">
+
+        <div class="lmd-card">
+          <div class="lmd-lettre jaune">L</div>
+          <h3 data-i18n="lmd.licence_titre">Licence</h3>
+          <p data-i18n="lmd.licence_texte">3 ans après le diplôme d'État. Formation générale et spécialisée dans votre filière.</p>
+          <div class="lmd-frais" data-i18n="lmd.licence_frais">350$ — payable en tranches</div>
+          <div class="lmd-inscription" data-i18n="lmd.licence_inscription">Inscription : 20$ + Rame papiers</div>
+        </div>
+
+        <div class="lmd-card">
+          <div class="lmd-lettre vert">M</div>
+          <h3 data-i18n="lmd.master_titre">Master</h3>
+          <p data-i18n="lmd.master_texte">2 ans après la Licence. Approfondissement et spécialisation dans votre domaine.</p>
+          <div class="lmd-frais" data-i18n="lmd.master_frais">500$ — payable en tranches</div>
+          <div class="lmd-inscription" data-i18n="lmd.master_inscription">Inscription : 50$ + Rame papiers</div>
+        </div>
+
+        <div class="lmd-card">
+          <div class="lmd-lettre rouge">D</div>
+          <h3 data-i18n="lmd.doctorat_titre">Doctorat</h3>
+          <p data-i18n="lmd.doctorat_texte">Recherche avancée après le Master. Formation des enseignants et chercheurs.</p>
+          <div class="lmd-frais" data-i18n="lmd.doctorat_frais">Théologie &amp; Informatique</div>
+          <div class="lmd-inscription" data-i18n="lmd.doctorat_inscription">Contactez l'administration</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== À PROPOS ========== -->
+  <section class="apropos" id="apropos">
+    <div class="container">
+      <h2 data-i18n="apropos.titre">À propos de l'UML</h2>
+      <p class="sous-titre" data-i18n="apropos.soustitre">Notre histoire, notre mission, nos valeurs et notre localisation</p>
+
+      <!-- Mot du Recteur -->
+      <div class="recteur-mot">
+        <div class="recteur-photo">
+          <img src="img/lerecteur.jpg" alt="Le Recteur de l'UML" onerror="this.remove()">
+        </div>
+        <div class="recteur-texte">
+          <h3 data-i18n="apropos.recteur_titre">Le mot du Recteur</h3>
+          <p class="recteur-proverbe" data-i18n="apropos.recteur_proverbe">« Kumbuka kile kilikuleta » — Souviens-toi de ce qui t'a amené ici.</p>
+          <p data-i18n="apropos.recteur_texte">Bienvenue à l'Université Méthodiste de Lubumbashi. J'aime rappeler à nos étudiants ce proverbe : reste conscient du but qui te conduit à l'université, travaille avec conscience et persévérance, et n'oublie jamais pourquoi tu es sur les bancs de l'école. C'est dans cet esprit d'excellence, d'intégrité et de foi que nous vous accompagnons vers la réussite.</p>
+          <span class="recteur-signature">
+            <span class="recteur-nom" data-i18n="apropos.recteur_nom">Rév. Prof. Ordinaire Jean-Marie Nkonge</span>
+            <span class="recteur-fonction" data-i18n="apropos.recteur_fonction">Recteur de l'Université Méthodiste de Lubumbashi</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Histoire & Mission -->
+      <div class="apropos-bloc">
+        <div class="apropos-carte">
+          <h3 data-i18n="apropos.histoire_titre">Notre histoire</h3>
+          <p data-i18n="apropos.histoire_texte">L'Université Méthodiste de Lubumbashi (UML) a été créée en 2019 par le Révérend Professeur Ordinaire Jean-Marie Nkonge, sous l'égide de l'Évêque Professeur Ordinaire Kasap O'wan Tshibang, alors à la tête de l'Église Méthodiste Unie de la région Sud-Congo – Zambie. Institution d'enseignement supérieur d'inspiration chrétienne méthodiste, implantée à Lubumbashi (Katanga, RDC), elle est organisée autour de quatre facultés et adopte pleinement le système LMD (Licence – Master – Doctorat).</p>
+        </div>
+        <div class="apropos-carte">
+          <h3 data-i18n="apropos.mission_titre">Notre mission</h3>
+          <p data-i18n="apropos.mission_texte">Former des cadres compétents, intègres et responsables, capables de contribuer au développement de la société congolaise et de l'Afrique. L'UML allie l'excellence académique à une formation humaine et spirituelle, préparant ses étudiants à devenir des acteurs de changement au service du bien commun.</p>
+        </div>
+      </div>
+
+      <!-- Valeurs -->
+      <h3 class="apropos-sous-titre" data-i18n="valeurs.titre">Nos Valeurs Fondamentales</h3>
+      <p class="apropos-sous-texte" data-i18n="valeurs.soustitre">Trois principes qui découlent de notre devise et guident toute la vie de l'UML</p>
+      <div class="valeurs-grid">
+        <div class="valeur-card">
+          <div class="valeur-icone">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <h3 data-i18n="valeurs.integrite_titre">Intégrité</h3>
+          <p data-i18n="valeurs.integrite_desc">Honnêteté intellectuelle et morale, enracinée dans les valeurs chrétiennes méthodistes qui fondent l'université.</p>
+        </div>
+        <div class="valeur-card">
+          <div class="valeur-icone">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <h3 data-i18n="valeurs.efficacite_titre">Efficacité</h3>
+          <p data-i18n="valeurs.efficacite_desc">Rigueur, sérieux et sens du résultat, au service de la réussite et de l'insertion de nos étudiants.</p>
+        </div>
+        <div class="valeur-card">
+          <div class="valeur-icone">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+          </div>
+          <h3 data-i18n="valeurs.excellence_titre">Excellence Académique</h3>
+          <p data-i18n="valeurs.excellence_desc">Recherche constante de la qualité dans l'enseignement, la recherche et l'encadrement des étudiants.</p>
+        </div>
+      </div>
+
+      <!-- Partenaires -->
+      <h3 class="apropos-sous-titre" data-i18n="apropos.partenaires_titre">Nos partenaires</h3>
+      <p class="apropos-sous-texte" data-i18n="apropos.partenaires_soustexte">Ils accompagnent l'UML dans sa mission de formation et de service</p>
+      <div class="partenaires-grid">
+        <div class="partenaire-carte"><span class="partenaire-sigle">CCTEF</span><span class="partenaire-nom">Commission Catholique pour l'Éducation et la Formation</span></div>
+        <div class="partenaire-carte"><span class="partenaire-sigle">EMU</span><span class="partenaire-nom">Église Méthodiste Unie</span></div> 
+        <div class="partenaire-carte"><span class="partenaire-sigle">UMK</span><span class="partenaire-nom">Université Méthodiste au Katanga</span></div>
+        <div class="partenaire-carte"><span class="partenaire-sigle">UMKOL</span><span class="partenaire-nom">Université Méthodiste de Kolwezi</span></div>
+      </div>
+
+      <!-- Localisation -->
+      <h3 class="apropos-sous-titre" data-i18n="apropos.localisation_titre">Notre localisation</h3>
+      <div class="apropos-loc">
+        <div class="apropos-loc-infos">
+          <p><span class="apropos-loc-label" data-i18n="apropos.adresse_label">Adresse</span><br>
+            <span data-i18n="contact.adresse_valeur">N°249, Croisement Av. Kasavubu &amp; Likasi<br>Lubumbashi, Katanga, RDC</span></p>
+          <p><span class="apropos-loc-label" data-i18n="apropos.heures_label">Heures d'ouverture</span><br>
+          <span data-i18n="contact.heures_valeur">Lundi - Vendredi : 08h00 - 17h30</span></p>
+          <a class="apropos-loc-lien" href="https://maps.google.com/maps?q=-11.673866,27.483233" target="_blank" rel="noopener" data-i18n="apropos.itineraire">Voir l'itinéraire sur Google Maps →</a>
+        </div>
+        <div class="apropos-loc-carte">
+          <iframe title="Localisation UML" src="https://maps.google.com/maps?q=-11.673866,27.483233&z=16&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ========== CONTACT ========== -->
+  <section class="contact" id="contact">
+    <div class="container">
+      <h2 data-i18n="contact.titre">Nous contacter</h2>
+
+      <p class="sous-titre" data-i18n="contact.soustitre">Une question ? Écrivez-nous, nous vous répondrons rapidement</p>
+      <div class="contact-grille">
+
+        <div class="contact-infos">
+          <h3 data-i18n="contact.infos_titre">Informations</h3>
+
+          <div class="info-bloc">
+            <span class="info-icone">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </span>
+            <div>
+              <span class="info-titre" data-i18n="contact.adresse_label">Adresse</span>
+              <p data-i18n="contact.adresse_valeur">N°249, Croisement Av. Kasavubu &amp; Likasi<br>Lubumbashi, Katanga, RDC</p>
+            </div>
+          </div>
+
+          <div class="info-bloc">
+            <span class="info-icone">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            </span>
+            <div><span class="info-titre" data-i18n="contact.telephone_label">Téléphone</span><p>+243 999 772 405</p></div>
+          </div>
+
+          <div class="info-bloc">
+            <span class="info-icone">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </span>
+            <div><span class="info-titre" data-i18n="contact.email_label">Email</span><p>info.uml.lubumbashi@gmail.com</p></div>
+          </div>
+
+          <div class="info-bloc">
+            <span class="info-icone">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            <div><span class="info-titre" data-i18n="contact.heures_label">Heures d'ouverture</span><p data-i18n="contact.heures_valeur">Lundi - Vendredi : 08h00 - 17h30</p></div>
+          </div>
+
+          <p class="info-arrete" data-i18n="contact.arrete">Arrêté N° 0173/MINESU/2021</p>
+        </div>
+
+        <div class="contact-formulaire">
+          <h3 data-i18n="contact.form_titre">Envoyez-nous un message</h3>
+          <p class="section-sous-titre" style="text-align:left;margin-bottom:18px" data-i18n="contact.form_soustitre">Nous vous répondrons dans les plus brefs délais.</p>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label data-i18n="contact.nom_label">Nom complet</label>
+              <input type="text" id="contact-nom" placeholder="Jean Mulumbwa" data-i18n-placeholder="contact.nom_placeholder">
+            </div>
+            <div class="form-group">
+              <label data-i18n="contact.email_form_label">Adresse email</label>
+              <input type="email" id="contact-email" placeholder="jean@exemple.com" data-i18n-placeholder="contact.email_placeholder">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label data-i18n="contact.sujet_label">Sujet</label>
+            <input type="text" id="contact-sujet" placeholder="Comment pouvons-nous vous aider ?" data-i18n-placeholder="contact.sujet_placeholder">
+          </div>
+
+          <div class="form-group">
+            <label data-i18n="contact.message_label">Message</label>
+            <textarea id="contact-message" rows="6" placeholder="Votre message ici..." data-i18n-placeholder="contact.message_placeholder"></textarea>
+          </div>
+
+          <p id="contact-statut" style="display:none;font-size:13px;padding:10px 14px;border-radius:8px;margin-bottom:12px"></p>
+
+          <button type="button" class="btn-primary" onclick="envoyerMessageContact()" data-i18n="contact.btn_envoyer">Envoyer le message</button>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="footer">
+    <div class="container footer-grille">
+
+      <div class="footer-colonne">
+        <p class="footer-nom">Université Méthodiste de Lubumbashi</p>
+        <p class="footer-devise">Scientia, Sanctitas et Veritas</p>
+        <p class="footer-copy" data-i18n="footer.copyright">© 2026 UML — Tous droits réservés</p>
+      </div>
+
+      <div class="footer-colonne">
+        <h4 data-i18n="footer.liens_rapides">Liens rapides</h4>
+        <a href="#accueil" data-i18n="nav.accueil">Accueil</a>
+        <a href="#facultes" data-i18n="nav.facultes">Facultés</a>
+        <a href="#galerie" data-i18n="nav.galerie">Galerie</a>
+        <a href="#lmd" data-i18n="nav.lmd">LMD</a>
+        <a href="#apropos" data-i18n="nav.apropos">À propos</a>
+        <a href="#contact" data-i18n="nav.contact">Contact</a>
+      </div>
+
+      <div class="footer-colonne">
+        <h4 data-i18n="footer.ressources">Ressources</h4>
+        <a href="preinscription.html" data-i18n="footer.pre_inscription">Pré-inscription en ligne</a>
+        <a href="login.html" data-i18n="footer.portail_connexion">Portail de connexion</a>
+        <a href="#facultes" data-i18n="footer.facultes_filieres">Facultés &amp; filières</a>
+        <a href="#accueil" data-i18n="footer.calendrier">Calendrier des événements</a>
+      </div>
+
+      <div class="footer-colonne">
+        <h4 data-i18n="footer.newsletter_titre">Newsletter</h4>
+        <p class="footer-newsletter-texte" data-i18n="footer.newsletter_texte">Recevez nos actualités et annonces importantes.</p>
+        <div class="footer-newsletter-form">
+          <input type="email" id="newsletter-email" placeholder="Votre adresse email..." data-i18n-placeholder="footer.newsletter_placeholder">
+          <button type="button" onclick="inscrireNewsletter()" data-i18n="footer.newsletter_btn">S'inscrire</button>
+        </div>
+        <p id="newsletter-statut" style="display:none;font-size:12px;margin-top:8px"></p>
+      </div>
+
+    </div>
+
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

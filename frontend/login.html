@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — UML</title>
+  <meta name="description" content="Connectez-vous à votre espace UML (étudiant, professeur, administration ou caisse).">
+  <link rel="icon" href="img/logo.png" type="image/png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a3a6b">
+  <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <img src="img/logo.png" alt="Logo UML" class="nav-logo">
+        <div>
+          <span class="brand-name">Université Méthodiste de Lubumbashi</span>
+          <span class="brand-devise">Scientia, Sanctitas et Veritas</span>
+        </div>
+      </div>
+      <a href="index.html" class="btn-retour">← Retour à l'accueil</a>
+    </div>
+  </nav>
+
+  <!-- CONTENU PRINCIPAL -->
+  <main class="login-main">
+
+    <div class="login-box">
+
+      <div class="tab-content active" style="padding:28px 32px">
+
+        <div class="admin-box-header">
+          <div class="connexion-icone" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          </div>
+          <h2>Espace Connexion</h2>
+          <p class="form-sous-titre">Accédez à votre portail universitaire UML</p>
+        </div>
+
+        <form autocomplete="on" onsubmit="return false">
+          <div class="form-group">
+            <label for="identifiant-connexion" id="label-identifiant">Identifiant</label>
+            <input type="text" id="identifiant-connexion" placeholder="Matricule, e-mail ou identifiant" autocomplete="username">
+          </div>
+
+          <div class="form-group">
+            <label for="mot-de-passe">Mot de passe</label>
+            <div class="input-password">
+              <input type="password" id="mot-de-passe" placeholder="••••••••"
+                     autocomplete="current-password">
+              <button type="button" class="toggle-pwd" onclick="togglePassword()" aria-label="Afficher/masquer le mot de passe">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-options">
+            <label class="checkbox-label">
+              <input type="checkbox"> Se souvenir de moi
+            </label>
+            <a href="#" class="lien-oubli">Mot de passe oublié ?</a>
+          </div>
+
+          <p id="erreur-connexion" style="display:none;color:#A32D2D;background:#fde8e8;
+             padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px"></p>
+
+          <button type="button" class="btn-submit" onclick="connecterUniverselle()">
+            Se connecter
+          </button>
+        </form>
+
+        <p class="form-footer">
+          Pas encore inscrit ?
+          <a href="preinscription.html">Faire une pré-inscription</a>
+        </p>
+
+      </div>
+
+    </div>
+    <!-- FIN LOGIN-BOX -->
+
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>

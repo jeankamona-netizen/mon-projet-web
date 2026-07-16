@@ -1,0 +1,389 @@
+/* ===== LOGIN PAGE ===== */
+.login-main {
+  min-height: calc(100vh - 73px);
+  background: linear-gradient(135deg, #1a3a6b 0%, #2d5aa0 100%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.login-box {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  width: 100%;
+  max-width: 680px;
+  overflow: hidden;
+}
+
+/* ONGLETS */
+.login-tabs {
+  display: flex;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 16px;
+  border: none;
+  background: #f8f9fa;
+  font-size: 15px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  background: #fff;
+  color: var(--bleu);
+  border-bottom: 3px solid var(--bleu);
+}
+
+.tab-btn:hover:not(.active) {
+  background: #eef2ff;
+}
+
+/* CONTENU ONGLETS */
+.tab-content {
+  display: none;
+  padding: 28px 32px;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.tab-content h2 {
+  font-size: 22px;
+  color: var(--bleu);
+  margin-bottom: 6px;
+}
+
+.admin-box-header {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.connexion-icone {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 12px;
+  background: rgba(26,58,107,0.08);
+  color: var(--bleu);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.form-sous-titre {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 24px;
+}
+
+/* FORMULAIRE */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 5px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #333;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--bleu);
+  box-shadow: 0 0 0 3px rgba(26,58,107,0.1);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.required { color: var(--rouge); }
+.info { color: #888; font-weight: 400; font-size: 12px; }
+
+/* MOT DE PASSE */
+.input-password {
+  position: relative;
+}
+
+.input-password input {
+  padding-right: 44px;
+}
+
+.toggle-pwd {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  font-size: 18px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #888;
+  display: flex;
+  align-items: center;
+  transition: color var(--transition);
+}
+
+.toggle-pwd:hover {
+  color: var(--bleu);
+}
+
+/* OPTIONS */
+.form-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #555;
+  cursor: pointer;
+}
+
+.lien-oubli {
+  color: var(--bleu);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.lien-oubli:hover { text-decoration: underline; }
+
+/* BOUTON SUBMIT */
+.btn-submit {
+  
+  background: var(--bleu);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 13px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-bottom: 0;
+  flex: 1;
+  width: 100%;
+}
+
+.btn-submit:hover { background: #122d57; }
+
+.form-footer {
+  text-align: center;
+  font-size: 13px;
+  color: #666;
+}
+
+.form-footer a {
+  color: var(--bleu);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ETAPES */
+.etapes {
+  display: flex;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.etape {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #aaa;
+  padding: 8px 4px;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+.etape.active {
+  background: var(--bleu);
+  color: #fff;
+}
+
+.etape.done {
+  background: var(--vert);
+  color: #fff;
+}
+
+.etape-ligne {
+  height: 2px;
+  width: 20px;
+  background: #ddd;
+  flex-shrink: 0;
+}
+
+/* ETAPES FORMULAIRE */
+.form-etape { display: none; }
+.form-etape.active { display: block; }
+.form-etape h3 {
+  font-size: 17px;
+  color: var(--bleu);
+  margin-bottom: 6px;
+}
+
+/* NAVIGATION ETAPES */
+.form-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.btn-suivant {
+  background: var(--bleu);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-suivant:hover { background: #122d57; }
+
+.btn-precedent {
+  background: #f0f0f0;
+  color: #555;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-precedent:hover { background: #e0e0e0; }
+
+/* CHECKBOXES */
+.form-checkboxes {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+/* BOUTON RETOUR */
+.btn-retour {
+  color: #ccd9f0;
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.btn-retour:hover { color: var(--jaune); }
+
+
+.form-sous-section {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bleu);
+  margin: 20px 0 12px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.documents-info {
+  font-size: 12px;
+  color: #777;
+  background: #f8f9fa;
+  padding: 10px 12px;
+  border-radius: 7px;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+input[type="file"] {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1.5px dashed #ccc;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fafafa;
+  box-sizing: border-box;
+}
+
+.documents-choisis {
+  font-size: 11px;
+  color: var(--bleu);
+  margin-top: 6px;
+}
+
+/* =====================
+   RESPONSIVE — mobile
+   ===================== */
+@media (max-width: 640px) {
+  .login-main {
+    padding: 20px 12px;
+  }
+
+  .tab-content {
+    padding: 22px 18px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .etapes {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .etape {
+    flex: 1 1 40%;
+  }
+
+  .form-checkboxes {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .form-nav {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .btn-suivant,
+  .btn-precedent {
+    width: 100%;
+  }
+}

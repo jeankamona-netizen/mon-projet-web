@@ -1,0 +1,57 @@
+const express = require('express');
+const router = express.Router();
+const pool = require('../database');
+const { requireFinance, requireCaissier } = require('../middleware/auth');
+
+// ===== GET /api/paiements/etudiant/:id — historique des paiements d'un étudiant =====
+// Consultation ouverte aux finances (caisse, budget, admin).
+router.get('/etudiant/:id', requireFinance, async (req, res) => {
+  try {
+    const [paiements] = await pool.query(
+      `SELECT p.*, a.noms AS agent_noms, a.prenom AS agent_prenom
+       FROM paiement p LEFT JOIN agent a ON p.agent_id = a.id
+       WHERE p.etudiant_id = ? ORDER BY p.date_paiement DESC, p.id DESC`,
+      [req.params.id]
+    );
+    res.json(paiements);
+  } catch (erreur) {
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// ===== POST /api/paiements — enregistrer un paiement (caissier/admin) =====
+router.post('/', requireCaissier, async (req, res) => {
+  const { etudiant_id, montant, date_paiement, mode_paiement, rubrique, reference, commentaire, annee_academique } = req.body;
+
+  if (!etudiant_id || !montant || !date_paiement) {
+    return res.status(400).json({ erreur: 'Étudiant, montant et date sont obligatoires.' });
+  }
+  if (montant <= 0) {
+    return res.status(400).json({ erreur: 'Le montant doit être positif.' });
+  }
+
+  try {
+    // agent_id vient du token (caissier connecté), jamais du corps de la requête.
+    const agentId = req.utilisateur && req.utilisateur.agent_id ? req.utilisateur.agent_id : null;
+    const [r] = await pool.query(
+      `INSERT INTO paiement (etudiant_id, montant, date_paiement, mode_paiement, rubrique, reference, commentaire, annee_academique, agent_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [etudiant_id, montant, date_paiement, mode_paiement || null, rubrique || null, reference || null, commentaire || null, annee_academique || null, agentId]
+    );
+    res.status(201).json({ message: 'Paiement enregistré.', id: r.insertId });
+  } catch (erreur) {
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// ===== DELETE /api/paiements/:id — supprimer un paiement (caissier/admin) =====
+router.delete('/:id', requireCaissier, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM paiement WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Paiement supprimé.' });
+  } catch (erreur) {
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+module.exports = router;

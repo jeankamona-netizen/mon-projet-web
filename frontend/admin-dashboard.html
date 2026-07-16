@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration — Tableau de bord</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/admin.css">
+  <link rel="icon" href="img/logo.png" type="image/png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a3a6b">
+  <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body class="dashboard-body">
+
+  <!-- HEADER -->
+  <header class="dash-header admin-header">
+    <div class="dash-header-left">
+      <img src="img/logo.png" alt="Logo UML" class="dash-logo">
+      <div>
+        <span class="dash-brand">Université Méthodiste de Lubumbashi</span>
+        <span class="dash-brand-sub admin-badge-header">Administration</span>
+      </div>
+    </div>
+    <div class="dash-header-right">
+      <div class="dash-notif-wrap">
+        <button class="dash-notif" id="admin-notif-bouton" onclick="basculerNotificationsAdmin(event)" aria-label="Notifications" aria-haspopup="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-badge" id="admin-notif-badge" style="display:none">0</span>
+        </button>
+        <div class="notif-panneau" id="admin-notif-panneau">
+          <div class="notif-entete">Messages &amp; Newsletter</div>
+          <div class="notif-liste" id="admin-notif-liste"></div>
+        </div>
+      </div>
+      <div class="dash-menu-wrap">
+        <button class="dash-menu-btn" id="admin-menu-compte-btn" onclick="basculerMenuCompteAdmin(event)" aria-label="Menu du compte" aria-haspopup="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="menu-compte" id="admin-menu-compte">
+          <div class="menu-compte-entete">Bonjour, <b>Administrateur</b></div>
+          <div class="menu-compte-titre">Fonction</div>
+          <div class="menu-compte-item" style="cursor:default">Administration</div>
+          <div class="menu-compte-sep"></div>
+          <a href="#" class="menu-compte-item" onclick="deconnecterAdmin(); return false" style="display:flex;align-items:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+            Se déconnecter
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- LAYOUT -->
+  <div class="dash-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="dash-sidebar">
+      <div class="sidebar-profil admin-sidebar-profil">
+        <div class="profil-avatar admin-avatar">AD</div>
+        <div class="profil-info">
+          <span class="profil-nom">Administrateur</span>
+          <span class="profil-promo">UML — Gestion</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" onclick="afficherSection('admin-accueil', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+          Vue d'ensemble
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSection('admin-notes', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+          Gérer les notes
+        </a>
+        <a href="#" class="nav-item" onclick="afficherSection('admin-horaires', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Gérer les horaires
+        </a>
+        <div class="nav-item-groupe">
+          <a href="#" class="nav-item nav-item-toggle" id="nav-inscrits-groupe" onclick="toggleSousMenu(event, this)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Gérer les inscrits
+            <svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </a>
+          <div class="nav-sous-menu">
+            <a href="#" class="nav-sous-item" data-cible="admin-inscrits" onclick="afficherOngletInscrits('admin-inscrits')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Inscrits
+            </a>
+            <a href="#" class="nav-sous-item" data-cible="admin-reinscriptions" onclick="afficherOngletInscrits('admin-reinscriptions')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg> Réinscriptions
+            </a>
+            <a href="#" class="nav-sous-item" data-cible="admin-preinscriptions" onclick="afficherOngletInscrits('admin-preinscriptions')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> Préinscriptions
+            </a>
+          </div>
+        </div>
+        <div class="nav-item-groupe">
+          <a href="#" class="nav-item nav-item-toggle" id="nav-annonces-groupe" onclick="toggleSousMenu(event, this)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+            Partager des informations
+            <svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </a>
+          <div class="nav-sous-menu">
+            <a href="#" class="nav-sous-item" data-cible="annonces-onglet-public" onclick="afficherOngletAnnonces('annonces-onglet-public')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg> Annonces & événements
+            </a>
+            <a href="#" class="nav-sous-item" data-cible="annonces-onglet-communiques" onclick="afficherOngletAnnonces('annonces-onglet-communiques')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> Communiqués
+            </a>
+          </div>
+        </div>
+
+        <a href="#" class="nav-item" onclick="afficherSection('admin-contact', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          Messages &amp; Newsletter
+        </a>
+
+        <a href="#" class="nav-item" onclick="afficherSection('admin-programme', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Programme annuel
+        </a>
+        
+        <a href="#" class="nav-item" onclick="afficherSection('admin-attributions', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Attributions des cours
+        </a>
+        
+        <a href="#" class="nav-item" onclick="afficherSection('admin-agents', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M5 18a4 4 0 0 1 8 0"/><line x1="15" y1="9" x2="19" y2="9"/><line x1="15" y1="13" x2="19" y2="13"/></svg>
+          Agents (personnel)
+        </a>
+
+        <a href="#" class="nav-item" onclick="afficherSection('admin-annees', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Années académiques
+        </a>
+
+        <a href="#" class="nav-item" onclick="afficherSection('admin-audit', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><polyline points="14 2 14 7 19 7"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+          Journal d'audit
+        </a>
+      </nav>
+    </aside>
+
+    <!-- CONTENU -->
+    <main class="dash-main">
+
+      <!-- ==================== VUE D'ENSEMBLE ==================== -->
+      <section id="admin-accueil" class="dash-section active">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div>
+            <h2>Vue d'ensemble</h2>
+            <p class="dash-sous-titre">Résumé de l'activité de la plateforme UML</p>
+          </div>
+          <span class="annee-badge" id="annee-courante-accueil" title="Année académique courante (définie dans « Années académiques »)">—</span>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="afficherOngletInscrits('admin-inscrits')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <span class="stat-icon bleu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            <span class="stat-valeur" id="cpt-etudiants">—</span>
+            <span class="stat-label">Étudiants inscrits</span>
+          </div>
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="afficherOngletInscrits('admin-preinscriptions')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <span class="stat-icon rouge"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></span>
+            <span class="stat-valeur" id="cpt-preinscriptions">—</span>
+            <span class="stat-label">Pré-inscriptions en attente</span>
+          </div>
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="allerVersSection('admin-programme')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <span class="stat-icon jaune"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+            <span class="stat-valeur" id="cpt-cours">—</span>
+            <span class="stat-label">Cours programmés</span>
+          </div>
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="afficherOngletAnnonces('annonces-onglet-public')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <span class="stat-icon vert"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></span>
+            <span class="stat-valeur" id="cpt-annonces">—</span>
+            <span class="stat-label">Annonces actives</span>
+          </div>
+        </div>
+
+        <div class="dash-card" style="margin-top:20px">
+          <h3>Répartition des étudiants par faculté et filière</h3>
+          <canvas id="graphique-facultes" height="110"></canvas>
+          <div id="stats-facultes"></div>
+        </div>
+
+        <div class="dash-row" style="margin-top:20px">
+          <div class="dash-card">
+            <h3>Évolution des pré-inscriptions</h3>
+            <canvas id="graphique-evolution" height="140"></canvas>
+          </div>
+          <div class="dash-card">
+            <h3>Taux de réussite par faculté</h3>
+            <canvas id="graphique-reussite" height="140"></canvas>
+          </div>
+        </div>
+
+        <div class="dash-card">
+          <h3>Bienvenue dans l'espace administration</h3>
+          <p style="font-size:13px;color:#666;line-height:1.7">
+            Depuis ce panneau, vous pouvez gérer les notes des étudiants, les horaires de cours,
+            publier des annonces visibles sur le site public, organiser le programme annuel
+            et traiter les demandes de pré-inscription. Utilisez le menu à gauche pour naviguer.
+          </p>
+        </div>
+      </section>
+
+      <!-- ==================== GERER LES NOTES ==================== -->
+      <section id="admin-notes" class="dash-section">
+        <h2>Gérer les notes</h2>
+        <p class="dash-sous-titre">Ajoutez, modifiez ou supprimez les notes des étudiants</p>
+
+        <div class="notes-sous-onglets">
+          <button class="notes-onglet-btn active" onclick="basculerOngletNotes('notes-onglet-gestion', this)">Notes</button>
+          <button class="notes-onglet-btn" onclick="basculerOngletNotes('notes-onglet-bulletins', this)">Bulletins</button>
+        </div>
+
+        <!-- ONGLET 1 : GESTION DES NOTES -->
+        <div class="notes-onglet-contenu active" id="notes-onglet-gestion">
+          <div class="admin-toolbar">
+            <select class="admin-recherche" id="notes-filtre-faculte" style="flex:0 0 200px" onchange="chargerFilieresPourFiltreNotes(); chargerNotes()">
+              <option value="">Toutes les facultés</option>
+            </select>
+            <select class="admin-recherche" id="notes-filtre-filiere" style="flex:0 0 200px" onchange="chargerNotes()">
+              <option value="">Toutes les filières</option>
+            </select>
+            <select class="admin-recherche" id="notes-filtre-annee" style="flex:0 0 160px" onchange="chargerNotes()">
+              <option value="">Toutes les années</option>
+              <option value="2024-2025">2024-2025</option>
+              <option value="2025-2026">2025-2026</option>
+              <option value="2026-2027">2026-2027</option>
+              <option value="2027-2028">2027-2028</option>
+              <option value="2028-2029">2028-2029</option>
+            </select>
+            <input type="text" class="admin-recherche" id="recherche-notes"
+                   placeholder="🔎 Rechercher un étudiant ou une matière...">
+            <button class="btn-ajouter" onclick="ouvrirModalNote()">+ Ajouter une note</button>
+          </div>
+
+          <div class="dash-card">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>Étudiant</th>
+                  <th>Matière</th>
+                  <th>CC /20</th>
+                  <th>Examen /20</th>
+                  <th>Moyenne /20</th>
+                  <th>Session</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-notes-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ONGLET 2 : IMPRESSION DES BULLETINS -->
+        <div class="notes-onglet-contenu" id="notes-onglet-bulletins">
+          <div class="admin-toolbar">
+            <input type="text" class="admin-recherche" id="recherche-bulletins"
+                   placeholder="🔎 Rechercher un étudiant...">
+            <button class="btn-ajouter" style="background:var(--bleu)" onclick="imprimerBulletinsSelectionnes()">🖨️ Imprimer le(s) bulletin(s) sélectionné(s)</button>
+          </div>
+
+          <div class="dash-card">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th><input type="checkbox" id="notes-select-tout" onchange="basculerSelectionToutesNotes(this)"></th>
+                  <th>Étudiant</th>
+                  <th>Filière</th>
+                  <th>Faculté</th>
+                  <th>Promotion</th>
+                  <th>Moyenne générale /20</th>
+                  <th>Crédits validés</th>
+                  <th>Mention</th>
+                </tr>
+              </thead>
+              <tbody id="bulletins-notes-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== GERER LES HORAIRES ==================== -->
+      <section id="admin-horaires" class="dash-section">
+        <h2>Gérer les horaires</h2>
+        <p class="dash-sous-titre">Organisez les cours par promotion et année académique</p>
+
+        <div class="admin-toolbar">
+          <select class="admin-recherche" id="filtre-faculte" style="flex:0 0 175px;min-width:175px">
+            <option value="">Toutes les facultés</option>
+          </select>
+          <select class="admin-recherche" id="filtre-annee" style="flex:0 0 150px;min-width:150px">
+            <option value="">Toutes les années</option>
+            <option value="2026-2027">2026-2027</option>
+            <option value="2027-2028">2027-2028</option>
+            <option value="2028-2029">2028-2029</option>
+            <option value="2029-2030">2029-2030</option>
+            <option value="2030-2031">2030-2031</option>
+          </select>
+          <select class="admin-recherche" id="filtre-niveau" style="flex:0 0 145px;min-width:145px">
+            <option value="">Tous les niveaux</option>
+            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="L1">Licence 1</option>
+            <option value="L2">Licence 2</option>
+            <option value="L3">Licence 3</option>
+            <option value="M1">Master 1</option>
+            <option value="M2">Master 2</option>
+          </select>
+          <select class="admin-recherche" id="filtre-jour" style="flex:0 0 125px;min-width:125px">
+            <option value="">Tous les jours</option>
+            <option value="Lundi">Lundi</option>
+            <option value="Mardi">Mardi</option>
+            <option value="Mercredi">Mercredi</option>
+            <option value="Jeudi">Jeudi</option>
+            <option value="Vendredi">Vendredi</option>
+          </select>
+          <button class="btn-ajouter" onclick="ouvrirModalHoraire()">+ Ajouter un cours</button>
+        </div>
+
+        <div class="dash-card">
+          <div class="cal-nav">
+            <button class="cal-nav-btn" onclick="changerSemaineHorairesAdmin(-1)" aria-label="Semaine précédente">‹</button>
+            <span class="cal-nav-label" id="admin-horaires-semaine-label"></span>
+            <button class="cal-nav-btn" onclick="changerSemaineHorairesAdmin(1)" aria-label="Semaine suivante">›</button>
+          </div>
+          <div class="calendrier-semaine" id="admin-horaires-calendrier">
+            <p style="color:#999;font-size:13px">Chargement...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== ANNONCES & EVENEMENTS ==================== -->
+      <section id="admin-annonces" class="dash-section">
+        <h2>Annonces & événements</h2>
+        <p class="dash-sous-titre">Ce contenu alimente le bandeau d'actualités et la galerie du site public</p>
+
+        <!-- ONGLET 1 : ANNONCES & ÉVÉNEMENTS (site public) -->
+        <div class="notes-onglet-contenu active" id="annonces-onglet-public">
+          <div class="admin-toolbar">
+            <select class="admin-recherche" id="filtre-type-annonce" style="flex:0 0 180px" onchange="chargerAnnonces()">
+              <option value="">Tous les types</option>
+              <option value="annonce">Annonce</option>
+              <option value="evenement">Événement</option>
+            </select>
+            <button class="btn-ajouter" onclick="ouvrirModalAnnonce()">+ Nouvelle annonce</button>
+          </div>
+
+          <div class="dash-card">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>Titre</th>
+                  <th>Type</th>
+                  <th>Date</th>
+                  <th>Cible</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-annonces-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ONGLET 2 : COMMUNIQUÉS (comptes étudiants / enseignants) -->
+        <div class="notes-onglet-contenu" id="annonces-onglet-communiques">
+          <p class="dash-sous-titre" style="margin-top:0">Messages internes affichés dans la cloche de notifications des étudiants et des enseignants</p>
+          <div class="admin-toolbar">
+            <select class="admin-recherche" id="filtre-role-communique" style="flex:0 0 220px" onchange="chargerCommuniques()">
+              <option value="">Tous les destinataires</option>
+              <option value="etudiant">Étudiants</option>
+              <option value="professeur">Enseignants</option>
+              <option value="caisse">Caisse</option>
+              <option value="budget">Administrateur du budget</option>
+              <option value="doyen">Doyen &amp; vice-doyen</option>
+              <option value="appariteur">Appariteur</option>
+              <option value="tous">Tout le monde</option>
+            </select>
+            <button class="btn-ajouter" onclick="ouvrirModalCommunique()">+ Nouveau communiqué</button>
+          </div>
+
+          <div class="dash-card">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>Titre</th>
+                  <th>Destinataires</th>
+                  <th>Date</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-communiques-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== PROGRAMME ANNUEL ==================== -->
+      <section id="admin-programme" class="dash-section">
+        <h2>Programme annuel</h2>
+        <p class="dash-sous-titre">Liste des cours par promotion et par semestre</p>
+
+        <div class="admin-toolbar" style="justify-content:flex-start">
+          <button class="btn-ajouter" id="btn-vue-groupee" style="background:var(--bleu)" onclick="basculerVueGroupeeProgramme()">🏛️ Toutes les facultés</button>
+          <button class="btn-ajouter" onclick="ouvrirModalProgramme()">+ Ajouter un cours</button>
+        </div>
+
+
+        <div class="admin-toolbar" style="margin-top:10px;justify-content:flex-start;flex-wrap:nowrap">
+           <select class="admin-recherche" id="filtre-annee-prog" style="flex:1 1 0;min-width:0" onchange="chargerProgramme()">
+            <option value="">— Année —</option>
+            <option value="2024-2025">2024-2025</option>
+            <option value="2025-2026">2025-2026</option>
+            <option value="2026-2027">2026-2027</option>
+            <option value="2027-2028">2027-2028</option>
+            <option value="2028-2029">2028-2029</option>
+          </select>
+          <select class="admin-recherche" id="filtre-faculte-prog" style="flex:1.5 1 0;min-width:0" onchange="chargerFilieresPourFiltreProg(); chargerProgramme()">
+            <option value="">— Faculté —</option>
+          </select>
+          <select class="admin-recherche" id="filtre-filiere-prog" style="flex:1.2 1 0;min-width:0" onchange="chargerProgramme()">
+            <option value="">Toutes les filières</option>
+          </select>
+          <select class="admin-recherche" id="filtre-niveau-prog" style="flex:1 1 0;min-width:0" onchange="chargerProgramme()">
+            <option value="">— Niveau —</option>
+            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="L1">Licence 1</option>
+            <option value="L2">Licence 2</option>
+            <option value="L3">Licence 3</option>
+            <option value="M1">Master 1</option>
+            <option value="M2">Master 2</option>
+          </select>
+         
+        </div>
+
+        <!-- Message par défaut : demande de sélection -->
+        <div class="dash-card" id="programme-message" style="text-align:center;padding:36px 20px;color:#888;font-size:14px">
+          Sélectionnez une <b>faculté</b>, une <b>filière</b>, une <b>année académique</b> et un <b>niveau</b> pour afficher le programme —<br>
+          ou cliquez sur <b>« 🏛️ Toutes les facultés groupées »</b> pour voir les deux semestres de chaque faculté.
+        </div>
+
+        <!-- Vue normale : une sélection précise → S1 / S2 côte à côte -->
+        <div class="dash-row" id="programme-normal" style="display:none">
+          <div class="dash-card">
+            <h3>Semestre 1</h3>
+            <table class="dash-table">
+              <thead>
+                <tr><th>Code UE</th><th>Intitulé UE</th><th>CMI</th><th>TD</th><th>TP</th><th>Crédits</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="prog-s1-body"></tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="5" style="text-align:right;font-weight:700;color:var(--bleu)">Total</td>
+                  <td id="prog-s1-total" style="font-weight:700;color:var(--bleu)">0</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div class="dash-card">
+            <h3>Semestre 2</h3>
+            <table class="dash-table">
+              <thead>
+                <tr><th>Code UE</th><th>Intitulé UE</th><th>CMI</th><th>TD</th><th>TP</th><th>Crédits</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="prog-s2-body"></tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="5" style="text-align:right;font-weight:700;color:var(--bleu)">Total</td>
+                  <td id="prog-s2-total" style="font-weight:700;color:var(--bleu)">0</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- Vue groupée : chaque faculté avec ses deux semestres -->
+        <div id="programme-groupe" style="display:none"></div>
+      </section>
+
+      <!-- ==================== PRE-INSCRIPTIONS ==================== -->
+      <section id="admin-preinscriptions" class="dash-section">
+        <h2>Gérer les Pré-Inscrits</h2>
+        <p class="dash-sous-titre">Dossiers soumis par les candidats depuis le site public</p>
+
+        <div class="admin-toolbar">
+          <input type="text" class="admin-recherche" id="recherche-preinscriptions"
+                 placeholder="🔎 Rechercher un candidat...">
+          <select class="admin-recherche" id="filtre-statut-preinscription" style="flex:0 0 180px">
+            <option value="">Tous les statuts</option>
+            <option value="en_attente">En attente</option>
+            <option value="accepte">Accepté</option>
+            <option value="rejete">Rejeté</option>
+          </select>
+          <button class="btn-ajouter" onclick="chargerPreinscriptions()"
+                  style="background:var(--bleu)">🔄 Actualiser</button>
+        </div>
+
+        <div class="dash-card">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Candidat</th>
+                <th>Spécialité</th>
+                <th>Contact</th>
+                <th>Date</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-preinscriptions-body">
+              <tr><td colspan="6" class="admin-vide">Chargement des données...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== GERER LES INSCRITS ==================== -->
+      <section id="admin-inscrits" class="dash-section">
+        <h2>Gérer les Inscrits</h2>
+        <p class="dash-sous-titre">Consultez et modifiez les informations des étudiants inscrits</p>
+
+        <div class="admin-toolbar">
+          <input type="text" class="admin-recherche" id="recherche-inscrits"
+                 placeholder="🔎 Rechercher par nom...">
+          <select class="admin-recherche" id="filtre-inscrits-faculte" style="flex:0 0 180px">
+            <option value="">Toutes les facultés</option>
+          </select>
+          <select class="admin-recherche" id="filtre-inscrits-niveau" style="flex:0 0 130px">
+            <option value="">Tous niveaux</option>
+            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="L1">Licence 1</option>
+            <option value="L2">Licence 2</option>
+            <option value="L3">Licence 3</option>
+            <option value="M1">Master 1</option>
+            <option value="M2">Master 2</option>
+          </select>
+          <select class="admin-recherche" id="filtre-inscrits-annee" style="flex:0 0 140px">
+            <option value="">Toutes les années</option>
+            <option value="2026-2027">2026-2027</option>
+            <option value="2027-2028">2027-2028</option>
+            <option value="2028-2029">2028-2029</option>
+            <option value="2029-2030">2029-2030</option>
+            <option value="2030-2031">2030-2031</option>
+          </select>
+        </div>
+
+        <div class="dash-card">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>N° Étudiant</th>
+                <th>Nom complet</th>
+                <th>Faculté</th>
+                <th>Filière</th>
+                <th>Niveau</th>
+                <th>Année</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-inscrits-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== RÉINSCRIPTIONS ==================== -->
+      <section id="admin-reinscriptions" class="dash-section">
+        <h2>Gérer les Inscrits</h2>
+        <p class="dash-sous-titre">Faire monter un étudiant de promotion, ou inscrire un nouvel étudiant directement à un niveau supérieur</p>
+
+        <div class="reins-sous-onglets">
+          <button class="reins-onglet-btn active" onclick="basculerOngletReinscription('reins-onglet-promotion', this)">Promotion montante</button>
+          <button class="reins-onglet-btn" onclick="basculerOngletReinscription('reins-onglet-nouveau', this)">Nouvel étudiant (L2+)</button>
+        </div>
+
+        <!-- ONGLET 1 : PROMOTION D'UN ÉTUDIANT EXISTANT -->
+        <div class="reins-onglet-contenu active" id="reins-onglet-promotion">
+          <div class="dash-card">
+            <h3>Promouvoir un étudiant existant</h3>
+            <p style="font-size:12px;color:#888;margin-bottom:12px">L'étudiant garde son matricule, son compte et ses anciennes notes. Il est inscrit aux cours de son nouveau niveau.</p>
+
+            <div class="form-group-dash">
+              <label>Rechercher l'étudiant (nom ou matricule)</label>
+              <input type="text" id="reins-recherche" placeholder="Tapez un nom..." oninput="rechercherEtudiantPourPromotion()">
+            </div>
+            <div id="reins-resultats" style="max-height:160px;overflow-y:auto;margin-bottom:14px"></div>
+
+            <div id="reins-selection" style="display:none">
+              <p class="form-sous-section">Étudiant sélectionné</p>
+              <div class="dash-card" style="background:#f5f7fb;padding:12px 14px;margin-bottom:14px">
+                <div id="reins-etudiant-info" style="font-size:13px"></div>
+                <input type="hidden" id="reins-etudiant-id">
+              </div>
+
+              <div class="form-row-admin">
+                <div class="form-group-dash">
+                  <label>Nouveau niveau <span class="required">*</span></label>
+                  <select id="reins-nouveau-niveau">
+                    <option value="Pré-U">Pré-Universitaire</option>
+            <option value="L1">Licence 1</option>
+                    <option value="L2">Licence 2</option>
+                    <option value="L3">Licence 3</option>
+                    <option value="M1">Master 1</option>
+                    <option value="M2">Master 2</option>
+                    <option value="D1">Doctorat 1</option>
+                    <option value="D2">Doctorat 2</option>
+                  </select>
+                </div>
+                <div class="form-group-dash">
+                  <label>Année académique <span class="required">*</span></label>
+                  <select id="reins-annee-promo">
+                    <option value="2024-2025">2024-2025</option>
+                    <option value="2025-2026">2025-2026</option>
+                    <option value="2026-2027">2026-2027</option>
+                    <option value="2027-2028">2027-2028</option>
+                    <option value="2028-2029">2028-2029</option>
+                  </select>
+                </div>
+              </div>
+              <button class="btn-sauvegarder" style="width:100%;margin-top:6px" onclick="promouvoirEtudiant()">⬆️ Promouvoir l'étudiant</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ONGLET 2 : NOUVEL ÉTUDIANT À UN NIVEAU SUPÉRIEUR -->
+        <div class="reins-onglet-contenu" id="reins-onglet-nouveau">
+          <div class="dash-card">
+            <h3>Inscrire un nouvel étudiant (non présent dans le système)</h3>
+            <p style="font-size:12px;color:#888;margin-bottom:12px">Pour un étudiant venant d'un autre établissement et admis directement en L2, L3, etc. Un matricule et un mot de passe temporaire sont générés.</p>
+
+            <p class="form-sous-section" style="margin-top:0">Identité</p>
+            <div class="form-row-admin">
+              <div class="form-group-dash"><label>Nom <span class="required">*</span></label><input type="text" id="reins-nom"></div>
+              <div class="form-group-dash"><label>Post-nom</label><input type="text" id="reins-postnom"></div>
+            </div>
+            <div class="form-row-admin">
+              <div class="form-group-dash"><label>Prénom <span class="required">*</span></label><input type="text" id="reins-prenom"></div>
+              <div class="form-group-dash">
+                <label>Sexe</label>
+                <select id="reins-sexe"><option value="M">Masculin</option><option value="F">Féminin</option></select>
+              </div>
+            </div>
+            <div class="form-row-admin">
+              <div class="form-group-dash"><label>Date de naissance</label><input type="date" id="reins-ddn"></div>
+              <div class="form-group-dash"><label>Téléphone</label><input type="text" id="reins-telephone"></div>
+            </div>
+            <div class="form-group-dash"><label>Email</label><input type="email" id="reins-email"></div>
+
+            <p class="form-sous-section">Affectation académique</p>
+            <div class="form-row-admin">
+              <div class="form-group-dash">
+                <label>Faculté <span class="required">*</span></label>
+                <select id="reins-faculte" onchange="chargerFilieresPourReinscription()">
+                  <option value="">— Choisir —</option>
+                </select>
+              </div>
+              <div class="form-group-dash">
+                <label>Filière</label>
+                <select id="reins-filiere"><option value="">— Choisir une faculté d'abord —</option></select>
+              </div>
+            </div>
+            <div class="form-row-admin">
+              <div class="form-group-dash">
+                <label>Niveau <span class="required">*</span></label>
+                <select id="reins-niveau" onchange="chargerFilieresPourReinscription()">
+                  <option value="L2">Licence 2</option>
+                  <option value="L3">Licence 3</option>
+                  <option value="Pré-U">Pré-Universitaire</option>
+            <option value="L1">Licence 1</option>
+                  <option value="M1">Master 1</option>
+                  <option value="M2">Master 2</option>
+                  <option value="D1">Doctorat 1</option>
+                  <option value="D2">Doctorat 2</option>
+                </select>
+              </div>
+              <div class="form-group-dash">
+                <label>Année académique <span class="required">*</span></label>
+                <select id="reins-annee-nouveau">
+                  <option value="2024-2025">2024-2025</option>
+                  <option value="2025-2026">2025-2026</option>
+                  <option value="2026-2027">2026-2027</option>
+                  <option value="2027-2028">2027-2028</option>
+                  <option value="2028-2029">2028-2029</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn-sauvegarder" style="width:100%;margin-top:10px" onclick="reinscrireNouvelEtudiant()">✅ Réinscrire l'étudiant</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== ATTRIBUTIONS DES COURS ==================== -->
+      <section id="admin-attributions" class="dash-section">
+        <h2>Attributions des cours</h2>
+        <p class="dash-sous-titre">Gérez les professeurs et leurs attributions par cours et par année</p>
+
+        <div class="admin-toolbar">
+          <select class="admin-recherche" id="filtre-attr-annee" style="flex:0 0 160px"
+                  onchange="chargerAttributions()">
+            <option value="">Toutes les années</option>
+            <option value="2026-2027">2026-2027</option>
+            <option value="2027-2028">2027-2028</option>
+            <option value="2028-2029">2028-2029</option>
+            <option value="2029-2030">2029-2030</option>
+            <option value="2030-2031">2030-2031</option>
+          </select>
+          <button class="btn-ajouter" onclick="ouvrirModalProfesseur()">+ Ajouter un professeur</button>
+        </div>
+
+        <div class="attr-sous-onglets">
+          <button class="attr-onglet-btn active" data-onglet="attr-onglet-profs" onclick="basculerOngletAttribution('attr-onglet-profs', this)">Professeurs</button>
+          <button class="attr-onglet-btn" data-onglet="attr-onglet-sans-prof" onclick="basculerOngletAttribution('attr-onglet-sans-prof', this)">Cours non attribués</button>
+        </div>
+
+        <div class="dash-card attr-onglet-contenu active" id="attr-onglet-profs">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:10px;flex-wrap:wrap">
+            <h3 style="margin:0">Professeurs</h3>
+            <div style="display:flex;gap:8px;align-items:center;flex:1 1 auto;justify-content:flex-end;flex-wrap:wrap">
+              <input type="text" class="admin-recherche" id="recherche-prof" placeholder="Rechercher un professeur..." oninput="chargerProfesseurs()" style="flex:0 1 260px">
+              <button class="btn-ajouter" style="background:var(--bleu)" onclick="imprimerAttributionsProfesseurs()" title="Imprimer les cours attribués pour l'année sélectionnée">🖨️ Imprimer</button>
+            </div>
+          </div>
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Nom</th>
+                <th>Prénom</th>
+                <th>Grade</th>
+                <th>Cours attribués</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-professeurs-body"></tbody>
+          </table>
+        </div>
+
+        <div class="dash-card attr-onglet-contenu" id="attr-onglet-sans-prof">
+          <h3>Cours sans professeur attribué</h3>
+          <div class="admin-toolbar" style="margin-bottom:14px">
+            <select class="admin-recherche" id="filtre-attr-promotion" style="flex:0 0 240px" onchange="chargerCoursSansProf()">
+              <option value="">Toutes les promotions</option>
+            </select>
+          </div>
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Cours</th>
+                <th>Promotion</th>
+                <th>Semestre</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="admin-sans-prof-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== JOURNAL D'AUDIT ==================== -->
+      <section id="admin-audit" class="dash-section">
+        <h2>Journal d'audit</h2>
+        <p class="dash-sous-titre">Les 200 dernières actions effectuées depuis l'espace administration</p>
+
+        <div class="dash-card">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Administrateur</th>
+                <th>Action</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody id="admin-audit-body">
+              <tr><td colspan="4" class="admin-vide">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== AGENTS (PERSONNEL) ==================== -->
+      <section id="admin-agents" class="dash-section">
+        <h2>Agents (personnel)</h2>
+        <p class="dash-sous-titre">La fonction de chaque agent détermine les interfaces auxquelles il accède</p>
+
+        <div class="admin-toolbar">
+          <button class="btn-ajouter" onclick="ouvrirModalAgent()">+ Nouvel agent</button>
+        </div>
+
+        <div class="dash-card">
+          <table class="dash-table">
+            <thead>
+              <tr><th>Matricule</th><th>Noms &amp; prénom</th><th>Fonction</th><th>Email</th><th>Téléphone</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="admin-agents-body"><tr><td colspan="6" class="admin-vide">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== ANNÉES ACADÉMIQUES ==================== -->
+      <section id="admin-annees" class="dash-section">
+        <h2>Années académiques</h2>
+        <p class="dash-sous-titre">L'année courante alimente les valeurs par défaut des formulaires de tout le site</p>
+
+        <div class="admin-toolbar">
+          <input type="text" class="admin-recherche" id="nouvelle-annee" placeholder="ex: 2031-2032" style="flex:0 0 200px" maxlength="9">
+          <button class="btn-ajouter" onclick="ajouterAnneeAcademique()">+ Ajouter une année</button>
+        </div>
+
+        <div class="dash-card">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Année académique</th>
+                <th>Statut</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="admin-annees-body">
+              <tr><td colspan="3" class="admin-vide">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ==================== MESSAGES & NEWSLETTER ==================== -->
+      <section id="admin-contact" class="dash-section">
+        <h2>Messages &amp; Newsletter</h2>
+        <p class="dash-sous-titre">Messages reçus depuis le formulaire de contact et abonnés à la newsletter du site public</p>
+
+        <div class="notes-onglets">
+          <button class="contact-onglet-btn active" onclick="basculerOngletContact('contact-onglet-messages', this)">Messages</button>
+          <button class="contact-onglet-btn" onclick="basculerOngletContact('contact-onglet-newsletter', this)">Newsletter</button>
+        </div>
+
+        <div class="contact-onglet-contenu active" id="contact-onglet-messages">
+          <div class="dash-card">
+            <table class="dash-table">
+              <thead>
+                <tr><th>Date</th><th>Nom</th><th>Email</th><th>Sujet</th><th>Message</th><th>Statut</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="admin-contact-body"><tr><td colspan="7" class="admin-vide">Chargement...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="contact-onglet-contenu" id="contact-onglet-newsletter">
+          <div class="dash-card">
+            <table class="dash-table">
+              <thead><tr><th>Email</th><th>Date d'inscription</th><th>Actions</th></tr></thead>
+              <tbody id="admin-newsletter-body"><tr><td colspan="3" class="admin-vide">Chargement...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- MODAL AGENT -->
+  <div class="admin-modal-overlay" id="modal-agent">
+    <div class="admin-modal" style="max-width:480px">
+      <div class="admin-modal-header">
+        <h3 id="modal-agent-titre">Nouvel agent</h3>
+        <button class="admin-modal-close" onclick="fermerModalAgent()" aria-label="Fermer">✕</button>
+      </div>
+      <input type="hidden" id="agent-id-edit">
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Matricule <span style="color:var(--rouge)">*</span></label>
+          <input type="text" id="agent-matricule" placeholder="ex : CAI-002">
+        </div>
+        <div class="form-group-dash">
+          <label>Fonction <span style="color:var(--rouge)">*</span></label>
+          <select id="agent-fonction">
+            <option value="caissier">Caissier</option>
+            <option value="administrateur_budget">Administrateur du budget</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Noms <span style="color:var(--rouge)">*</span></label>
+          <input type="text" id="agent-noms" placeholder="Nom de famille">
+        </div>
+        <div class="form-group-dash">
+          <label>Prénom</label>
+          <input type="text" id="agent-prenom" placeholder="Prénom">
+        </div>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Email</label>
+          <input type="email" id="agent-email" placeholder="agent@uml.cd">
+        </div>
+        <div class="form-group-dash">
+          <label>Téléphone</label>
+          <input type="tel" id="agent-telephone" placeholder="+243...">
+        </div>
+      </div>
+
+      <div class="form-group-dash">
+        <label id="agent-mdp-label">Mot de passe <span style="color:var(--rouge)">*</span></label>
+        <input type="password" id="agent-mot-de-passe" placeholder="Min. 6 caractères">
+        <p class="form-aide" id="agent-mdp-aide" style="font-size:.8rem;color:#888;margin:.3rem 0 0;display:none">Laissez vide pour conserver le mot de passe actuel.</p>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalAgent()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="sauvegarderAgent()">✅ Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL AJOUT/MODIFICATION NOTE -->
+  <div class="admin-modal-overlay" id="modal-note">
+    <div class="admin-modal" style="max-width:540px">
+      <div class="admin-modal-header">
+        <h3 id="modal-note-titre">Ajouter une note</h3>
+        <button class="admin-modal-close" onclick="fermerModalNote()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="note-id-edit">
+
+      <!-- Contexte en lecture seule (mode modification uniquement) -->
+      <div id="note-edit-contexte" style="display:none">
+        <p class="form-sous-section" style="margin-top:0">Informations de la note</p>
+        <div class="form-row-admin">
+          <div class="form-group-dash"><label>Étudiant</label><input type="text" id="note-ctx-etudiant" readonly style="background:#f5f5f5"></div>
+          <div class="form-group-dash"><label>Matière</label><input type="text" id="note-ctx-matiere" readonly style="background:#f5f5f5"></div>
+        </div>
+        <div class="form-row-admin">
+          <div class="form-group-dash"><label>Faculté</label><input type="text" id="note-ctx-faculte" readonly style="background:#f5f5f5"></div>
+          <div class="form-group-dash"><label>Filière</label><input type="text" id="note-ctx-filiere" readonly style="background:#f5f5f5"></div>
+        </div>
+        <div class="form-row-admin">
+          <div class="form-group-dash"><label>Niveau</label><input type="text" id="note-ctx-niveau" readonly style="background:#f5f5f5"></div>
+          <div class="form-group-dash"><label>Année académique</label><input type="text" id="note-ctx-annee" readonly style="background:#f5f5f5"></div>
+        </div>
+      </div>
+
+      <!-- Section de sélection (mode ajout uniquement) -->
+      <div id="note-add-selection">
+      <p class="form-sous-section">Filtrer les étudiants</p>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Année académique</label>
+          <select id="filtre-note-annee" onchange="filtrerEtudiants()">
+            <option value="2026-2027">2026-2027</option>
+            <option value="2027-2028">2027-2028</option>
+            <option value="2028-2029">2028-2029</option>
+            <option value="2029-2030">2029-2030</option>
+            <option value="2030-2031">2030-2031</option>
+          </select>
+        </div>
+        <div class="form-group-dash">
+          <label>Niveau</label>
+          <select id="filtre-note-niveau" onchange="filtrerEtudiants()">
+            <option value="">Tous niveaux</option>
+            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="L1">Licence 1</option>
+            <option value="L2">Licence 2</option>
+            <option value="L3">Licence 3</option>
+            <option value="M1">Master 1</option>
+            <option value="M2">Master 2</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Faculté</label>
+          <select id="filtre-note-faculte" onchange="filtrerEtudiantsParFaculte()">
+            <option value="">Toutes les facultés</option>
+          </select>
+        </div>
+        <div class="form-group-dash">
+          <label>Filière</label>
+          <select id="filtre-note-promotion" onchange="filtrerEtudiants()">
+            <option value="">Toutes les filières</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Rechercher un étudiant par nom</label>
+        <input type="text" id="filtre-note-nom" placeholder="Tapez un nom...">
+      </div>
+
+      <div class="form-group-dash">
+        <label>Étudiant <span class="required">*</span></label>
+        <select id="note-etudiant" onchange="chargerCoursEtudiant()">
+          <option value="">— Choisir un étudiant —</option>
+        </select>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Matière <span class="required">*</span></label>
+        <select id="note-matiere" onchange="majSemestreNote()">
+          <option value="">— Choisir une matière —</option>
+        </select>
+      </div>
+      </div><!-- fin #note-add-selection -->
+
+      <p class="form-sous-section">Note à attribuer</p>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Contrôle continu (/20) <span class="info">(peut être ajouté plus tard)</span></label>
+          <input type="number" id="note-cc" min="0" max="20" step="0.5" placeholder="ex: 14" oninput="previsualiserMoyenneNote()">
+        </div>
+        <div class="form-group-dash">
+          <label>Examen (/20) <span class="info">(peut être ajouté plus tard)</span></label>
+          <input type="number" id="note-examen" min="0" max="20" step="0.5" placeholder="ex: 15" oninput="previsualiserMoyenneNote()">
+        </div>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Moyenne (/20)</label>
+          <input type="text" id="note-moyenne-apercu" readonly placeholder="—" style="background:#f5f5f5">
+        </div>
+        <div class="form-group-dash">
+          <label>Semestre <span class="info">(déterminé par le cours)</span></label>
+          <input type="text" id="note-semestre-info" readonly placeholder="—" style="background:#f5f5f5">
+        </div>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalNote()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="sauvegarderNote()">✅ Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL AJOUT/MODIFICATION HORAIRE -->
+  <div class="admin-modal-overlay" id="modal-horaire">
+    <div class="admin-modal">
+      <div class="admin-modal-header">
+        <h3 id="modal-horaire-titre">Ajouter un cours à l'horaire</h3>
+        <button class="admin-modal-close" onclick="fermerModalHoraire()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="horaire-id-edit">
+
+      
+        <div class="form-group-dash">
+          <label>Faculté</label>
+          <select id="horaire-faculte" onchange="chargerFilieresPourHoraire()">
+            <option value="">— Choisir —</option>
+            <option value="TOUTES">Toutes les facultés</option>
+          </select>
+        </div>
+        
+        
+        <div class="form-group-dash">
+          <label>Filière <span class="info">(vide = cours commun à toute la faculté)</span></label>
+          <select id="horaire-filiere" onchange="rafraichirCoursHoraire()">
+            <option value="">— Toute la faculté (cours commun) —</option>
+          </select>
+        </div>
+      
+
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Niveau</label>
+          <select id="horaire-niveau" onchange="rafraichirCoursHoraire()">
+            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="L1">Licence 1</option>
+            <option value="L2">Licence 2</option>
+            <option value="L3">Licence 3</option>
+            <optgroup label="Master">
+              <option value="M1">Master 1</option>
+              <option value="M2">Master 2</option>
+            </optgroup>
+            <optgroup label="Doctorat">
+              <option value="D1">Doctorat 1</option>
+              <option value="D2">Doctorat 2</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="form-group-dash">
+          <label>Année académique</label>
+          <select id="horaire-annee" onchange="rafraichirCoursHoraire()">
+            <option value="2026-2027">2026-2027</option>
+            <option value="2027-2028">2027-2028</option>
+            <option value="2028-2029">2028-2029</option>
+            <option value="2029-2030">2029-2030</option>
+            <option value="2030-2031">2030-2031</option>
+          </select>
+        </div>
+      </div>
+
+      <input type="hidden" id="horaire-jour">
+
+      <div class="form-row-admin">
+         <div class="form-group-dash">
+        <label>Date <span class="info"></span></label>
+        <input type="date" id="horaire-date-debut" onchange="synchroniserJourDepuisDate()">
+      </div>
+        <div class="form-group-dash">
+          <label>Salle</label>
+          <input type="text" id="horaire-salle" placeholder="ex: Salle A12">
+        </div>
+        <div class="form-group-dash">
+          <label>Heure de début</label>
+          <input type="time" id="horaire-debut" value="07:30">
+        </div>
+        <div class="form-group-dash">
+          <label>Heure de fin</label>
+          <input type="time" id="horaire-fin" value="09:30">
+        </div>
+      </div>
+
+        <div class="form-group-dash">
+          <label>Cours</label>
+          <select id="horaire-cours" onchange="autoSelectionnerProfesseurHoraire()">
+            <option value="">— Choisir d'abord une promotion —</option>
+          </select>
+        </div>
+
+     
+        <div class="form-group-dash">
+          <label>Professeur</label>
+          <select id="horaire-prof">
+            <option value="">-- Choisir un professeur --</option>
+          </select>
+        </div>     
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalHoraire()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="sauvegarderHoraire()">✅ Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PRÉSENCES (prise d'appel côté admin, jour même uniquement) -->
+  <div class="admin-modal-overlay" id="modal-presences-admin">
+    <div class="admin-modal" style="max-width:560px">
+      <div class="admin-modal-header">
+        <h3>Présences — <span id="presences-admin-cours-nom"></span></h3>
+        <button class="admin-modal-close" onclick="fermerModalPresencesAdmin()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="presences-admin-horaire-id">
+
+      <div class="form-group-dash" style="margin-bottom:14px">
+        <label>Date de la séance</label>
+        <input type="text" id="presences-admin-date-affichage" disabled style="background:#f0f0f0">
+        <input type="hidden" id="presences-admin-date">
+        <small style="color:#999">Les présences ne peuvent être saisies que le jour même du cours.</small>
+      </div>
+
+      <table class="dash-table" style="margin-bottom:16px">
+        <thead><tr><th>Étudiant</th><th>Présent</th><th>Retard</th><th>Absent</th></tr></thead>
+        <tbody id="presences-admin-body"><tr><td colspan="4" class="admin-vide">Chargement...</td></tr></tbody>
+      </table>
+
+      <button class="btn-ajouter" style="width:100%" onclick="enregistrerPresencesAdmin()">✅ Enregistrer les présences</button>
+    </div>
+  </div>
+
+  <!-- MODAL RÉPONDRE À UN MESSAGE DE CONTACT -->
+  <div class="admin-modal-overlay" id="modal-repondre-message">
+    <div class="admin-modal" style="max-width:520px">
+      <div class="admin-modal-header">
+        <h3>Répondre au message</h3>
+        <button class="admin-modal-close" onclick="fermerModalRepondreMessage()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="repondre-message-id">
+
+      <div class="form-group-dash">
+        <label>Nom complet</label>
+        <input type="text" id="repondre-nom" disabled style="background:#f0f0f0">
+      </div>
+      <div class="form-group-dash">
+        <label>Adresse email</label>
+        <input type="text" id="repondre-email" disabled style="background:#f0f0f0">
+      </div>
+      <div class="form-group-dash">
+        <label>Votre réponse</label>
+        <textarea id="repondre-texte" rows="6" placeholder="Écrivez votre réponse ici..."></textarea>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalRepondreMessage()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="envoyerReponseMessage()">✉️ Envoyer le message</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL AJOUT/MODIFICATION ANNONCE -->
+  <div class="admin-modal-overlay" id="modal-annonce">
+    <div class="admin-modal">
+      <div class="admin-modal-header">
+        <h3 id="modal-annonce-titre">Nouvelle annonce</h3>
+        <button class="admin-modal-close" onclick="fermerModalAnnonce()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="annonce-id-edit">
+
+      <div class="form-group-dash">
+        <label>Type de contenu</label>
+        <select id="annonce-type">
+          <option value="annonce">Annonce (apparaît dans le bandeau défilant)</option>
+          <option value="evenement">Événement (apparaît dans la galerie)</option>
+        </select>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Titre</label>
+        <input type="text" id="annonce-titre-input" placeholder="ex: Ouverture des inscriptions">
+      </div>
+
+      <div class="form-group-dash">
+        <label>Description courte</label>
+        <input type="text" id="annonce-description"
+               placeholder="ex: Inscriptions ouvertes du 01/08 au 09/09/2026">
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Date</label>
+          <input type="date" id="annonce-date">
+        </div>
+        <div class="form-group-dash">
+          <label>Icône</label>
+          <select id="annonce-icone">
+            <option value="📅">📅 Calendrier</option>
+            <option value="🎓">🎓 Diplôme</option>
+            <option value="📋">📋 Document</option>
+            <option value="📍">📍 Lieu</option>
+            <option value="🏆">🏆 Trophée</option>
+            <option value="📢">📢 Annonce</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group-dash" id="champ-image-evenement" style="display:none">
+        <label>Photo de l'événement (depuis votre ordinateur)</label>
+        <input type="file" id="annonce-image-fichier" accept="image/jpeg,image/png,.jpg,.jpeg,.png" onchange="apercuImageAnnonce(this)">
+        <input type="hidden" id="annonce-image">
+        <p class="form-aide" style="font-size:.8rem;color:#888;margin:.3rem 0 0">JPG ou PNG, 5 Mo max. Laissez vide pour conserver l'image actuelle.</p>
+        <div id="annonce-image-apercu" style="margin-top:.5rem"></div>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Cible (dashboard étudiant)</label>
+        <select id="annonce-cible">
+          <option value="">Tout le monde</option>
+        </select>
+      </div>
+
+      <div class="form-group-dash">
+        <label class="checkbox-label">
+          <input type="checkbox" id="annonce-actif" checked> Visible sur le site (actif)
+        </label>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalAnnonce()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="sauvegarderAnnonce()">✅ Publier</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL COMMUNIQUÉ (comptes étudiants / enseignants) -->
+  <div class="admin-modal-overlay" id="modal-communique">
+    <div class="admin-modal">
+      <h3 id="modal-communique-titre">Nouveau communiqué</h3>
+      <input type="hidden" id="communique-id-edit">
+
+      <div class="form-group-dash">
+        <label>Titre <span style="color:var(--rouge)">*</span></label>
+        <input type="text" id="communique-titre" placeholder="Ex : Suspension des cours vendredi">
+      </div>
+
+      <div class="form-group-dash">
+        <label>Message <span style="color:var(--rouge)">*</span></label>
+        <textarea id="communique-message" rows="4" placeholder="Contenu du communiqué..."></textarea>
+      </div>
+
+      <div class="form-row-dash">
+        <div class="form-group-dash">
+          <label>Destinataires <span style="color:var(--rouge)">*</span></label>
+          <select id="communique-role">
+            <option value="etudiant">Étudiants</option>
+            <option value="professeur">Enseignants</option>
+            <option value="caisse">Caisse</option>
+            <option value="budget">Administrateur du budget</option>
+            <option value="doyen">Doyen &amp; vice-doyen</option>
+            <option value="appariteur">Appariteur</option>
+            <option value="tous">Tout le monde</option>
+          </select>
+        </div>
+        <div class="form-group-dash">
+          <label>Date</label>
+          <input type="date" id="communique-date">
+        </div>
+      </div>
+
+      <div class="form-group-dash">
+        <label class="checkbox-label">
+          <input type="checkbox" id="communique-actif" checked> Visible sur les comptes (actif)
+        </label>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalCommunique()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="sauvegarderCommunique()">📣 Diffuser</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL AJOUT/MODIFICATION PROGRAMME -->
+  <div class="admin-modal-overlay" id="modal-programme">
+    <div class="admin-modal">
+      <div class="admin-modal-header">
+        <h3 id="modal-programme-titre">Ajouter un cours au programme</h3>
+        <button class="admin-modal-close" onclick="fermerModalProgramme()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="prog-id-edit">
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Faculté</label>
+          <select id="prog-faculte" onchange="chargerFilieresPourProgramme()">
+            <option value="">— Choisir —</option>
+          </select>
+        </div>
+        <div class="form-group-dash">
+          <label>Filière <span class="info">(vide = cours commun à toute la faculté)</span></label>
+          <select id="prog-filiere">
+            <option value="">— Toute la faculté (cours commun) —</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Programmation multi-facultés : on ajoute plusieurs couples faculté/filière ;
+           le cours est créé (et les étudiants inscrits) pour chacun. -->
+      <div id="prog-cibles-bloc" class="form-group-dash">
+        <button type="button" class="btn-ajouter" style="background:var(--vert)" onclick="ajouterCibleProgramme()">+ Programmer aussi pour cette faculté/filière</button>
+        <p class="info" style="margin:6px 0 0">Le cours sera programmé pour chaque faculté/filière listée ci-dessous, ainsi que pour la sélection ci-dessus. Utile pour un cours commun à plusieurs facultés.</p>
+        <div id="prog-cibles-liste" class="prog-cibles" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Niveau</label>
+          <select id="prog-niveau">
+            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="L1">Licence 1</option>
+            <option value="L2">Licence 2</option>
+            <option value="L3">Licence 3</option>
+            <optgroup label="Master">
+              <option value="M1">Master 1</option>
+              <option value="M2">Master 2</option>
+            </optgroup>
+            <optgroup label="Doctorat">
+              <option value="D1">Doctorat 1</option>
+              <option value="D2">Doctorat 2</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="form-group-dash">
+          <label>Année académique</label>
+          <select id="prog-annee">
+            <option value="2026-2027">2026-2027</option>
+            <option value="2027-2028">2027-2028</option>
+            <option value="2028-2029">2028-2029</option>
+            <option value="2029-2030">2029-2030</option>
+            <option value="2030-2031">2030-2031</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Semestre</label>
+        <select id="prog-semestre">
+          <option value="S1">Semestre 1</option>
+          <option value="S2">Semestre 2</option>
+        </select>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Code UE</label>
+          <input type="text" id="prog-code" placeholder="ex: INF201">
+        </div>
+        <div class="form-group-dash">
+          <label>Crédits</label>
+          <input type="number" id="prog-credits" min="1" max="20" placeholder="ex: 4">
+        </div>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Intitulé UE</label>
+        <input type="text" id="prog-nom" placeholder="ex: Algorithmique avancée">
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>CMI <span class="info">(heures)</span></label>
+          <input type="number" id="prog-cmi" min="0" placeholder="ex: 40">
+        </div>
+        <div class="form-group-dash">
+          <label>TD <span class="info">(heures)</span></label>
+          <input type="number" id="prog-td" min="0" placeholder="ex: 20">
+        </div>
+        <div class="form-group-dash">
+          <label>TP <span class="info">(heures)</span></label>
+          <input type="number" id="prog-tp" min="0" placeholder="ex: 15">
+        </div>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalProgramme()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="sauvegarderProgramme()">✅ Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL GESTION DES INSCRIPTIONS À UN COURS -->
+  <div class="admin-modal-overlay" id="modal-inscriptions">
+    <div class="admin-modal" style="max-width:560px">
+      <div class="admin-modal-header">
+        <h3>Étudiants inscrits — <span id="inscriptions-nom-cours"></span></h3>
+        <button class="admin-modal-close" onclick="fermerModalInscriptions()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="inscriptions-cours-id">
+
+      <p style="font-size:12px;color:#888;margin:-6px 0 14px">Cours programmé pour : <span id="inscriptions-promotion-label"></span></p>
+
+      <p class="form-sous-section" style="margin-top:0">Inscrire en masse — une ou plusieurs facultés à la fois</p>
+      <div class="form-group-dash">
+        <label>Niveau</label>
+        <select id="inscriptions-niveau-masse">
+          <option value="Pré-U">Pré-Universitaire</option>
+          <option value="L1">Licence 1</option>
+          <option value="L2">Licence 2</option>
+          <option value="L3">Licence 3</option>
+          <optgroup label="Master">
+            <option value="M1">Master 1</option>
+            <option value="M2">Master 2</option>
+          </optgroup>
+          <optgroup label="Doctorat">
+            <option value="D1">Doctorat 1</option>
+            <option value="D2">Doctorat 2</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="form-group-dash">
+        <label>Facultés concernées <span class="info">(sélectionnez-en une ou plusieurs — ex. Informatique + Théologie + Éducation + Économie pour un cours commun)</span></label>
+        <div id="inscriptions-facultes-checkboxes" class="faculte-checkbox-liste"></div>
+      </div>
+      <button class="btn-ajouter" style="width:100%;margin-bottom:14px" onclick="inscrirePlusieursFacultes()">
+        + Inscrire les étudiants sélectionnés
+      </button>
+
+      <p class="form-sous-section" style="margin-top:0">Ajouter un étudiant précis (cours partagé ou rattrapage)</p>
+      <div class="form-group-dash">
+        <input type="text" id="inscriptions-recherche" placeholder="Rechercher par nom..." oninput="rechercherEtudiantPourInscription()">
+      </div>
+      <div id="inscriptions-resultats-recherche" style="max-height:140px;overflow-y:auto;margin-bottom:14px"></div>
+
+      <p class="form-sous-section">Étudiants inscrits (<span id="inscriptions-total">0</span>)</p>
+      <table class="dash-table">
+        <tbody id="inscriptions-body">
+          <tr><td class="admin-vide">Chargement...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODAL DETAIL PRE-INSCRIPTION -->
+  <div class="admin-modal-overlay" id="modal-preinscription">
+    <div class="admin-modal" style="max-width:560px; max-height:85vh; overflow-y:auto">
+      <div class="admin-modal-header">
+        <h3>Détail du dossier</h3>
+        <button class="admin-modal-close" onclick="fermerModalPreinscription()" aria-label="Fermer">✕</button>
+      </div>
+      <div class="profil-details" id="detail-preinscription-contenu"></div>
+      <div class="admin-modal-actions" id="actions-preinscription"></div>
+    </div>
+  </div>
+
+  <!-- MODAL MODIFICATION ETUDIANT -->
+  <div class="admin-modal-overlay" id="modal-inscrit">
+    <div class="admin-modal" style="max-width:560px">
+      <div class="admin-modal-header">
+        <h3>Modifier l'étudiant</h3>
+        <button class="admin-modal-close" onclick="fermerModalInscrit()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="inscrit-id-edit">
+
+      <p class="form-sous-section">Informations personnelles</p>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Nom</label>
+          <input type="text" id="inscrit-nom">
+        </div>
+        <div class="form-group-dash">
+          <label>Post-nom</label>
+          <input type="text" id="inscrit-postnom">
+        </div>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Prénom</label>
+        <input type="text" id="inscrit-prenom">
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Date de naissance</label>
+          <input type="date" id="inscrit-ddn">
+        </div>
+        <div class="form-group-dash">
+          <label>Sexe</label>
+          <select id="inscrit-sexe">
+            <option value="M">Masculin</option>
+            <option value="F">Féminin</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Email</label>
+          <input type="email" id="inscrit-email">
+        </div>
+        <div class="form-group-dash">
+          <label>Téléphone</label>
+          <input type="tel" id="inscrit-telephone">
+        </div>
+      </div>
+
+      <p class="form-sous-section">Informations académiques</p>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Faculté</label>
+          <select id="inscrit-faculte" onchange="chargerFilieresPourInscrit()">
+            <option value="">— Choisir —</option>
+          </select>
+        </div>
+        <div class="form-group-dash">
+          <label>Filière</label>
+          <select id="inscrit-filiere">
+            <option value="">— Choisir une faculté d'abord —</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Niveau / Promotion</label>
+          <select id="inscrit-promotion">
+            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="L1">Licence 1</option>
+            <option value="L2">Licence 2</option>
+            <option value="L3">Licence 3</option>
+            <optgroup label="Master">
+              <option value="M1">Master 1</option>
+              <option value="M2">Master 2</option>
+            </optgroup>
+            <optgroup label="Doctorat">
+              <option value="D1">Doctorat 1</option>
+              <option value="D2">Doctorat 2</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="form-group-dash">
+          <label>Année académique</label>
+          <select id="inscrit-annee">
+            <option value="2026-2027">2026-2027</option>
+            <option value="2027-2028">2027-2028</option>
+            <option value="2028-2029">2028-2029</option>
+            <option value="2029-2030">2029-2030</option>
+            <option value="2030-2031">2030-2031</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Statut</label>
+        <select id="inscrit-statut">
+          <option value="actif">Actif</option>
+          <option value="suspendu">Suspendu</option>
+          <option value="diplome">Diplômé</option>
+        </select>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Photo (pour la carte étudiant)</label>
+        <input type="file" id="inscrit-photo-fichier" accept="image/jpeg,image/png,.jpg,.jpeg,.png" onchange="apercuPhotoInscrit(this)">
+        <input type="hidden" id="inscrit-photo">
+        <p class="form-aide" style="font-size:.8rem;color:#888;margin:.3rem 0 0">JPG ou PNG, 5 Mo max. Laissez vide pour conserver la photo actuelle.</p>
+        <div id="inscrit-photo-apercu" style="margin-top:.5rem"></div>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalInscrit()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="sauvegarderInscrit()">✅ Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL PROFESSEUR -->
+  <div class="admin-modal-overlay" id="modal-professeur">
+    <div class="admin-modal" style="max-width:420px">
+      <div class="admin-modal-header">
+        <h3 id="modal-prof-titre">Ajouter un professeur</h3>
+        <button class="admin-modal-close" onclick="fermerModalProfesseur()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="prof-id-edit">
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Nom</label>
+          <input type="text" id="prof-nom" placeholder="Nom de famille">
+        </div>
+        <div class="form-group-dash">
+          <label>Prénom</label>
+          <input type="text" id="prof-prenom" placeholder="Prénom">
+        </div>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Email</label>
+        <input type="email" id="prof-email" placeholder="prof@uml.ac.cd">
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Téléphone</label>
+          <input type="text" id="prof-telephone" placeholder="Numéro de téléphone">
+        </div>
+        <div class="form-group-dash">
+          <label>Grade</label>
+          <input type="text" id="prof-grade" placeholder="ex: Professeur Associé">
+        </div>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalProfesseur()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="sauvegarderProfesseur()">✅ Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ATTRIBUTION PROF À UN COURS -->
+  <div class="admin-modal-overlay" id="modal-attribution">
+    <div class="admin-modal" style="max-width:420px">
+      <div class="admin-modal-header">
+        <h3 id="modal-attribution-titre">Attribuer un cours</h3>
+        <button class="admin-modal-close" onclick="fermerModalAttribution()" aria-label="Fermer">✕</button>
+      </div>
+
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Année académique</label>
+          <select id="attr-annee-select" onchange="rechargerProgrammeAttribution()">
+            <option value="2026-2027">2026-2027</option>
+            <option value="2027-2028">2027-2028</option>
+            <option value="2028-2029">2028-2029</option>
+            <option value="2029-2030">2029-2030</option>
+            <option value="2030-2031">2030-2031</option>
+          </select>
+        </div>
+        <div class="form-group-dash">
+          <label>Faculté</label>
+          <select id="attr-faculte-select" onchange="rechargerProgrammeAttribution()">
+            <option value="">— Toutes les facultés —</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Promotion</label>
+        <select id="attr-promotion-select" onchange="filtrerCoursAttribution()">
+          <option value="">— Toutes les promotions —</option>
+        </select>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Cours</label>
+        <select id="attr-cours-select">
+          <option value="">— Choisir un cours —</option>
+        </select>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Professeur à attribuer</label>
+        <select id="attr-prof-select">
+          <option value="">— Choisir un professeur —</option>
+        </select>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalAttribution()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="sauvegarderAttribution()">✅ Attribuer</button>
+      </div>
+    </div>
+  </div>
+  <script src="js/config.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+  <script src="js/login.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

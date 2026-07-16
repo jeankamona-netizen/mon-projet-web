@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirection — UML</title>
+  <!-- Le portail de connexion est désormais unique pour tous les profils
+       (étudiant, professeur, admin, caisse, budget) — voir login.html.
+       Cette page ne sert qu'à préserver les anciens liens/favoris. -->
+  <meta http-equiv="refresh" content="0; url=login.html?role=admin">
+  <link rel="canonical" href="login.html?role=admin">
+</head>
+<body>
+  <p>Redirection vers <a href="login.html?role=admin">le portail de connexion</a>…</p>
+  <script>window.location.replace('login.html?role=admin');</script>
+</body>
+</html>

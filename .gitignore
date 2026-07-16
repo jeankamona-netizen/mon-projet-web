@@ -1,0 +1,12 @@
+node_modules/
+.env
+*.log
+.claude/
+~$*
+
+# Documents uploadés par les candidats (données personnelles) — jamais dans git
+frontend/uploads/*
+!frontend/uploads/.gitkeep
+
+# Contient de vrais mots de passe de comptes de test — jamais dans git
+Cahier-des-charges-UML-Beta.docx
