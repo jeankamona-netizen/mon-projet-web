@@ -237,10 +237,10 @@ async function chargerListes() {
     const d = await r.json();
     derniereListe = { ...d, faculte, niveau };
     const rubriques = d.rubriques || [];
-    const nbCol = 5 + rubriques.length; // N°, Étudiant, Niveau, Filière, [rubriques], Total
+    const nbCol = 4 + rubriques.length; // N°, Étudiant, Promotion, [rubriques], Total
 
     if (thead) thead.innerHTML = `<tr>
-      <th style="width:44px">N°</th><th>Étudiant</th><th>Niveau</th><th>Filière</th>
+      <th style="width:44px">N°</th><th>Étudiant</th><th>Promotion</th>
       ${rubriques.map(x => `<th>${x} ($)</th>`).join('')}
       <th>Total versé</th>
     </tr>`;
@@ -255,13 +255,12 @@ async function chargerListes() {
     tbody.innerHTML = etudiants.map((e, i) => `<tr>
       <td>${i + 1}</td>
       <td><strong>${e.nom}</strong> ${e.postnom || ''} ${e.prenom}<br><span style="font-size:11px;color:#999">${e.id}</span></td>
-      <td>${e.niveau ? `<span class="annee-badge">${e.niveau}</span>` : '—'}</td>
-      <td>${e.filiere || e.promotion || '—'}</td>
+      <td>${libelleFiliere(e.niveau, e.filiere || e.promotion)}</td>
       ${rubriques.map(x => `<td>${e.par_rubrique[x] ? montant(e.par_rubrique[x]) + ' $' : '—'}</td>`).join('')}
       <td><strong style="color:var(--vert)">${montant(e.total)} $</strong></td>
     </tr>`).join('') +
       `<tr class="bareme-total-row">
-        <td></td><td colspan="3"><strong>Total général (${etudiants.length} étudiant${etudiants.length > 1 ? 's' : ''})</strong></td>
+        <td></td><td colspan="2"><strong>Total général (${etudiants.length} étudiant${etudiants.length > 1 ? 's' : ''})</strong></td>
         ${rubriques.map(x => `<td><strong>${montant(totaux[x])} $</strong></td>`).join('')}
         <td><strong style="color:var(--bleu)">${montant(totalGeneral)} $</strong></td>
       </tr>`;
@@ -280,17 +279,16 @@ function imprimerListe() {
   const totaux = {}; let totalGeneral = 0;
   d.etudiants.forEach(e => { rubriques.forEach(x => { totaux[x] = (totaux[x] || 0) + (Number(e.par_rubrique[x]) || 0); }); totalGeneral += Number(e.total) || 0; });
 
-  const entetes = `<th>N°</th><th>Étudiant</th><th>Niveau</th><th>Filière</th>${rubriques.map(x => `<th class="n">${esc(x)}</th>`).join('')}<th class="n">Total</th>`;
+  const entetes = `<th>N°</th><th>Étudiant</th><th>Promotion</th>${rubriques.map(x => `<th class="n">${esc(x)}</th>`).join('')}<th class="n">Total</th>`;
   const corps = d.etudiants.map((e, i) => `<tr>
       <td>${i + 1}</td>
       <td>${esc(`${e.nom} ${e.postnom || ''} ${e.prenom}`)}<br><small>${esc(e.id)}</small></td>
-      <td>${esc(e.niveau || '')}</td>
-      <td>${esc(e.filiere || e.promotion || '')}</td>
+      <td>${esc(libelleFiliere(e.niveau, e.filiere || e.promotion))}</td>
       ${rubriques.map(x => `<td class="n">${e.par_rubrique[x] ? montant(e.par_rubrique[x]) + ' $' : '—'}</td>`).join('')}
       <td class="n"><b>${montant(e.total)} $</b></td>
     </tr>`).join('');
   const ligneTotal = `<tr class="tot">
-      <td></td><td colspan="3"><b>Total général (${d.etudiants.length})</b></td>
+      <td></td><td colspan="2"><b>Total général (${d.etudiants.length})</b></td>
       ${rubriques.map(x => `<td class="n"><b>${montant(totaux[x])} $</b></td>`).join('')}
       <td class="n"><b>${montant(totalGeneral)} $</b></td>
     </tr>`;
