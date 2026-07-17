@@ -128,12 +128,47 @@ router.get('/liste', async (req, res) => {
   try {
     const { annee, faculte, niveau } = req.query;
 
-    // Étudiants filtrés, triés faculté → niveau → nom.
-    let sqlE = `SELECT e.id, e.nom, e.postnom, e.prenom, e.faculte, e.niveau, e.promotion, f.nom AS filiere
-                FROM etudiant e LEFT JOIN filiere f ON e.filiere_id = f.id WHERE 1=1`;
-    const pE = [];
+    // N'afficher que les étudiants INSCRITS pour l'année (et le niveau) demandés :
+    // profil courant OU historique d'inscription aux cours de cette période
+    // (un étudiant promu garde sa fiche au niveau courant, mais reste retrouvable
+    // sur une année passée via inscription_cours). Mirroir de /api/etudiants ;
+    // les colonnes faculté/promotion/niveau reflètent alors CETTE période.
+    let sqlE, pE = [];
+    if (annee || niveau) {
+      const condHist = [];
+      if (annee)  condHist.push('c.annee_academique = ?');
+      if (niveau) condHist.push('c.niveau = ?');
+      const condCourant = [];
+      if (annee)  condCourant.push('e.annee_academique = ?');
+      if (niveau) condCourant.push('e.niveau = ?');
+      sqlE = `
+        SELECT * FROM (
+          SELECT e.id, e.nom, e.postnom, e.prenom, fil.nom AS filiere,
+                 COALESCE(h.faculte, e.faculte)     AS faculte,
+                 COALESCE(h.promotion, e.promotion) AS promotion,
+                 COALESCE(h.niveau, e.niveau)       AS niveau
+          FROM etudiant e
+          LEFT JOIN filiere fil ON e.filiere_id = fil.id
+          LEFT JOIN (
+            SELECT ic.etudiant_id,
+                   MAX(c.faculte) AS faculte, MAX(c.promotion) AS promotion,
+                   MAX(c.niveau) AS niveau, MAX(c.annee_academique) AS annee_academique
+            FROM inscription_cours ic JOIN cours c ON c.id = ic.cours_id
+            ${condHist.length ? 'WHERE ' + condHist.join(' AND ') : ''}
+            GROUP BY ic.etudiant_id
+          ) h ON h.etudiant_id = e.id
+          WHERE (h.etudiant_id IS NOT NULL${condCourant.length ? ' OR (' + condCourant.join(' AND ') + ')' : ''})
+        ) e
+        WHERE 1=1`;
+      if (annee)  pE.push(annee);
+      if (niveau) pE.push(niveau);
+      if (annee)  pE.push(annee);
+      if (niveau) pE.push(niveau);
+    } else {
+      sqlE = `SELECT e.id, e.nom, e.postnom, e.prenom, e.faculte, e.niveau, e.promotion, fil.nom AS filiere
+              FROM etudiant e LEFT JOIN filiere fil ON e.filiere_id = fil.id WHERE 1=1`;
+    }
     if (faculte) { sqlE += ' AND e.faculte = ?'; pE.push(faculte); }
-    if (niveau)  { sqlE += ' AND e.niveau = ?'; pE.push(niveau); }
     sqlE += ' ORDER BY e.faculte, e.niveau, e.nom, e.prenom';
     const [etudiants] = await pool.query(sqlE, pE);
 
