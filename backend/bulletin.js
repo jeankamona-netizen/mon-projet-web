@@ -122,6 +122,9 @@ function dessinerInfosEtudiant(doc, etudiant) {
 
   ligneEtiquette(doc, xGauche, yDepart,            330, 'Niveau :',   LIBELLES_NIVEAU[etudiant.niveau] || etudiant.niveau || '—');
   ligneEtiquette(doc, xDroite, yDepart,             145, 'Matricule :', etudiant.id);
+  // Année académique placée juste sous le matricule (le bandeau Année/Classe/
+  // Période a été retiré des semestres).
+  ligneEtiquette(doc, xDroite, yDepart + pas,       145, 'Année :',    etudiant.annee_academique || '—');
   ligneEtiquette(doc, xGauche, yDepart + pas,       330, 'Faculté :',  etudiant.faculte);
   ligneEtiquette(doc, xGauche, yDepart + pas * 2,   330, 'Filière :',  etudiant.filiere_nom || etudiant.promotion);
   ligneEtiquette(doc, xGauche, yDepart + pas * 3,   330, "Nom de l'étudiant :", nomComplet);
@@ -130,29 +133,6 @@ function dessinerInfosEtudiant(doc, etudiant) {
   doc.y = yDepart + pas * 4 + 16;
   doc.moveTo(X_DEPART, doc.y).lineTo(X_DEPART + LARGEUR_PAGE, doc.y).strokeColor(COULEUR_BORDURE).lineWidth(1).stroke();
   doc.y += 8;
-}
-
-// ===== BANDEAU ANNÉE / CLASSE / PÉRIODE — compacté =====
-function dessinerBandeauPeriode(doc, etudiant, anneeAcademique, periode) {
-  const largeurCol = LARGEUR_PAGE / 3;
-  const y = doc.y;
-  const hauteurTitre = 11, hauteurValeur = 13;
-
-  const cellules = [
-    { titre: 'Année académique', valeur: anneeAcademique || etudiant.annee_academique || '—' },
-    { titre: 'Classe',           valeur: etudiant.promotion || '—' },
-    { titre: 'Période',          valeur: periode },
-  ];
-  cellules.forEach((c, i) => {
-    const x = X_DEPART + i * largeurCol;
-    doc.rect(x, y, largeurCol, hauteurTitre).fill(COULEUR_BLEU);
-    doc.fontSize(7.3).font('Helvetica-Bold').fillColor('#ffffff')
-      .text(c.titre, x, y + 2.5, { width: largeurCol, align: 'center' });
-    doc.rect(x, y + hauteurTitre, largeurCol, hauteurValeur).strokeColor(COULEUR_BORDURE).lineWidth(0.5).stroke();
-    doc.fontSize(8.5).font('Helvetica-Bold').fillColor(COULEUR_TEXTE)
-      .text(c.valeur, x, y + hauteurTitre + 2.5, { width: largeurCol, align: 'center' });
-  });
-  doc.y = y + hauteurTitre + hauteurValeur + 4;
 }
 
 // ===== TABLEAU DES NOTES (Code UE = code du cours, comme demandé) — compacté =====
@@ -243,14 +223,15 @@ function dessinerAbsencesEtMoyenne(doc, notesSession, presenceSession) {
 
   doc.rect(X_DEPART, y, LARGEUR_PAGE, 22).fillAndStroke(COULEUR_FOND_BOITE, COULEUR_BORDURE);
 
-  const taux = presenceSession && presenceSession.total > 0
-    ? Math.round((presenceSession.present / presenceSession.total) * 1000) / 10
+  // Assiduité cotée sur 20 = moyenne de la participation aux séances du
+  // semestre (présent = 20, retard = 10, absent = 0). Pas de détail
+  // absences/total/non justifiées — juste la note /20.
+  const assiduite = presenceSession && presenceSession.total > 0
+    ? ((presenceSession.present + presenceSession.retard * 0.5) / presenceSession.total) * 20
     : null;
-  const texteAssiduite = taux === null
-    ? 'Assiduité — Aucune séance enregistrée pour ce semestre.'
-    : `Assiduité — Séances : ${presenceSession.total} · Présences : ${presenceSession.present} · Retards : ${presenceSession.retard} · Absences : ${presenceSession.absent} · Taux : ${taux}%`;
+  const texteAssiduite = `Assiduité : ${assiduite !== null ? assiduite.toFixed(2) : '—'} /20`;
 
-  doc.fontSize(7.5).font('Helvetica').fillColor(COULEUR_TEXTE)
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor(COULEUR_TEXTE)
     .text(texteAssiduite, X_DEPART + 8, y + 4, { width: LARGEUR_PAGE - 16 });
 
   doc.font('Helvetica-Bold').fillColor(COULEUR_BLEU)
@@ -277,10 +258,7 @@ function dessinerObservation(doc, notesSession, numero) {
 function dessinerSemestre(doc, etudiant, notesSession, numero, presences) {
   assurerEspace(doc, 40);
   doc.fontSize(10.5).font('Helvetica-Bold').fillColor(COULEUR_BLEU).text(`Semestre ${numero}`, X_DEPART, doc.y);
-  doc.y += 12;
-
-  const anneeAcademique = notesSession[0]?.annee_academique;
-  dessinerBandeauPeriode(doc, etudiant, anneeAcademique, `Semestre ${numero} / Session 1`);
+  doc.y += 14;
 
   if (!notesSession.length) {
     doc.fontSize(8.5).fillColor(COULEUR_GRIS_CLAIR).font('Helvetica')
@@ -324,25 +302,38 @@ function dessinerResumeEtSignature(doc, notes) {
   doc.fontSize(taille).font('Helvetica-Bold').fillColor(COULEUR_BLEU)
     .text(texteResume, X_DEPART, y + 7, { width: LARGEUR_PAGE, align: 'center' });
 
-  // Signature unique pour l'ensemble du bulletin (les deux semestres).
-  const ySignature = y + 20;
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(COULEUR_TEXTE)
-    .text('La Direction', X_DEPART + LARGEUR_PAGE - 145, ySignature, { width: 145, align: 'center' });
-  doc.moveTo(X_DEPART + LARGEUR_PAGE - 145, ySignature + 22).lineTo(X_DEPART + LARGEUR_PAGE, ySignature + 22)
-    .strokeColor(COULEUR_BORDURE).stroke();
-
-  doc.y = ySignature + 28;
+  doc.y = y + 24;
 }
 
+// Bas du bulletin : ligne de démarcation, puis date (à gauche) et signature de
+// la direction avec le sceau (à droite). Le NB est conservé sous la date.
 function dessinerDateEtNote(doc) {
-  assurerEspace(doc, 13);
-  const y = doc.y;
+  assurerEspace(doc, 52);
+
+  // Ligne de démarcation.
+  const yLigne = doc.y;
+  doc.moveTo(X_DEPART, yLigne).lineTo(X_DEPART + LARGEUR_PAGE, yLigne).strokeColor(COULEUR_BORDURE).lineWidth(1).stroke();
+
+  const y = yLigne + 10;
   const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-  doc.fontSize(8.3).font('Helvetica').fillColor(COULEUR_TEXTE)
+
+  // Bas gauche : date.
+  doc.fontSize(8.5).font('Helvetica').fillColor(COULEUR_TEXTE)
     .text(`Lubumbashi, le ${dateStr}`, X_DEPART, y, { width: 250 });
-  doc.font('Helvetica-Bold').fillColor(COULEUR_ROUGE)
-    .text('NB : Aucun duplicata ne sera délivré', X_DEPART + 250, y, { width: LARGEUR_PAGE - 250, align: 'right' });
-  doc.y = y + 13;
+
+  // Bas droite : La Direction, avec « Sceau » juste en dessous.
+  const largeurBloc = 160;
+  const xBloc = X_DEPART + LARGEUR_PAGE - largeurBloc;
+  doc.fontSize(8.5).font('Helvetica-Bold').fillColor(COULEUR_TEXTE)
+    .text('La Direction', xBloc, y, { width: largeurBloc, align: 'center' });
+  doc.fontSize(8).font('Helvetica').fillColor(COULEUR_GRIS)
+    .text('(Sceau)', xBloc, y + 28, { width: largeurBloc, align: 'center' });
+
+  // NB conservé (inchangé), sous la date.
+  doc.fontSize(8.3).font('Helvetica-Bold').fillColor(COULEUR_ROUGE)
+    .text('NB : Aucun duplicata ne sera délivré', X_DEPART, y + 28, { width: 250 });
+
+  doc.y = y + 40;
 }
 
 // ===== BARÈME — tout en bas de page, petite police (9), comme demandé =====

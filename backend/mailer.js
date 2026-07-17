@@ -49,7 +49,7 @@ async function envoyerEmailAcceptation(etudiant, numeroEtudiant, motDePasse) {
 
           <p style="margin-top:24px;font-size:12px;color:#888">
             Adresse : N°249, Croisement Av. Kasavubu & Likasi, Lubumbashi, RDC<br>
-            Email : lmu.lubumbashi@gmail.com
+            Email : info.uml.lubumbashi@gmail.com
           </p>
         </div>
       </div>
@@ -95,7 +95,7 @@ async function envoyerEmailReinitialisation(etudiant, motDePasse) {
 
           <p style="margin-top:24px;font-size:12px;color:#888">
             Adresse : N°249, Croisement Av. Kasavubu & Likasi, Lubumbashi, RDC<br>
-            Email : lmu.lubumbashi@gmail.com
+            Email : info.uml.lubumbashi@gmail.com
           </p>
         </div>
       </div>
@@ -126,7 +126,7 @@ async function envoyerEmailRejet(etudiant) {
              période d'inscription.</p>
           <p style="margin-top:24px;font-size:12px;color:#888">
             Pour plus d'informations, contactez l'administration :<br>
-            lmu.lubumbashi@gmail.com — N°249, Av. Kasavubu & Likasi, Lubumbashi
+            info.uml.lubumbashi@gmail.com — N°249, Av. Kasavubu & Likasi, Lubumbashi
           </p>
         </div>
       </div>
@@ -165,7 +165,7 @@ async function envoyerEmailReponseContact(destinataire, nomDestinataire, sujetOr
 
           <p style="margin-top:24px;font-size:12px;color:#888">
             Adresse : N°249, Croisement Av. Kasavubu & Likasi, Lubumbashi, RDC<br>
-            Email : lmu.lubumbashi@gmail.com
+            Email : info.uml.lubumbashi@gmail.com
           </p>
         </div>
       </div>
