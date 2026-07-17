@@ -138,6 +138,40 @@
   gap: 6px;
 }
 
+/* =====================
+   FACULTÉS & FILIÈRES (onglet Créer)
+   ===================== */
+.faculte-carte {
+  background: var(--blanc, #fff);
+  border: 1px solid #e6eaf0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+.faculte-entete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.faculte-nom { font-weight: 700; color: var(--bleu, #1a3a6b); font-size: 15px; }
+.faculte-actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.faculte-filieres { padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.filiere-ligne {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: #f7f9fc;
+  border-radius: 6px;
+}
+.filiere-nom { flex: 1 1 auto; font-size: 13px; color: #333; }
+.filiere-actions { display: flex; gap: 4px; }
+.filiere-vide { font-size: 13px; color: #999; font-style: italic; margin: 2px 0; }
+.ajout-filiere { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+
 /* Tableau « Gérer les inscrits » : largeurs fixes (colgroup) respectées,
    contenu coupé proprement pour que les lignes restent compactes. */
 .table-inscrits { table-layout: fixed; width: 100%; min-width: 860px; }

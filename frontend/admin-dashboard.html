@@ -134,10 +134,21 @@
           Agents (personnel)
         </a>
 
-        <a href="#" class="nav-item" onclick="afficherSection('admin-annees', this)">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          Années académiques
-        </a>
+        <div class="nav-item-groupe">
+          <a href="#" class="nav-item nav-item-toggle" id="nav-creer-groupe" onclick="toggleSousMenu(event, this)">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Créer
+            <svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </a>
+          <div class="nav-sous-menu">
+            <a href="#" class="nav-sous-item" data-cible="admin-annees" onclick="afficherOngletCreer('admin-annees')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Années académiques
+            </a>
+            <a href="#" class="nav-sous-item" data-cible="admin-facultes" onclick="afficherOngletCreer('admin-facultes')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg> Facultés
+            </a>
+          </div>
+        </div>
 
         <a href="#" class="nav-item" onclick="afficherSection('admin-audit', this)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><polyline points="14 2 14 7 19 7"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
@@ -842,6 +853,24 @@
               <tr><td colspan="3" class="admin-vide">Chargement...</td></tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <!-- ==================== FACULTÉS & FILIÈRES ==================== -->
+      <section id="admin-facultes" class="dash-section">
+        <h2>Facultés &amp; filières</h2>
+        <p class="dash-sous-titre">Ajoutez, modifiez ou supprimez les facultés et leurs filières (promotions). Le niveau (L1…D2) est un standard LMD fixe.</p>
+
+        <div class="admin-toolbar" style="flex-wrap:wrap;gap:8px;align-items:center">
+          <input type="text" class="admin-recherche" id="nouvelle-faculte" placeholder="Nom de la faculté (ex : Faculté de Médecine)" style="flex:1 1 280px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555">
+            <input type="checkbox" id="nouvelle-faculte-master"> Master disponible
+          </label>
+          <button class="btn-ajouter" onclick="ajouterFaculte()">+ Ajouter une faculté</button>
+        </div>
+
+        <div id="admin-facultes-liste">
+          <p class="admin-vide">Chargement...</p>
         </div>
       </section>
 

@@ -453,6 +453,192 @@ function afficherOngletAnnonces(id) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// Sous-menu déroulant « Créer » : Années académiques / Facultés.
+function afficherOngletCreer(id) {
+  document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item, .nav-sous-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id)?.classList.add('active');
+  document.getElementById('nav-creer-groupe')?.classList.add('active');
+  document.getElementById('nav-creer-groupe')?.closest('.nav-item-groupe')?.classList.add('open');
+  document.querySelector(`.nav-sous-item[data-cible="${id}"]`)?.classList.add('active');
+  if (id === 'admin-annees')   chargerAnneesAcademiquesAdmin();
+  if (id === 'admin-facultes') chargerFacultesAdmin();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// =====================
+// FACULTÉS & FILIÈRES (Créer)
+// =====================
+let facultesGestion = [];
+const escFac = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+async function chargerFacultesAdmin() {
+  const c = document.getElementById('admin-facultes-liste');
+  if (!c) return;
+  c.innerHTML = '<p class="admin-vide">Chargement...</p>';
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/facultes/gestion/liste`);
+    facultesGestion = await r.json();
+    if (!Array.isArray(facultesGestion) || !facultesGestion.length) {
+      c.innerHTML = '<p class="admin-vide">Aucune faculté enregistrée. Ajoutez-en une ci-dessus.</p>';
+      return;
+    }
+    c.innerHTML = facultesGestion.map(renderFaculteCarte).join('');
+  } catch { c.innerHTML = '<p class="admin-vide">⚠️ Erreur de chargement.</p>'; }
+}
+
+function renderFaculteCarte(f) {
+  const filieres = (f.filieres || []).length
+    ? f.filieres.map(fil => `
+        <div class="filiere-ligne" data-id="${fil.id}">
+          <span class="filiere-nom">${escFac(fil.nom)}</span>
+          <span class="filiere-actions">
+            <button class="btn-icone" onclick="modifierFiliere(${fil.id})" aria-label="Renommer la filière">${icone('crayon')}</button>
+            <button class="btn-icone danger" onclick="supprimerFiliere(${fil.id})" aria-label="Supprimer la filière">${icone('corbeille')}</button>
+          </span>
+        </div>`).join('')
+    : '<p class="filiere-vide">Aucune filière pour le moment.</p>';
+  return `
+    <div class="faculte-carte" data-id="${f.id}">
+      <div class="faculte-entete">
+        <span class="faculte-nom">${escFac(f.nom)}</span>
+        ${f.master_disponible ? '<span class="badge attente" style="font-size:10px">Master</span>' : ''}
+        <span class="faculte-actions">
+          <button class="btn-icone" onclick="modifierFaculte(${f.id})" aria-label="Modifier la faculté">${icone('crayon')}</button>
+          <button class="btn-icone danger" onclick="supprimerFaculte(${f.id})" aria-label="Supprimer la faculté">${icone('corbeille')}</button>
+        </span>
+      </div>
+      <div class="faculte-filieres">
+        ${filieres}
+        <div class="ajout-filiere">
+          <input type="text" class="admin-recherche" id="new-fil-${f.id}" placeholder="Nouvelle filière..." style="flex:1 1 220px" onkeydown="if(event.key==='Enter')ajouterFiliere(${f.id})">
+          <button class="btn-ajouter" onclick="ajouterFiliere(${f.id})">+ Filière</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function ajouterFaculte() {
+  const champ = document.getElementById('nouvelle-faculte');
+  const nom = (champ?.value || '').trim();
+  const master = document.getElementById('nouvelle-faculte-master')?.checked;
+  if (!nom) { afficherToast('⚠️ Entrez le nom de la faculté.', 'erreur'); return; }
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/facultes`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nom, master_disponible: master })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    afficherToast('✅ Faculté ajoutée.');
+    if (champ) champ.value = '';
+    document.getElementById('nouvelle-faculte-master').checked = false;
+    chargerFacultesAdmin();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+function modifierFaculte(id) {
+  const f = facultesGestion.find(x => x.id === id);
+  const entete = document.querySelector(`.faculte-carte[data-id="${id}"] .faculte-entete`);
+  if (!f || !entete) return;
+  entete.innerHTML = `
+    <input type="text" class="admin-recherche" id="edit-fac-${id}" value="${escFac(f.nom)}" style="flex:1 1 200px">
+    <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#555;white-space:nowrap">
+      <input type="checkbox" id="edit-fac-master-${id}" ${f.master_disponible ? 'checked' : ''}> Master
+    </label>
+    <span class="faculte-actions">
+      <button class="btn-ajouter" onclick="sauverFaculte(${id})">Enregistrer</button>
+      <button class="btn-icone" onclick="chargerFacultesAdmin()" aria-label="Annuler">✕</button>
+    </span>`;
+  document.getElementById(`edit-fac-${id}`)?.focus();
+}
+
+async function sauverFaculte(id) {
+  const nom = (document.getElementById(`edit-fac-${id}`)?.value || '').trim();
+  const master = document.getElementById(`edit-fac-master-${id}`)?.checked;
+  if (!nom) { afficherToast('⚠️ Nom obligatoire.', 'erreur'); return; }
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/facultes/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nom, master_disponible: master })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    afficherToast('✅ Faculté mise à jour.');
+    chargerFacultesAdmin();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function supprimerFaculte(id) {
+  const f = facultesGestion.find(x => x.id === id);
+  const nb = (f?.filieres || []).length;
+  if (!await confirmerAction(
+    `Supprimer la faculté « ${f?.nom || ''} »${nb ? ` et ses ${nb} filière(s)` : ''} ? Les étudiants et cours déjà rattachés à son nom ne seront pas supprimés mais ne pointeront plus vers une faculté existante.`,
+    { titre: 'Supprimer la faculté', texteConfirmer: 'Supprimer' })) return;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/facultes/${id}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    afficherToast('🗑️ Faculté supprimée.');
+    chargerFacultesAdmin();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function ajouterFiliere(faculteId) {
+  const champ = document.getElementById(`new-fil-${faculteId}`);
+  const nom = (champ?.value || '').trim();
+  if (!nom) { afficherToast('⚠️ Entrez le nom de la filière.', 'erreur'); return; }
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/filieres`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ faculte_id: faculteId, nom })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    afficherToast('✅ Filière ajoutée.');
+    chargerFacultesAdmin();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+function modifierFiliere(id) {
+  const ligne = document.querySelector(`.filiere-ligne[data-id="${id}"]`);
+  if (!ligne) return;
+  const nomActuel = ligne.querySelector('.filiere-nom')?.textContent || '';
+  ligne.innerHTML = `
+    <input type="text" class="admin-recherche" id="edit-fil-${id}" value="${escFac(nomActuel)}" style="flex:1 1 200px">
+    <span class="filiere-actions">
+      <button class="btn-ajouter" onclick="sauverFiliere(${id})">Enregistrer</button>
+      <button class="btn-icone" onclick="chargerFacultesAdmin()" aria-label="Annuler">✕</button>
+    </span>`;
+  document.getElementById(`edit-fil-${id}`)?.focus();
+}
+
+async function sauverFiliere(id) {
+  const nom = (document.getElementById(`edit-fil-${id}`)?.value || '').trim();
+  if (!nom) { afficherToast('⚠️ Nom obligatoire.', 'erreur'); return; }
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/filieres/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nom })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    afficherToast('✅ Filière mise à jour.');
+    chargerFacultesAdmin();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function supprimerFiliere(id) {
+  if (!await confirmerAction('Supprimer cette filière ?', { titre: 'Supprimer la filière', texteConfirmer: 'Supprimer' })) return;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/filieres/${id}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    afficherToast('🗑️ Filière supprimée.');
+    chargerFacultesAdmin();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
 // =====================
 // UTILITAIRES DATE
 // =====================
