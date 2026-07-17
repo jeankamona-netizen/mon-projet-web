@@ -211,7 +211,7 @@ function dessinerAbsencesEtMoyenne(doc, notesSession, presenceSession) {
   const creditsCapitalises = notesSession.filter(n => n.note !== null && n.note >= 10).reduce((s, n) => s + n.credits, 0);
   const creditsTotal = notesSession.reduce((s, n) => s + n.credits, 0);
 
-  doc.rect(X_DEPART, y, LARGEUR_PAGE, 22).fillAndStroke(COULEUR_FOND_BOITE, COULEUR_BORDURE);
+  doc.rect(X_DEPART, y, LARGEUR_PAGE, 16).fillAndStroke(COULEUR_FOND_BOITE, COULEUR_BORDURE);
 
   // Assiduité cotée sur 20 = moyenne de la participation aux séances du
   // semestre (présent = 20, retard = 10, absent = 0). Pas de détail
@@ -219,17 +219,18 @@ function dessinerAbsencesEtMoyenne(doc, notesSession, presenceSession) {
   const assiduite = presenceSession && presenceSession.total > 0
     ? ((presenceSession.present + presenceSession.retard * 0.5) / presenceSession.total) * 20
     : null;
-  const texteAssiduite = `Assiduité : ${assiduite !== null ? assiduite.toFixed(2) : '—'} /20`;
+
+  // Moyenne semestrielle, assiduité et crédits capitalisés sur une SEULE
+  // ligne, même taille / police / couleur.
+  const ligneSynthese =
+    `Moyenne semestrielle : ${moyenne !== null ? moyenne.toFixed(2) + '/20' : '—'}` +
+    `        Assiduité : ${assiduite !== null ? assiduite.toFixed(2) : '—'} /20` +
+    `        Crédits capitalisés : ${creditsCapitalises} / ${creditsTotal}`;
 
   doc.fontSize(8.5).font('Helvetica-Bold').fillColor(COULEUR_TEXTE)
-    .text(texteAssiduite, X_DEPART + 8, y + 4, { width: LARGEUR_PAGE - 16 });
+    .text(ligneSynthese, X_DEPART + 8, y + 4.5, { width: LARGEUR_PAGE - 16 });
 
-  doc.font('Helvetica-Bold').fillColor(COULEUR_BLEU)
-    .text(`Moyenne semestrielle : ${moyenne !== null ? moyenne.toFixed(2) + '/20' : '—'}`, X_DEPART + 8, y + 13, { continued: true });
-  doc.font('Helvetica').fillColor(COULEUR_TEXTE)
-    .text(`    —    Crédits capitalisés : ${creditsCapitalises} / ${creditsTotal}`);
-
-  doc.y = y + 27;
+  doc.y = y + 21;
 }
 
 function dessinerObservation(doc, notesSession, numero) {
@@ -239,8 +240,9 @@ function dessinerObservation(doc, notesSession, numero) {
   const observation = moyenne === null ? 'Notes en attente de complétion.' : `${mention(moyenne)}, ${statutSemestre}`;
 
   const y = doc.y;
-  doc.fontSize(8).font('Helvetica-Bold').fillColor(COULEUR_TEXTE).text(`Observation S${numero} :`, X_DEPART, y, { continued: true });
-  doc.font('Helvetica').fillColor(COULEUR_BLEU).text(' ' + observation);
+  // Libellé et valeur dans le même style (taille / police / couleur).
+  doc.fontSize(8).font('Helvetica-Bold').fillColor(COULEUR_TEXTE)
+    .text(`Observation S${numero} : ${observation}`, X_DEPART, y, { width: LARGEUR_PAGE });
 
   doc.y = y + 14;
 }

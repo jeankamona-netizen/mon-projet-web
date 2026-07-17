@@ -11,7 +11,6 @@ const { journaliserActionsAdmin } = require('./middleware/audit');
 const crypto      = require('crypto');
 const bcrypt      = require('bcryptjs');
 const { genererBulletinPDF } = require('./bulletin');
-const { genererReleveNotesCumulatifPDF } = require('./releveNotes');
 const { envoyerEmailReinitialisation } = require('./mailer');
 const { inscrireAuxCoursDuNiveau } = require('./models/inscriptionAuto');
 const upload    = require('./upload');
@@ -477,12 +476,15 @@ app.get('/api/etudiant/:id/bulletin', requireAdmin, async (req, res) => {
     );
     if (etudiants.length === 0) return res.status(404).json({ erreur: 'Étudiant non trouvé.' });
 
+    // Bulletin = année académique COURANTE de l'étudiant uniquement. Sans ce
+    // filtre, un étudiant réinscrit (ex. L1 2026-2027 puis L2 2027-2028) verrait
+    // les notes des deux années mélangées sur le même bulletin.
     const [notes] = await pool.query(`
-      SELECT n.note, n.note_cc, n.note_examen, n.session, c.id AS cours_id, c.nom AS matiere, c.code, c.credits, c.annee_academique
+      SELECT n.note, n.note_cc, n.note_examen, n.session, c.id AS cours_id, c.nom AS matiere, c.code, c.credits, n.annee_academique
       FROM note n JOIN cours c ON n.cours_id = c.id
-      WHERE n.etudiant_id = ?
+      WHERE n.etudiant_id = ? AND n.annee_academique = ?
       ORDER BY n.session, c.code
-    `, [req.params.id]);
+    `, [req.params.id, etudiants[0].annee_academique]);
 
     // Assiduité par cours, agrégée pour être répartie ensuite par semestre
     // (chaque note connaît déjà son cours_id et sa session S1/S2).
@@ -501,42 +503,6 @@ app.get('/api/etudiant/:id/bulletin', requireAdmin, async (req, res) => {
     genererBulletinPDF(res, etudiants[0], notes, Object.values(presencesParCours));
   } catch (erreur) {
     console.error('Erreur bulletin:', erreur);
-    res.status(500).json({ erreur: erreur.message });
-  }
-});
-
-// =====================
-// RELEVÉ DE NOTES CUMULATIF — toutes les années académiques de l'étudiant
-// sur un seul document (réservé à l'administrateur, comme le bulletin).
-// =====================
-app.get('/api/etudiant/:id/releve-cumulatif', requireAdmin, async (req, res) => {
-  try {
-    const [etudiants] = await pool.query(
-      'SELECT e.*, f.nom AS filiere_nom FROM etudiant e LEFT JOIN filiere f ON e.filiere_id = f.id WHERE e.id = ?',
-      [req.params.id]
-    );
-    if (etudiants.length === 0) return res.status(404).json({ erreur: 'Étudiant non trouvé.' });
-
-    const [notes] = await pool.query(`
-      SELECT n.note, n.note_cc, n.note_examen, n.session, n.annee_academique,
-             c.nom AS matiere, c.code, c.credits, c.niveau
-      FROM note n JOIN cours c ON n.cours_id = c.id
-      WHERE n.etudiant_id = ?
-      ORDER BY n.annee_academique, n.session, c.code
-    `, [req.params.id]);
-
-    if (notes.length === 0) return res.status(404).json({ erreur: "Aucune note enregistrée pour cet étudiant." });
-
-    const parAnnee = {};
-    for (const n of notes) {
-      if (!parAnnee[n.annee_academique]) parAnnee[n.annee_academique] = { annee_academique: n.annee_academique, niveau: n.niveau, notes: [] };
-      parAnnee[n.annee_academique].notes.push(n);
-    }
-    const notesParAnnee = Object.values(parAnnee).sort((a, b) => a.annee_academique.localeCompare(b.annee_academique));
-
-    genererReleveNotesCumulatifPDF(res, etudiants[0], notesParAnnee);
-  } catch (erreur) {
-    console.error('Erreur relevé cumulatif:', erreur);
     res.status(500).json({ erreur: erreur.message });
   }
 });

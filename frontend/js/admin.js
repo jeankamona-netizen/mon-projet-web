@@ -2336,7 +2336,6 @@ async function chargerInscrits() {
         <td><span class="badge ${e.statut==='actif'?'reussi':e.statut==='diplome'?'attente':'echec'}">${e.statut||'actif'}</span></td>
         <td class="admin-actions-cell">
           <button class="btn-icone" onclick="telechargerBulletin('${e.id}')" aria-label="Télécharger le bulletin" title="Télécharger le bulletin">${icone('notes')}</button>
-          <button class="btn-icone" onclick="telechargerReleveCumulatif('${e.id}')" aria-label="Télécharger le relevé cumulatif" title="Télécharger le relevé de notes cumulatif (toutes années)">${icone('livre')}</button>
           <button class="btn-icone" onclick="reinitialiserMotDePasseEtudiant('${e.id}')" aria-label="Réinitialiser le mot de passe" title="Réinitialiser le mot de passe">${icone('cle')}</button>
           <button class="btn-icone" onclick="imprimerCarteEtudiant('${e.id}')" aria-label="Imprimer la carte étudiant" title="Imprimer la carte étudiant">${icone('carte')}</button>
           <button class="btn-icone" onclick="modifierInscrit('${e.id}')" aria-label="Modifier">${icone('crayon')}</button>
@@ -2358,29 +2357,6 @@ async function telechargerBulletin(etudiantId) {
     const a = document.createElement('a');
     a.href = url;
     a.download = `bulletin-${etudiantId}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    return true;
-  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); return false; }
-}
-
-// Relevé de notes cumulatif : couvre TOUTES les années académiques de
-// l'étudiant (contrairement au bulletin, limité à l'année en cours).
-async function telechargerReleveCumulatif(etudiantId) {
-  try {
-    const r = await fetchAdmin(`${BASE_URL}/api/etudiant/${etudiantId}/releve-cumulatif`);
-    if (!r.ok) {
-      const d = await r.json().catch(() => ({}));
-      afficherToast('❌ ' + (d.erreur || 'Impossible de générer le relevé cumulatif.'), 'erreur');
-      return false;
-    }
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `releve-cumulatif-${etudiantId}.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();
