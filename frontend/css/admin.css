@@ -172,6 +172,21 @@
 .filiere-vide { font-size: 13px; color: #999; font-style: italic; margin: 2px 0; }
 .ajout-filiere { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
 
+/* Tableau des bulletins (Gérer les notes) : espacements réduits pour que les
+   valeurs tiennent sur une à deux lignes bien alignées. */
+.table-bulletins { table-layout: fixed; width: 100%; min-width: 820px; }
+.table-bulletins th,
+.table-bulletins td {
+  padding: 6px 6px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  vertical-align: middle;
+  font-size: 12.5px;
+}
+/* Lignes des années autres que l'année courante : légèrement grisées et
+   placées à la suite, pour bien distinguer l'année en cours des historiques. */
+.table-bulletins tr.bulletin-autre-annee td { background: #f7f9fc; color: #555; }
+
 /* Tableau « Gérer les inscrits » : largeurs fixes (colgroup) respectées,
    contenu coupé proprement pour que les lignes restent compactes. */
 .table-inscrits { table-layout: fixed; width: 100%; min-width: 860px; }

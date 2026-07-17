@@ -39,8 +39,10 @@ router.post('/', requireBudget, async (req, res) => {
     );
     res.status(201).json({ message: "Barème enregistré." });
   } catch (erreur) {
-    console.error(erreur);
-    res.status(500).json({ erreur: "Erreur lors de l'enregistrement du barème." });
+    console.error('Erreur enregistrement barème:', erreur);
+    // Détail SQL renvoyé au client (route admin/budget uniquement) pour
+    // diagnostiquer un éventuel schéma de production non migré.
+    res.status(500).json({ erreur: "Erreur barème : " + (erreur.sqlMessage || erreur.message) });
   }
 });
 

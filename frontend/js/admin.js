@@ -931,31 +931,75 @@ let resumeBulletinsAdmin = [];
 async function chargerResumeBulletins() {
   const tbody = document.getElementById('bulletins-notes-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">Chargement...</td></tr>`;
   try {
     const r = await fetchAdmin(`${BASE_URL}/api/notes/bulletins/resume`);
     if (!r.ok) throw new Error('Erreur serveur');
     resumeBulletinsAdmin = await r.json();
+    remplirFiltreAnneeBulletins();
     afficherTableauBulletins();
   } catch {
-    tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Impossible de charger le résumé des bulletins.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">⚠️ Impossible de charger le résumé des bulletins.</td></tr>`;
   }
 }
 
-function afficherTableauBulletins(liste = resumeBulletinsAdmin) {
+// Alimente le sélecteur d'année du tableau des bulletins avec les années
+// réellement présentes (année courante d'abord, puis les autres).
+function remplirFiltreAnneeBulletins() {
+  const sel = document.getElementById('filtre-bulletins-annee');
+  if (!sel) return;
+  const annees = [...new Set(resumeBulletinsAdmin.map(e => e.annee_academique).filter(a => a && a !== '—'))];
+  const courante = anneeCourante || '';
+  annees.sort((a, b) => {
+    if (a === courante) return -1;
+    if (b === courante) return 1;
+    return String(a).localeCompare(String(b));
+  });
+  const valeurActuelle = sel.value;
+  sel.innerHTML = '<option value="">Toutes les années</option>' +
+    annees.map(a => `<option value="${a}">${a}${a === courante ? ' (courante)' : ''}</option>`).join('');
+  if (annees.includes(valeurActuelle)) sel.value = valeurActuelle;
+}
+
+// Affiche le tableau en appliquant recherche + filtre d'année, avec l'année
+// académique COURANTE en tête et les autres années à la suite en dessous.
+function afficherTableauBulletins() {
   const tbody = document.getElementById('bulletins-notes-body');
   if (!tbody) return;
   const selectTout = document.getElementById('notes-select-tout');
   if (selectTout) selectTout.checked = false;
-  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Aucun étudiant noté.</td></tr>`; return; }
+
+  const terme = (document.getElementById('recherche-bulletins')?.value || '').trim().toLowerCase();
+  const anneeFiltre = document.getElementById('filtre-bulletins-annee')?.value || '';
+  const courante = anneeCourante || '';
+
+  let liste = resumeBulletinsAdmin.slice();
+  if (terme) liste = liste.filter(e =>
+    `${e.nom} ${e.postnom || ''} ${e.prenom}`.toLowerCase().includes(terme) ||
+    (e.etudiant_id || '').toLowerCase().includes(terme) ||
+    (e.filiere || '').toLowerCase().includes(terme) ||
+    (e.faculte || '').toLowerCase().includes(terme));
+  if (anneeFiltre) liste = liste.filter(e => e.annee_academique === anneeFiltre);
+
+  // Année courante en premier, puis les autres années par ordre croissant, puis par nom.
+  liste.sort((a, b) => {
+    const pa = a.annee_academique === courante ? 0 : 1;
+    const pb = b.annee_academique === courante ? 0 : 1;
+    if (pa !== pb) return pa - pb;
+    if (a.annee_academique !== b.annee_academique) return String(a.annee_academique).localeCompare(String(b.annee_academique));
+    return `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
+  });
+
+  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">Aucun étudiant noté.</td></tr>`; return; }
   tbody.innerHTML = liste.map(e => `
-    <tr>
+    <tr${e.annee_academique !== courante ? ' class="bulletin-autre-annee"' : ''}>
       <td><input type="checkbox" class="note-select" data-etudiant-id="${e.etudiant_id}"></td>
-      <td>${e.nom} ${e.postnom||''} ${e.prenom}<br><span style="font-size:11px;color:#999">${e.etudiant_id}</span></td>
-      <td>${e.filiere||'—'}</td>
-      <td>${e.faculte||'—'}</td>
-      <td>${e.promotion||'—'}</td>
-      <td>${e.moyenne_generale !== null ? e.moyenne_generale.toFixed(2)+'/20' : '—'}</td>
+      <td>${e.nom} ${e.postnom || ''} ${e.prenom}<br><span style="font-size:11px;color:#999">${e.etudiant_id}</span></td>
+      <td>${e.niveau && e.niveau !== '—' ? `<span class="annee-badge">${e.niveau}</span>` : '—'}</td>
+      <td>${e.filiere || '—'}</td>
+      <td>${e.faculte || '—'}</td>
+      <td>${e.annee_academique || '—'}</td>
+      <td>${e.moyenne_generale !== null ? e.moyenne_generale.toFixed(2) + '/20' : '—'}</td>
       <td>${e.credits_valides} / ${e.credits_total}</td>
       <td>${e.mention}</td>
     </tr>`).join('');
@@ -3421,10 +3465,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     const rchBulletins=document.getElementById('recherche-bulletins');
-    if (rchBulletins) rchBulletins.addEventListener('input',e=>{
-      const t=e.target.value.toLowerCase();
-      afficherTableauBulletins(resumeBulletinsAdmin.filter(e2=>`${e2.nom} ${e2.prenom}`.toLowerCase().includes(t)||e2.etudiant_id.toLowerCase().includes(t)||(e2.filiere||'').toLowerCase().includes(t)||(e2.faculte||'').toLowerCase().includes(t)||(e2.promotion||'').toLowerCase().includes(t)));
-    });
+    if (rchBulletins) rchBulletins.addEventListener('input', () => afficherTableauBulletins());
   }
 
   if (document.getElementById('admin-horaires')) {

@@ -275,22 +275,30 @@
 
         <!-- ONGLET 2 : IMPRESSION DES BULLETINS -->
         <div class="notes-onglet-contenu" id="notes-onglet-bulletins">
-          <div class="admin-toolbar">
+          <div class="admin-toolbar" style="flex-wrap:wrap;gap:8px">
             <input type="text" class="admin-recherche" id="recherche-bulletins"
-                   placeholder="🔎 Rechercher un étudiant...">
+                   placeholder="🔎 Rechercher un étudiant..." style="flex:1 1 220px">
+            <select class="admin-recherche" id="filtre-bulletins-annee" onchange="afficherTableauBulletins()" style="flex:0 0 190px">
+              <option value="">Toutes les années</option>
+            </select>
             <button class="btn-ajouter" style="background:var(--bleu)" onclick="imprimerBulletinsSelectionnes()">🖨️ Imprimer le(s) bulletin(s) sélectionné(s)</button>
           </div>
 
-          <div class="dash-card">
-            <table class="dash-table">
+          <div class="dash-card" style="overflow-x:auto">
+            <table class="dash-table table-bulletins">
+              <colgroup>
+                <col style="width:34px"><col style="width:19%"><col style="width:8%"><col style="width:16%">
+                <col style="width:15%"><col style="width:10%"><col style="width:10%"><col style="width:9%"><col style="width:11%">
+              </colgroup>
               <thead>
                 <tr>
                   <th><input type="checkbox" id="notes-select-tout" onchange="basculerSelectionToutesNotes(this)"></th>
                   <th>Étudiant</th>
+                  <th>Niveau</th>
                   <th>Filière</th>
                   <th>Faculté</th>
-                  <th>Promotion</th>
-                  <th>Moyenne générale /20</th>
+                  <th>Année</th>
+                  <th>Moyenne G. /20</th>
                   <th>Crédits validés</th>
                   <th>Mention</th>
                 </tr>

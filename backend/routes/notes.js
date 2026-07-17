@@ -28,8 +28,12 @@ const LIBELLES_MENTION = [
 // ===== GET /api/notes/bulletins/resume — un résumé par étudiant (pour l'impression groupée de bulletins) =====
 router.get('/bulletins/resume', requireAdmin, async (req, res) => {
   try {
+    // Un résumé par (étudiant, année académique, niveau) : un étudiant réinscrit
+    // apparaît une fois par année, avec la moyenne propre à cette année (pas de
+    // mélange entre les années).
     const [lignes] = await pool.query(`
       SELECT e.id AS etudiant_id, e.nom, e.postnom, e.prenom, e.faculte, e.promotion, f.nom AS filiere,
+             n.annee_academique, c.niveau,
              AVG(n.note) AS moyenne_generale,
              SUM(CASE WHEN n.note IS NOT NULL AND n.note >= 10 THEN c.credits ELSE 0 END) AS credits_valides,
              SUM(c.credits) AS credits_total
@@ -37,7 +41,7 @@ router.get('/bulletins/resume', requireAdmin, async (req, res) => {
       LEFT JOIN filiere f ON e.filiere_id = f.id
       JOIN note n ON n.etudiant_id = e.id
       JOIN cours c ON n.cours_id = c.id
-      GROUP BY e.id, e.nom, e.postnom, e.prenom, e.faculte, e.promotion, f.nom
+      GROUP BY e.id, e.nom, e.postnom, e.prenom, e.faculte, e.promotion, f.nom, n.annee_academique, c.niveau
       ORDER BY e.nom, e.prenom
     `);
     const resultats = lignes.map(l => {
@@ -46,6 +50,8 @@ router.get('/bulletins/resume', requireAdmin, async (req, res) => {
         etudiant_id: l.etudiant_id,
         nom: l.nom, postnom: l.postnom, prenom: l.prenom,
         faculte: l.faculte, promotion: l.promotion, filiere: l.filiere,
+        annee_academique: l.annee_academique || '—',
+        niveau: l.niveau || '—',
         moyenne_generale: moyenne,
         credits_valides: Number(l.credits_valides),
         credits_total: Number(l.credits_total),
