@@ -58,6 +58,15 @@ function libelleFonctionAgent(agent) {
   const map = { administrateur_budget: 'Administrateur du budget', caissier: 'Caissier(ère)' };
   return map[agent?.fonction] || agent?.fonction || '';
 }
+// Titre à placer AVANT le nom de l'agent sur l'en-tête du rapport
+// (ex. « Le/La Caissier(e) Dieudonné … »).
+function titreAvantNom() {
+  const a = getAgentCaisse() || {};
+  if (a.fonction === 'caissier') return 'Le/La Caissier(e)';
+  if (a.fonction === 'administrateur_budget') return "L'Administrateur du budget";
+  if (a.role === 'admin') return "L'Administration";
+  return '';
+}
 
 async function fetchCaisse(url, options = {}) {
   const token = sessionStorage.getItem('caisse_token');
@@ -88,6 +97,7 @@ function afficherSectionCaisse(id, lien) {
   if (id === 'caisse-accueil')  chargerStatsCaisse();
   if (id === 'caisse-frais')    chargerEtudiantsCaisse();
   if (id === 'caisse-rapports') initRapports();
+  if (id === 'caisse-listes')   chargerListes();
   if (id === 'caisse-bareme')   chargerBareme();
 }
 
@@ -161,6 +171,9 @@ async function chargerAnneesCaisse() {
     // Barème : année en cours par défaut (sert de filtre d'affichage + année de saisie).
     const selBa = document.getElementById('bareme-annee');
     if (selBa) { selBa.innerHTML = opts; if (courante) selBa.value = courante; }
+    // Listes : année en cours par défaut.
+    const selLi = document.getElementById('liste-annee');
+    if (selLi) { selLi.innerHTML = opts; if (courante) selLi.value = courante; }
   } catch { /* silencieux */ }
 }
 
@@ -200,6 +213,127 @@ function majPromotionsBareme() {
   const optToutes = filieres.length ? '<option value="__toutes__">— Toutes les filières —</option>' : '';
   promoSel.innerHTML = '<option value="">— Filière —</option>' + optToutes +
     filieres.map(fl => `<option value="${fl}">${fl}</option>`).join('');
+}
+
+// =====================
+// LISTES DES ÉTUDIANTS (frais par rubrique)
+// =====================
+let derniereListe = null;
+
+async function chargerListes() {
+  const thead = document.getElementById('liste-thead');
+  const tbody = document.getElementById('liste-body');
+  if (!tbody) return;
+  const annee = document.getElementById('liste-annee')?.value || '';
+  const faculte = document.getElementById('liste-faculte')?.value || '';
+  const niveau = document.getElementById('liste-niveau')?.value || '';
+  tbody.innerHTML = `<tr><td class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const params = new URLSearchParams();
+    if (annee) params.append('annee', annee);
+    if (faculte) params.append('faculte', faculte);
+    if (niveau) params.append('niveau', niveau);
+    const r = await fetchCaisse(`${BASE_URL}/api/caisse/liste?${params}`);
+    const d = await r.json();
+    derniereListe = { ...d, faculte, niveau };
+    const rubriques = d.rubriques || [];
+    const nbCol = 5 + rubriques.length; // N°, Étudiant, Niveau, Filière, [rubriques], Total
+
+    if (thead) thead.innerHTML = `<tr>
+      <th style="width:44px">N°</th><th>Étudiant</th><th>Niveau</th><th>Filière</th>
+      ${rubriques.map(x => `<th>${x} ($)</th>`).join('')}
+      <th>Total versé</th>
+    </tr>`;
+
+    const etudiants = d.etudiants || [];
+    if (!etudiants.length) { tbody.innerHTML = `<tr><td colspan="${nbCol}" class="admin-vide">Aucun étudiant pour ces filtres.</td></tr>`; return; }
+
+    // Totaux par rubrique + total général (ligne de bas de tableau).
+    const totaux = {}; let totalGeneral = 0;
+    etudiants.forEach(e => { rubriques.forEach(x => { totaux[x] = (totaux[x] || 0) + (Number(e.par_rubrique[x]) || 0); }); totalGeneral += Number(e.total) || 0; });
+
+    tbody.innerHTML = etudiants.map((e, i) => `<tr>
+      <td>${i + 1}</td>
+      <td><strong>${e.nom}</strong> ${e.postnom || ''} ${e.prenom}<br><span style="font-size:11px;color:#999">${e.id}</span></td>
+      <td>${e.niveau ? `<span class="annee-badge">${e.niveau}</span>` : '—'}</td>
+      <td>${e.filiere || e.promotion || '—'}</td>
+      ${rubriques.map(x => `<td>${e.par_rubrique[x] ? montant(e.par_rubrique[x]) + ' $' : '—'}</td>`).join('')}
+      <td><strong style="color:var(--vert)">${montant(e.total)} $</strong></td>
+    </tr>`).join('') +
+      `<tr class="bareme-total-row">
+        <td></td><td colspan="3"><strong>Total général (${etudiants.length} étudiant${etudiants.length > 1 ? 's' : ''})</strong></td>
+        ${rubriques.map(x => `<td><strong>${montant(totaux[x])} $</strong></td>`).join('')}
+        <td><strong style="color:var(--bleu)">${montant(totalGeneral)} $</strong></td>
+      </tr>`;
+  } catch { tbody.innerHTML = `<tr><td class="admin-vide">⚠️ Erreur.</td></tr>`; }
+}
+
+function imprimerListe() {
+  const d = derniereListe;
+  if (!d || !(d.etudiants || []).length) { afficherToast('⚠️ Aucune donnée à imprimer.', 'erreur'); return; }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const logoSrc = `${location.origin}/img/logo.png`;
+  const rubriques = d.rubriques || [];
+  const facLib = d.faculte || 'Toutes les facultés';
+  const nivLib = d.niveau || 'Tous niveaux';
+
+  const totaux = {}; let totalGeneral = 0;
+  d.etudiants.forEach(e => { rubriques.forEach(x => { totaux[x] = (totaux[x] || 0) + (Number(e.par_rubrique[x]) || 0); }); totalGeneral += Number(e.total) || 0; });
+
+  const entetes = `<th>N°</th><th>Étudiant</th><th>Niveau</th><th>Filière</th>${rubriques.map(x => `<th class="n">${esc(x)}</th>`).join('')}<th class="n">Total</th>`;
+  const corps = d.etudiants.map((e, i) => `<tr>
+      <td>${i + 1}</td>
+      <td>${esc(`${e.nom} ${e.postnom || ''} ${e.prenom}`)}<br><small>${esc(e.id)}</small></td>
+      <td>${esc(e.niveau || '')}</td>
+      <td>${esc(e.filiere || e.promotion || '')}</td>
+      ${rubriques.map(x => `<td class="n">${e.par_rubrique[x] ? montant(e.par_rubrique[x]) + ' $' : '—'}</td>`).join('')}
+      <td class="n"><b>${montant(e.total)} $</b></td>
+    </tr>`).join('');
+  const ligneTotal = `<tr class="tot">
+      <td></td><td colspan="3"><b>Total général (${d.etudiants.length})</b></td>
+      ${rubriques.map(x => `<td class="n"><b>${montant(totaux[x])} $</b></td>`).join('')}
+      <td class="n"><b>${montant(totalGeneral)} $</b></td>
+    </tr>`;
+
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Liste des étudiants — ${esc(d.annee || '')}</title>
+<style>
+  :root { --bleu:#1a3a6b; --jaune:#f0c020; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI',Arial,sans-serif; color:#1a1a1a; padding:20px; }
+  .barre { text-align:center; margin-bottom:16px; }
+  .barre button { font-size:14px; padding:9px 20px; border:none; border-radius:6px; background:var(--bleu); color:#fff; cursor:pointer; }
+  .tete { display:flex; align-items:center; gap:12px; border-bottom:3px solid var(--jaune); padding-bottom:10px; margin-bottom:6px; }
+  .tete img { width:46px; height:46px; object-fit:contain; }
+  .tete .u { font-size:16px; font-weight:800; color:var(--bleu); line-height:1.2; }
+  .tete .u small { display:block; font-size:10px; font-weight:600; color:#666; }
+  h1 { font-size:15px; color:var(--bleu); margin:12px 0 2px; }
+  .filtres { color:#666; font-size:12px; margin-bottom:12px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:18px; font-size:11px; }
+  th { background:var(--bleu); color:#fff; padding:6px 7px; text-align:left; font-size:10px; }
+  td { padding:5px 7px; border-bottom:1px solid #eef1f5; vertical-align:top; }
+  td small { color:#999; font-size:9px; }
+  td.n, th.n { text-align:right; }
+  tr.tot td { border-top:2px solid var(--bleu); background:#eef2fb; }
+  .signe { margin-top:26px; text-align:right; font-size:12px; }
+  .signe span { border-top:1px solid #999; padding-top:4px; display:inline-block; min-width:200px; }
+  @media print { .barre { display:none; } body { padding:0; } @page { size:A4 landscape; margin:12mm; }
+    * { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+</style></head><body>
+  <div class="barre"><button onclick="window.print()">🖨️ Imprimer la liste</button></div>
+  <div class="tete">
+    <img src="${logoSrc}" alt="" onerror="this.style.display='none'">
+    <div class="u">UNIVERSITÉ MÉTHODISTE DE LUBUMBASHI<small>Scientia, Sanctitas et Veritas</small></div>
+  </div>
+  <h1>Liste des étudiants — frais versés par rubrique</h1>
+  <div class="filtres">Année : ${esc(d.annee || '—')} · Faculté : ${esc(facLib)} · Niveau : ${esc(nivLib)} · Édité le ${new Date().toLocaleDateString('fr-FR')} par ${esc(`${titreAvantNom()} ${nomCaissier()}`.trim())}</div>
+  <table><thead><tr>${entetes}</tr></thead><tbody>${corps}${ligneTotal}</tbody></table>
+  <div class="signe"><span>${esc(nomCaissier())}</span></div>
+<script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>
+</body></html>`;
+
+  const w = window.open('', '_blank', 'width=1000,height=700');
+  if (!w) { afficherToast('⚠️ Autorisez les pop-ups pour imprimer.', 'erreur'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
 }
 
 // =====================
@@ -589,7 +723,7 @@ function imprimerRecu(p, etu, caissier) {
     </table>
     <div class="r-montant"><span class="l">Montant perçu</span><span class="m">${montant(p.montant)} $</span></div>
     <div class="r-sign">
-      <div class="b"><span class="l">Le/La caissier(e) — ${esc(caissier)}</span></div>
+      <div class="b"><span class="l">${esc(caissier)}</span></div>
       <div class="b"><span class="l">Sceau</span></div>
     </div>
     <div class="r-pied">Reçu généré électroniquement — Université Méthodiste de Lubumbashi</div>
@@ -768,7 +902,7 @@ function imprimerRapport() {
     <div class="u">UNIVERSITÉ MÉTHODISTE DE LUBUMBASHI<small>Scientia, Sanctitas et Veritas</small></div>
   </div>
   <h1>Rapport d'encaissement — ${esc(d.libelleType)}</h1>
-  <div class="periode">Période : ${esc(d.periode)} · Édité le ${new Date().toLocaleDateString('fr-FR')} par ${esc(nomCaissier())}</div>
+  <div class="periode">Période : ${esc(d.periode)} · Édité le ${new Date().toLocaleDateString('fr-FR')} par ${esc(`${titreAvantNom()} ${nomCaissier()}`.trim())}</div>
   <div class="totaux">
     <div><div class="v">${montant(d.total)} $</div><div class="l">Total encaissé</div></div>
     <div><div class="v">${d.nb}</div><div class="l">Versements</div></div>
@@ -777,7 +911,7 @@ function imprimerRapport() {
   <table><thead><tr><th>Rubrique</th><th>Nombre</th><th class="n">Total</th></tr></thead><tbody>${rub || '<tr><td colspan="3" style="text-align:center;color:#999">—</td></tr>'}</tbody></table>
   <h2>Détail des versements</h2>
   <table><thead><tr><th>Date</th><th>Étudiant</th><th>Niveau</th><th>Rubrique</th><th>Référence</th><th class="n">Montant</th></tr></thead><tbody>${lignes}</tbody></table>
-  <div class="signe"><span>Le/La caissier(e) — ${esc(nomCaissier())}</span></div>
+  <div class="signe"><span>${esc(nomCaissier())}</span></div>
 <script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>
 </body></html>`;
 
@@ -870,6 +1004,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chargerFacultesDB().then(() => {
       remplirSelectFacultes('caisse-filtre-faculte');
       remplirSelectFacultes('bareme-faculte');
+      remplirSelectFacultes('liste-faculte');
     });
 
     // Fermer les panneaux (cloche, menu) au clic en dehors.

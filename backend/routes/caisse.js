@@ -121,6 +121,61 @@ router.get('/etudiant/:id/situation', async (req, res) => {
   }
 });
 
+// ===== GET /api/caisse/liste — liste des étudiants + frais par rubrique =====
+// Filtres : année (défaut = à préciser côté client), faculté (ou toutes),
+// niveau (ou tous). Une colonne par rubrique effectivement versée + total.
+router.get('/liste', async (req, res) => {
+  try {
+    const { annee, faculte, niveau } = req.query;
+
+    // Étudiants filtrés, triés faculté → niveau → nom.
+    let sqlE = `SELECT e.id, e.nom, e.postnom, e.prenom, e.faculte, e.niveau, e.promotion, f.nom AS filiere
+                FROM etudiant e LEFT JOIN filiere f ON e.filiere_id = f.id WHERE 1=1`;
+    const pE = [];
+    if (faculte) { sqlE += ' AND e.faculte = ?'; pE.push(faculte); }
+    if (niveau)  { sqlE += ' AND e.niveau = ?'; pE.push(niveau); }
+    sqlE += ' ORDER BY e.faculte, e.niveau, e.nom, e.prenom';
+    const [etudiants] = await pool.query(sqlE, pE);
+
+    // Versements de l'année regroupés par étudiant + rubrique.
+    let sqlP = `SELECT p.etudiant_id, COALESCE(NULLIF(p.rubrique,''),'Autre') AS rubrique, SUM(p.montant) AS total
+                FROM paiement p WHERE 1=1`;
+    const pP = [];
+    if (annee) { sqlP += ' AND p.annee_academique = ?'; pP.push(annee); }
+    sqlP += ' GROUP BY p.etudiant_id, rubrique';
+    const [versements] = await pool.query(sqlP, pP);
+
+    const parEtudiant = {};
+    const rubriquesSet = new Set();
+    versements.forEach(v => {
+      rubriquesSet.add(v.rubrique);
+      (parEtudiant[v.etudiant_id] = parEtudiant[v.etudiant_id] || {})[v.rubrique] = Number(v.total);
+    });
+
+    // Ordre des colonnes de rubriques : priorité connue, puis alphabétique.
+    const PRIORITE = ['Frais académiques', 'Minerval', "Frais d'inscription", "Carte d'étudiant", 'Frais de connexion', 'Frais de laboratoire', 'Frais de session', 'Frais connexes', 'Autre'];
+    const rubriques = [...rubriquesSet].sort((a, b) => {
+      const ia = PRIORITE.indexOf(a), ib = PRIORITE.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+    });
+
+    const lignes = etudiants.map(e => {
+      const map = parEtudiant[e.id] || {};
+      const total = Object.values(map).reduce((s, v) => s + v, 0);
+      return {
+        id: e.id, nom: e.nom, postnom: e.postnom, prenom: e.prenom,
+        faculte: e.faculte, niveau: e.niveau, filiere: e.filiere, promotion: e.promotion,
+        par_rubrique: map, total,
+      };
+    });
+
+    res.json({ annee: annee || '', rubriques, etudiants: lignes });
+  } catch (erreur) {
+    console.error('Erreur liste étudiants:', erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
 // ===== GET /api/caisse/stats — synthèse financière =====
 router.get('/stats', async (req, res) => {
   try {
