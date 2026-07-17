@@ -1,13 +1,17 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 
-// Port 587 (STARTTLS) plutôt que 465 : sur certains hébergeurs (ex. Render
-// free) le port 465 est bloqué et la connexion expire. Timeouts courts pour
-// échouer vite au lieu d'attendre ~2 min si le port est fermé.
+const EXPEDITEUR_NOM   = 'UML — Université Méthodiste de Lubumbashi';
+const EXPEDITEUR_EMAIL = process.env.EMAIL_USER || 'info.uml.lubumbashi@gmail.com';
+
+// Sur l'hébergement (Render free), les ports SMTP sortants sont bloqués : la
+// connexion Gmail expire (Connection timeout). On envoie donc via l'API HTTP
+// de Brevo (port 443, jamais bloqué) dès que BREVO_API_KEY est défini. Le
+// transport SMTP ci-dessous ne sert plus que de repli en développement local.
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
-  secure: false,          // STARTTLS (démarre en clair puis chiffre)
+  secure: false,          // STARTTLS
   requireTLS: true,
   auth: {
     user: process.env.EMAIL_USER,
@@ -17,6 +21,36 @@ const transporter = nodemailer.createTransport({
   greetingTimeout: 10000,
   socketTimeout: 20000,
 });
+
+// Envoi unifié : Brevo (HTTPS) si une clé API est configurée, sinon SMTP local.
+async function envoyer({ to, subject, html }) {
+  if (!to) return;
+
+  if (process.env.BREVO_API_KEY) {
+    const reponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'content-type': 'application/json',
+        accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: EXPEDITEUR_NOM, email: EXPEDITEUR_EMAIL },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+    });
+    if (!reponse.ok) {
+      const detail = await reponse.text().catch(() => '');
+      throw new Error(`Brevo ${reponse.status} : ${detail}`);
+    }
+    return;
+  }
+
+  // Repli développement local (SMTP direct).
+  await transporter.sendMail({ from: `"${EXPEDITEUR_NOM}" <${EXPEDITEUR_EMAIL}>`, to, subject, html });
+}
 
 // En local FRONTEND_URL n'est pas toujours défini : on retombe sur le
 // serveur de développement plutôt que de casser le lien dans l'email.
@@ -65,7 +99,7 @@ async function envoyerEmailAcceptation(etudiant, numeroEtudiant, motDePasse) {
     `
   };
 
-  await transporter.sendMail(options);
+  await envoyer(options);
   console.log(`📧 Email envoyé à ${etudiant.email}`);
 }
 
@@ -111,7 +145,7 @@ async function envoyerEmailReinitialisation(etudiant, motDePasse) {
     `
   };
 
-  await transporter.sendMail(options);
+  await envoyer(options);
   console.log(`📧 Email de réinitialisation envoyé à ${etudiant.email}`);
 }
 
@@ -142,7 +176,7 @@ async function envoyerEmailRejet(etudiant) {
     `
   };
 
-  await transporter.sendMail(options);
+  await envoyer(options);
   console.log(`📧 Email de rejet envoyé à ${etudiant.email}`);
 }
 
@@ -181,7 +215,7 @@ async function envoyerEmailReponseContact(destinataire, nomDestinataire, sujetOr
     `
   };
 
-  await transporter.sendMail(options);
+  await envoyer(options);
   console.log(`📧 Réponse envoyée à ${destinataire}`);
 }
 
