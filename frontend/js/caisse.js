@@ -157,6 +157,10 @@ async function chargerStatsCaisse() {
 // =====================
 let etudiantsCaisse = [];
 let etudiantCourantCaisse = null;
+// Modal « Frais de scolarité » (consultation par année) — état isolé.
+let fraisEtudiantCourant = null;
+let situationFrais = null;
+let paiementsFrais = [];
 
 async function chargerAnneesCaisse() {
   try {
@@ -469,6 +473,7 @@ async function chargerEtudiantsCaisse() {
         <td>${e.solde === null ? '<span style="color:#999">Barème non défini</span>' : `<strong style="color:${e.solde > 0 ? 'var(--rouge,#c0392b)' : 'var(--vert)'}">${montant(e.solde)} $</strong>`}</td>
         <td class="admin-actions-cell">
           <button class="btn-icone" onclick="ouvrirModalPaiementsCaisse('${e.id}')" title="${libelle}">💵</button>
+          <button class="btn-icone" onclick="ouvrirFraisEtudiant('${e.id}')" title="Frais de scolarité par année">📄</button>
         </td>
       </tr>`).join('');
   } catch { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">⚠️ Erreur.</td></tr>`; }
@@ -660,6 +665,82 @@ function reimprimerRecu(p) {
   const caissier = (p.agent_prenom || p.agent_noms)
     ? `${p.agent_prenom || ''} ${p.agent_noms || ''}`.trim() : nomCaissier();
   imprimerRecu(p, etudiantCourantCaisse, caissier);
+}
+
+// =====================
+// MODAL CONSULTATION DES FRAIS DE SCOLARITÉ (par année)
+// Vue lecture : versements de l'étudiant filtrés par année, avec réimpression
+// du reçu et suppression. (Distinct du modal d'encaissement 💵.)
+// =====================
+async function ouvrirFraisEtudiant(etudiantId) {
+  fraisEtudiantCourant = etudiantsCaisse.find(e => e.id === etudiantId) || null;
+  const nom = fraisEtudiantCourant ? `${fraisEtudiantCourant.nom} ${fraisEtudiantCourant.prenom}` : etudiantId;
+  document.getElementById('frais-etudiant-id').value = etudiantId;
+  document.getElementById('frais-nom-etudiant').textContent = nom;
+  document.getElementById('modal-frais-etudiant')?.classList.add('active');
+
+  const selA = document.getElementById('frais-annee');
+  if (selA) selA.innerHTML = '<option>Chargement...</option>';
+  document.getElementById('frais-body').innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
+
+  try { const r = await fetchCaisse(`${BASE_URL}/api/caisse/etudiant/${etudiantId}/situation`); situationFrais = await r.json(); } catch { situationFrais = { periodes: [] }; }
+  try { const r = await fetchCaisse(`${BASE_URL}/api/paiements/etudiant/${etudiantId}`); paiementsFrais = await r.json(); } catch { paiementsFrais = []; }
+
+  const periodes = (situationFrais && situationFrais.periodes) || [];
+  const courante = (situationFrais && situationFrais.etudiant && situationFrais.etudiant.annee_courante) || (fraisEtudiantCourant || {}).annee_academique || '';
+  if (selA) {
+    selA.innerHTML = periodes.length
+      ? periodes.map(p => `<option value="${p.annee_academique}">${p.annee_academique}${p.niveau ? ' · ' + p.niveau : ''}</option>`).join('')
+      : `<option value="${courante}">${courante || '—'}</option>`;
+    if (courante && periodes.some(p => p.annee_academique === courante)) selA.value = courante;
+  }
+  afficherFraisAnnee();
+}
+
+function fermerModalFrais() { document.getElementById('modal-frais-etudiant')?.classList.remove('active'); }
+
+function afficherFraisAnnee() {
+  const tbody = document.getElementById('frais-body');
+  if (!tbody) return;
+  const annee = document.getElementById('frais-annee')?.value || '';
+  const paiements = (paiementsFrais || []).filter(p => (p.annee_academique || '') === annee);
+  const total = paiements.reduce((s, p) => s + Number(p.montant), 0);
+  const tEl = document.getElementById('frais-total');
+  if (tEl) tEl.textContent = `Total ${annee} : ${total.toFixed(2)} $`;
+
+  const lecture = estLectureSeule();
+  tbody.innerHTML = paiements.length === 0
+    ? `<tr><td colspan="6" class="admin-vide">Aucun versement pour ${annee || 'cette année'}.</td></tr>`
+    : paiements.map(p => `<tr>
+        <td>${formaterDateCaisse(p.date_paiement)}</td>
+        <td>${Number(p.montant).toFixed(2)} $</td>
+        <td>${p.rubrique || '—'}</td>
+        <td>${p.reference || '—'}</td>
+        <td>${p.mode_paiement || '—'}</td>
+        <td class="admin-actions-cell">
+          <button class="btn-icone" onclick='reimprimerRecuFrais(${JSON.stringify(p)})' title="Réimprimer le reçu">🧾</button>
+          ${lecture ? '' : `<button class="btn-icone danger" onclick="supprimerFraisEtudiant(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button>`}
+        </td>
+      </tr>`).join('');
+}
+
+// Réimpression : reçu avec le niveau/année réellement rattachés au versement.
+function reimprimerRecuFrais(p) {
+  const caissier = (p.agent_prenom || p.agent_noms) ? `${p.agent_prenom || ''} ${p.agent_noms || ''}`.trim() : nomCaissier();
+  const etu = { ...(fraisEtudiantCourant || {}), niveau: p.niveau || (fraisEtudiantCourant || {}).niveau, annee_academique: p.annee_academique || (fraisEtudiantCourant || {}).annee_academique };
+  imprimerRecu(p, etu, caissier);
+}
+
+async function supprimerFraisEtudiant(id) {
+  if (!await confirmerAction('Supprimer ce versement ? Cette action est irréversible.', { titre: 'Supprimer le versement', texteConfirmer: 'Supprimer' })) return;
+  try {
+    await fetchCaisse(`${BASE_URL}/api/paiements/${id}`, { method: 'DELETE' });
+    afficherToast('🗑️ Versement supprimé.');
+    const eid = document.getElementById('frais-etudiant-id').value;
+    try { const r = await fetchCaisse(`${BASE_URL}/api/paiements/etudiant/${eid}`); paiementsFrais = await r.json(); } catch { /* garde l'ancien cache */ }
+    afficherFraisAnnee();
+    chargerEtudiantsCaisse();
+  } catch (err) { console.error(err); }
 }
 
 // =====================

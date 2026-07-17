@@ -350,6 +350,31 @@
     </div>
   </div>
 
+  <!-- MODAL CONSULTATION DES FRAIS DE SCOLARITÉ (par année) -->
+  <div class="admin-modal-overlay" id="modal-frais-etudiant">
+    <div class="admin-modal" style="max-width:640px">
+      <div class="admin-modal-header">
+        <h3>Frais de scolarité — <span id="frais-nom-etudiant"></span></h3>
+        <button class="admin-modal-close" onclick="fermerModalFrais()" aria-label="Fermer">✕</button>
+      </div>
+
+      <input type="hidden" id="frais-etudiant-id">
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <label style="font-size:13px;color:#555;font-weight:600">Année académique</label>
+        <select id="frais-annee" onchange="afficherFraisAnnee()" style="flex:0 0 240px;padding:7px 10px;border:1px solid #d5dbe6;border-radius:7px"></select>
+        <span id="frais-total" style="font-size:13px;color:var(--bleu);font-weight:700;margin-left:auto"></span>
+      </div>
+
+      <div style="overflow-x:auto">
+        <table class="dash-table">
+          <thead><tr><th>Date</th><th>Montant</th><th>Motif</th><th>Référence</th><th>Mode</th><th>Action</th></tr></thead>
+          <tbody id="frais-body"><tr><td colspan="6" class="admin-vide">Chargement...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast"></div>
 
   <script src="js/config.js"></script>
