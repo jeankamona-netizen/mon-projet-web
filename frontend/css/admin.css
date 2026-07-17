@@ -138,6 +138,21 @@
   gap: 6px;
 }
 
+/* Tableau « Gérer les inscrits » : largeurs fixes (colgroup) respectées,
+   contenu coupé proprement pour que les lignes restent compactes. */
+.table-inscrits { table-layout: fixed; width: 100%; min-width: 860px; }
+.table-inscrits th,
+.table-inscrits td {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  vertical-align: middle;
+}
+.table-inscrits code { word-break: break-all; }
+/* Colonne Actions : les 5 boutons s'alignent et se replient au besoin, sans
+   étirer la ligne (2 rangées maximum sur la largeur allouée). */
+.table-inscrits .admin-actions-cell { flex-wrap: wrap; gap: 4px; }
+.table-inscrits .admin-actions-cell .btn-icone { padding: 3px 5px; font-size: 13px; }
+
 /* =====================
    MODAL (formulaire popup)
    ===================== */
