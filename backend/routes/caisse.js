@@ -117,7 +117,7 @@ router.get('/rapport', async (req, res) => {
        LEFT JOIN filiere f ON e.filiere_id = f.id
        LEFT JOIN agent a ON p.agent_id = a.id
        WHERE ${conf.condition}
-       ORDER BY p.date_paiement, p.id`,
+       ORDER BY p.date_paiement DESC, p.id DESC`,
       [valeur]
     );
     const [[resume]] = await pool.query(

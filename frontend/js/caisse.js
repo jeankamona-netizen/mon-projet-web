@@ -95,6 +95,12 @@ function formaterDateCaisse(dateStr) {
   return new Date(dateStr).toLocaleDateString('fr-FR');
 }
 function montant(n) { return Number(n || 0).toFixed(2); }
+// Libellé « niveau + filière » (ex. « L2 Sciences de gestion ») ; si la filière
+// vaut « - » (niveau sans filière : Pré-U, licence non subdivisée) → niveau seul.
+function libelleFiliere(niveau, filiere) {
+  const f = (filiere || '').trim();
+  return f && f !== '-' ? `${niveau || ''} ${f}`.trim() : (niveau || '—');
+}
 
 // =====================
 // VUE D'ENSEMBLE
@@ -199,14 +205,14 @@ async function chargerBareme() {
   if (form) form.style.display = editable ? '' : 'none';
   const colAction = document.getElementById('bareme-col-action');
   if (colAction) colAction.style.display = editable ? '' : 'none';
-  tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
   try {
     const annee = document.getElementById('bareme-annee')?.value || '';
     const params = new URLSearchParams();
     if (annee) params.append('annee', annee);
     const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite?${params}`);
     const lignes = await r.json();
-    if (!lignes.length) { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Aucun barème défini pour cette année.</td></tr>`; return; }
+    if (!lignes.length) { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Aucun barème défini pour cette année.</td></tr>`; return; }
     // Total attendu par groupe (faculté + filière + niveau) = somme des rubriques.
     const totalGroupe = {};
     lignes.forEach(l => { const k = `${l.faculte}|${l.promotion}|${l.niveau}`; totalGroupe[k] = (totalGroupe[k] || 0) + Number(l.montant); });
@@ -214,8 +220,7 @@ async function chargerBareme() {
       <tr>
         <td>${i + 1}</td>
         <td>${l.faculte}</td>
-        <td>${l.promotion}</td>
-        <td><span class="annee-badge">${l.niveau}</span></td>
+        <td>${libelleFiliere(l.niveau, l.promotion)}</td>
         <td>${l.rubrique || '—'}</td>
         <td><strong>${montant(l.montant)} $</strong></td>
         ${editable ? `<td class="admin-actions-cell"><button class="btn-icone danger" onclick="supprimerBareme(${l.id})" aria-label="Supprimer">${icone('corbeille')}</button></td>` : ''}
@@ -224,11 +229,11 @@ async function chargerBareme() {
       Object.entries(totalGroupe).map(([k, tot]) => {
         const [fac, fil, niv] = k.split('|');
         return `<tr style="background:#eef2fb">
-          <td></td><td colspan="3"><strong>Total attendu — ${fac} · ${fil} · ${niv}</strong></td>
+          <td></td><td colspan="2"><strong>Total attendu — ${fac} · ${libelleFiliere(niv, fil)}</strong></td>
           <td></td><td><strong style="color:var(--bleu)">${montant(tot)} $</strong></td>${editable ? '<td></td>' : ''}
         </tr>`;
       }).join('');
-  } catch { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+  } catch { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
 async function enregistrerBareme() {
@@ -285,6 +290,7 @@ async function chargerEtudiantsCaisse() {
   const tbody = document.getElementById('caisse-etudiants-body');
   if (!tbody) return;
   tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Chargement...</td></tr>`;
+  const cellSub = 'font-size:11px;color:#999';
   try {
     const nom = document.getElementById('caisse-recherche')?.value || '';
     const annee = document.getElementById('caisse-filtre-annee')?.value || '';
@@ -297,14 +303,13 @@ async function chargerEtudiantsCaisse() {
     if (niveau) params.append('niveau', niveau);
     const r = await fetchCaisse(`${BASE_URL}/api/caisse/etudiants?${params}`);
     etudiantsCaisse = await r.json();
-    if (!etudiantsCaisse.length) { tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
+    if (!etudiantsCaisse.length) { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
     const libelle = estLectureSeule() ? 'Consulter la situation' : 'Gérer les versements';
-    tbody.innerHTML = etudiantsCaisse.map(e => `
+    tbody.innerHTML = etudiantsCaisse.map((e, i) => `
       <tr>
-        <td><strong>${e.nom}</strong> ${e.postnom || ''} ${e.prenom}<br><span style="font-size:11px;color:#999">${e.id}</span></td>
-        <td>${e.faculte || '—'}</td>
-        <td>${e.niveau ? `<span class="annee-badge">${e.niveau}</span>` : '—'}</td>
-        <td>${e.annee_academique || '—'}</td>
+        <td>${i + 1}</td>
+        <td><strong>${e.nom}</strong> ${e.postnom || ''} ${e.prenom}<br><span style="${cellSub}">${e.id}</span></td>
+        <td>${e.faculte || '—'}<br><span style="${cellSub}">${e.niveau || ''}${e.niveau && e.annee_academique ? ' · ' : ''}${e.annee_academique || ''}</span></td>
         <td>${e.dernier_motif || '—'}</td>
         <td>${e.derniere_reference || '—'}</td>
         <td><strong style="color:var(--vert)">${montant(e.total_verse)} $</strong></td>
@@ -313,7 +318,7 @@ async function chargerEtudiantsCaisse() {
           <button class="btn-icone" onclick="ouvrirModalPaiementsCaisse('${e.id}')" title="${libelle}">💵</button>
         </td>
       </tr>`).join('');
-  } catch { tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+  } catch { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
 // =====================
@@ -569,12 +574,11 @@ function afficherRapport(d) {
   const lignes = (d.lignes || []).map(l => `<tr>
       <td>${formaterDateCaisse(l.date_paiement)}</td>
       <td>${l.nom} ${l.postnom || ''} ${l.prenom}</td>
-      <td>${l.niveau || '—'}</td>
-      <td>${l.filiere || l.promotion || '—'}</td>
+      <td>${libelleFiliere(l.niveau, l.filiere || l.promotion)}</td>
       <td>${l.rubrique || '—'}</td>
       <td>${l.reference || '—'}</td>
       <td>${montant(l.montant)} $</td>
-    </tr>`).join('') || '<tr><td colspan="7" class="admin-vide">Aucun versement sur cette période.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="6" class="admin-vide">Aucun versement sur cette période.</td></tr>';
 
   zone.innerHTML = `
     <div class="stats-grid" style="margin-bottom:16px">
@@ -587,7 +591,7 @@ function afficherRapport(d) {
     </div>
     <div class="dash-card">
       <h3>Détail des versements</h3>
-      <table class="dash-table"><thead><tr><th>Date</th><th>Étudiant</th><th>Niveau</th><th>Filière</th><th>Rubrique</th><th>Référence</th><th>Montant</th></tr></thead><tbody>${lignes}</tbody></table>
+      <table class="dash-table"><thead><tr><th>Date</th><th>Étudiant</th><th>Niveau</th><th>Rubrique</th><th>Référence</th><th>Montant</th></tr></thead><tbody>${lignes}</tbody></table>
     </div>`;
 }
 
@@ -600,12 +604,11 @@ function imprimerRapport() {
   const lignes = (d.lignes || []).map(l => `<tr>
       <td>${formaterDateCaisse(l.date_paiement)}</td>
       <td>${esc(`${l.nom} ${l.postnom || ''} ${l.prenom}`)}</td>
-      <td>${esc(l.niveau || '')}</td>
-      <td>${esc(l.filiere || l.promotion || '')}</td>
+      <td>${esc(libelleFiliere(l.niveau, l.filiere || l.promotion))}</td>
       <td>${esc(l.rubrique || '')}</td>
       <td>${esc(l.reference || '')}</td>
       <td class="n">${montant(l.montant)} $</td>
-    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:#999">Aucun versement.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#999">Aucun versement.</td></tr>';
 
   const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport ${esc(d.libelleType)} — ${esc(d.periode)}</title>
 <style>
@@ -648,7 +651,7 @@ function imprimerRapport() {
   <h2>Répartition par rubrique</h2>
   <table><thead><tr><th>Rubrique</th><th>Nombre</th><th class="n">Total</th></tr></thead><tbody>${rub || '<tr><td colspan="3" style="text-align:center;color:#999">—</td></tr>'}</tbody></table>
   <h2>Détail des versements</h2>
-  <table><thead><tr><th>Date</th><th>Étudiant</th><th>Niveau</th><th>Filière</th><th>Rubrique</th><th>Référence</th><th class="n">Montant</th></tr></thead><tbody>${lignes}</tbody></table>
+  <table><thead><tr><th>Date</th><th>Étudiant</th><th>Niveau</th><th>Rubrique</th><th>Référence</th><th class="n">Montant</th></tr></thead><tbody>${lignes}</tbody></table>
   <div class="signe"><span>Le/La caissier(e) — ${esc(nomCaissier())}</span></div>
 <script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>
 </body></html>`;
