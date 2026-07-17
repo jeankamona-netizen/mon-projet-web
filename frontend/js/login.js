@@ -95,10 +95,15 @@ async function connecterUniverselle() {
 function remplirSpecialitesPreinscription() {
   const html = facultesDB.map(f => {
     const filieresLicence = (f.filieres || []).filter(nom => !nom.startsWith('Master '));
-    const options = filieresLicence.length > 0
-      ? filieresLicence.map(nom => `<option>${nom}</option>`).join('')
-      : `<option value="${f.nom}">${f.nom} (aucune filière)</option>`;
-    return `<optgroup label="${f.nom}">${options}</optgroup>`;
+    // Faculté avec des filières de licence → groupe déroulant de ses filières.
+    if (filieresLicence.length > 0) {
+      return `<optgroup label="${f.nom}">` +
+        filieresLicence.map(nom => `<option>${nom}</option>`).join('') +
+        `</optgroup>`;
+    }
+    // Faculté dont la licence n'est pas subdivisée (ex. Théologie) : le nom de
+    // la faculté est directement l'option à choisir, sans mention négative.
+    return `<option value="${f.nom}">${f.nom}</option>`;
   }).join('');
   ['specialite', 'specialite2'].forEach(id => {
     const sel = document.getElementById(id);
