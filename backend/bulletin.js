@@ -2,12 +2,12 @@ const PDFDocument = require('pdfkit');
 const path = require('path');
 
 // =====================================================================
-// Bulletin PDF officiel UML — inspiré du modèle fourni (tableau Code UE /
-// Éléments Constitutifs / Moyennes / Coefficient / Crédits / Résultat UE,
-// bloc absences, barème de correspondance des notes). Tient sur UNE seule
-// page A4 : Semestre 1, Semestre 2, résumé annuel et barème (en bas, petite
-// police) sont tous compactés pour y entrer, avec repli sur une 2e page
-// uniquement si le contenu déborde vraiment (beaucoup de cours).
+// Bulletin PDF officiel UML — tableau Code UE / Éléments Constitutifs /
+// Moyennes / Coefficient / Crédits / Résultat UE, assiduité /20 par
+// semestre, résumé annuel et bloc signature (date, La Direction, sceau).
+// Tient sur UNE seule page A4 : Semestre 1 et Semestre 2 sont compactés
+// pour y entrer, avec repli sur une 2e page uniquement si le contenu
+// déborde vraiment (beaucoup de cours).
 // =====================================================================
 
 const COULEUR_BLEU       = '#1a3a6b';
@@ -36,16 +36,6 @@ const LIBELLES_NIVEAU = {
   L1: 'Licence 1', L2: 'Licence 2', L3: 'Licence 3',
   M1: 'Master 1', M2: 'Master 2', D1: 'Doctorat 1', D2: 'Doctorat 2',
 };
-
-const BAREME_CONVERSION = [
-  { classique: '16.00 - 20.00', ects: 'A',  us: 'A', japonais: 'S', commentaire: 'Excellent (Très bien)' },
-  { classique: '14.00 - 15.99', ects: 'B',  us: 'B', japonais: 'A', commentaire: 'Very good (Bien)' },
-  { classique: '12.00 - 13.99', ects: 'C',  us: 'C', japonais: 'B', commentaire: 'Good (Assez-bien)' },
-  { classique: '11.00 - 11.99', ects: 'D',  us: 'D', japonais: 'C', commentaire: 'Satisfactory (Passable)' },
-  { classique: '10.00 - 10.99', ects: 'E',  us: 'D', japonais: 'P', commentaire: 'Sufficient (Passable)' },
-  { classique: '08.00 - 09.99', ects: 'FX', us: 'F', japonais: 'P', commentaire: 'Fail (échec) : rattrapage possible' },
-  { classique: '00.00 - 07.99', ects: 'F',  us: 'F', japonais: 'P', commentaire: 'Fail (échec) : rattrapage nécessaire' },
-];
 
 const COLONNES_NOTES = [
   { titre: 'Code UE',               largeur: 55  },
@@ -329,54 +319,7 @@ function dessinerDateEtNote(doc) {
   doc.fontSize(8).font('Helvetica').fillColor(COULEUR_GRIS)
     .text('(Sceau)', xBloc, y + 28, { width: largeurBloc, align: 'center' });
 
-  // NB conservé (inchangé), sous la date.
-  doc.fontSize(8.3).font('Helvetica-Bold').fillColor(COULEUR_ROUGE)
-    .text('NB : Aucun duplicata ne sera délivré', X_DEPART, y + 28, { width: 250 });
-
   doc.y = y + 40;
-}
-
-// ===== BARÈME — tout en bas de page, petite police (9), comme demandé =====
-// Ancré au bas de la page (pas seulement placé après le contenu qui
-// précède) : s'il reste de la place libre, le barème est repoussé vers le
-// bas plutôt que de flotter juste sous la signature.
-function dessinerBareme(doc) {
-  const hauteurLigne = 11;
-  const hauteurTotale = 10 + 11 + BAREME_CONVERSION.length * hauteurLigne; // titre + en-tête + lignes
-  const reservePied = 16; // marge de sécurité au-dessus du pied de page (évite tout chevauchement)
-  const basPage = doc.page.height - doc.page.margins.bottom;
-  const yAncre = basPage - hauteurTotale - reservePied;
-  if (yAncre > doc.y) doc.y = yAncre;
-  else assurerEspace(doc, hauteurTotale + reservePied);
-
-  doc.fontSize(9).font('Helvetica-Bold').fillColor(COULEUR_TEXTE)
-    .text('Système de correspondance des notes', X_DEPART, doc.y);
-  doc.y += 10;
-
-  const colonnes = [
-    { titre: 'Note (/20)',   largeur: 70  },
-    { titre: 'ECTS',         largeur: 40  },
-    { titre: 'US',           largeur: 40  },
-    { titre: 'Japonais',     largeur: 50  },
-    { titre: 'Commentaire',  largeur: 295 },
-  ];
-  let y = doc.y;
-  doc.rect(X_DEPART, y, LARGEUR_PAGE, hauteurLigne).fill(COULEUR_BLEU);
-  let x = X_DEPART;
-  doc.fontSize(8.5).font('Helvetica-Bold').fillColor('#ffffff');
-  colonnes.forEach(c => { doc.text(c.titre, x + 3, y + 1.8, { width: c.largeur - 6 }); x += c.largeur; });
-  y += hauteurLigne;
-
-  BAREME_CONVERSION.forEach((ligne, i) => {
-    if (i % 2 === 1) doc.rect(X_DEPART, y, LARGEUR_PAGE, hauteurLigne).fill(COULEUR_ZEBRE);
-    x = X_DEPART;
-    const valeurs = [ligne.classique, ligne.ects, ligne.us, ligne.japonais, ligne.commentaire];
-    doc.fontSize(8.5).font('Helvetica').fillColor(COULEUR_TEXTE);
-    valeurs.forEach((v, j) => { doc.text(v, x + 3, y + 1.8, { width: colonnes[j].largeur - 6 }); x += colonnes[j].largeur; });
-    y += hauteurLigne;
-  });
-
-  doc.y = y + 4;
 }
 
 function dessinerPiedDePage(doc) {
@@ -408,9 +351,6 @@ function genererBulletinPDF(res, etudiant, notes, presences = []) {
 
   dessinerResumeEtSignature(doc, notes);
   dessinerDateEtNote(doc);
-
-  // Le barème reste tout en bas de la (dernière) page.
-  dessinerBareme(doc);
 
   dessinerPiedDePage(doc);
 
