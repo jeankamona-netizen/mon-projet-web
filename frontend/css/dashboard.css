@@ -1067,15 +1067,30 @@
   font-weight: 600;
 }
 
-.form-group-dash input:not([type="checkbox"]):not([type="radio"]) {
+.form-group-dash input:not([type="checkbox"]):not([type="radio"]),
+.form-group-dash select,
+.form-group-dash textarea {
   padding: 9px 12px;
   border: 1.5px solid #ddd;
   border-radius: 7px;
   font-size: 13px;
+  background: var(--blanc, #fff);
+  color: inherit;
+  width: 100%;
   transition: border-color 0.2s;
 }
 
-.form-group-dash input:not([type="checkbox"]):not([type="radio"]):focus {
+/* Le select doit avoir la même hauteur que les inputs (les navigateurs lui
+   donnent un rembourrage interne différent). */
+.form-group-dash select {
+  height: auto;
+  min-height: 38px;
+  appearance: auto;
+}
+
+.form-group-dash input:not([type="checkbox"]):not([type="radio"]):focus,
+.form-group-dash select:focus,
+.form-group-dash textarea:focus {
   outline: none;
   border-color: var(--bleu);
 }
