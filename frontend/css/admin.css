@@ -302,6 +302,15 @@
   border-radius: 5px;
 }
 
+/* Ligne « Total attendu » du barème : trait de démarcation + fond léger. */
+.bareme-total-row td {
+  border-top: 2px solid var(--bleu);
+  background: #eef2fb;
+  font-size: 13px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
 .badge.actif {
   background: #e8f5e8;
   color: var(--vert);

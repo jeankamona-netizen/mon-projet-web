@@ -82,9 +82,30 @@ async function assurerSchemaFraisScolarite(pool) {
   }
 }
 
+// Journal d'audit : trace toute action des utilisateurs authentifiés
+// (admin, administrateur du budget, caissier, professeur, étudiant) — d'abord
+// les connexions, puis les opérations sensibles (encaissements, barème, notes…).
+async function assurerSchemaJournalAudit(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS journal_audit (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      date_action DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      role VARCHAR(30) NOT NULL DEFAULT '',
+      utilisateur VARCHAR(200) NOT NULL DEFAULT '',
+      identifiant VARCHAR(120) NOT NULL DEFAULT '',
+      action VARCHAR(120) NOT NULL DEFAULT '',
+      details VARCHAR(500) NOT NULL DEFAULT '',
+      ip VARCHAR(60) NOT NULL DEFAULT '',
+      INDEX idx_date (date_action),
+      INDEX idx_role (role)
+    )
+  `);
+}
+
 async function assurerSchema(pool) {
   await assurerSchemaFraisScolarite(pool);
-  console.log('✅ Schéma vérifié (frais_scolarite).');
+  await assurerSchemaJournalAudit(pool);
+  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit).');
 }
 
 module.exports = { assurerSchema };

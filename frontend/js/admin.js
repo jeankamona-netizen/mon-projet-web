@@ -3394,22 +3394,48 @@ function libelleActionAudit(methode, chemin) {
   return libelles[cle] || `${methode} ${chemin}`;
 }
 
+const LIBELLE_ROLE_AUDIT = {
+  admin: 'Administration', budget: 'Administrateur du budget',
+  caisse: 'Caisse', professeur: 'Professeur', etudiant: 'Étudiant',
+};
+function badgeRoleAudit(role) {
+  const libelle = LIBELLE_ROLE_AUDIT[role] || role || '—';
+  const couleurs = { admin: '#1a3a6b', budget: '#8e44ad', caisse: '#1f8a4c', professeur: '#c0392b', etudiant: '#b8860b' };
+  return `<span class="annee-badge" style="background:${couleurs[role] || '#777'};color:#fff">${libelle}</span>`;
+}
+
+function reinitialiserFiltreAudit() {
+  const d = document.getElementById('audit-filtre-date'); if (d) d.value = '';
+  const r = document.getElementById('audit-filtre-role'); if (r) r.value = '';
+  chargerAuditLog();
+}
+
 async function chargerAuditLog() {
   const tbody = document.getElementById('admin-audit-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
   try {
-    const r = await fetchAdmin(`${BASE_URL}/api/audit-log`);
+    const date = document.getElementById('audit-filtre-date')?.value || '';
+    const role = document.getElementById('audit-filtre-role')?.value || '';
+    const params = new URLSearchParams();
+    if (date) params.append('date', date);
+    if (role) params.append('role', role);
+    const r = await fetchAdmin(`${BASE_URL}/api/audit?${params}`);
     const lignes = await r.json();
+    const vide = date
+      ? `Aucune action enregistrée pour le ${new Date(date + 'T00:00').toLocaleDateString('fr-FR')}.`
+      : 'Aucune action enregistrée pour le moment.';
     tbody.innerHTML = lignes.length === 0
-      ? `<tr><td colspan="4" class="admin-vide">Aucune action enregistrée pour le moment.</td></tr>`
+      ? `<tr><td colspan="6" class="admin-vide">${vide}</td></tr>`
       : lignes.map(l => `<tr>
           <td>${new Date(l.date_action).toLocaleString('fr-FR')}</td>
-          <td>${l.admin_user}</td>
-          <td>${libelleActionAudit(l.methode, l.chemin)}</td>
-          <td><span class="badge reussi">${l.statut_http}</span></td>
+          <td><strong>${l.utilisateur || '—'}</strong>${l.identifiant ? `<br><span style="font-size:11px;color:#999">${l.identifiant}</span>` : ''}</td>
+          <td>${badgeRoleAudit(l.role)}</td>
+          <td>${l.action || '—'}</td>
+          <td style="color:#555">${l.details || '—'}</td>
+          <td style="font-size:11px;color:#999">${l.ip || '—'}</td>
         </tr>`).join('');
-  } catch { tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">⚠️ Impossible de charger le journal.</td></tr>`; }
+  } catch { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Impossible de charger le journal.</td></tr>`; }
 }
 
 // =====================

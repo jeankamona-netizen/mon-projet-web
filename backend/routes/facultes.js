@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
+const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // ===== GET /api/facultes — liste toutes les facultés avec leurs filières =====
 router.get('/', async (req, res) => {
@@ -76,6 +77,7 @@ router.post('/', requireAdmin, async (req, res) => {
   if (!nom) return res.status(400).json({ erreur: "Le nom de la faculté est obligatoire." });
   try {
     const [r] = await pool.query('INSERT INTO faculte (nom, master_disponible) VALUES (?, ?)', [nom, masterDispo]);
+    journaliser({ ...acteurDeReq(req), action: 'Création faculté', details: nom, ip: ipDeRequete(req) });
     res.status(201).json({ id: r.insertId, nom, master_disponible: masterDispo, filieres: [] });
   } catch (erreur) {
     console.error(erreur);
@@ -90,6 +92,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
   if (!nom) return res.status(400).json({ erreur: "Le nom de la faculté est obligatoire." });
   try {
     await pool.query('UPDATE faculte SET nom = ?, master_disponible = ? WHERE id = ?', [nom, masterDispo, req.params.id]);
+    journaliser({ ...acteurDeReq(req), action: 'Modification faculté', details: nom, ip: ipDeRequete(req) });
     res.json({ message: "Faculté mise à jour." });
   } catch (erreur) {
     console.error(erreur);
@@ -102,6 +105,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM filiere WHERE faculte_id = ?', [req.params.id]);
     await pool.query('DELETE FROM faculte WHERE id = ?', [req.params.id]);
+    journaliser({ ...acteurDeReq(req), action: 'Suppression faculté', details: `Faculté #${req.params.id} (et ses filières)`, ip: ipDeRequete(req) });
     res.json({ message: "Faculté supprimée." });
   } catch (erreur) {
     console.error(erreur);

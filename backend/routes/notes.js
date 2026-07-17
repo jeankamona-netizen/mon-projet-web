@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
+const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // Le contrôle continu et l'examen peuvent arriver séparément (l'un avant
 // l'autre) : la moyenne sur 20 (50 % CC + 50 % examen) n'est calculée que
@@ -130,11 +131,13 @@ router.post('/', requireAdmin, async (req, res) => {
     const examenFinal = note_examen !== undefined ? note_examen : (existante.length ? existante[0].note_examen : null);
     const note = moyenneSiComplete(ccFinal, examenFinal);
 
+    const acteur = acteurDeReq(req);
     if (existante.length > 0) {
       await pool.query(
         'UPDATE note SET note_cc = ?, note_examen = ?, note = ?, session = ?, annee_academique = ? WHERE id = ?',
         [ccFinal, examenFinal, note, session, annee_academique, existante[0].id]
       );
+      journaliser({ ...acteur, action: 'Saisie de note', details: `Étudiant ${etudiant_id} · cours ${cours_id} · ${note != null ? note + '/20' : 'partiel'} (maj)`, ip: ipDeRequete(req) });
       return res.json({ message: "Note mise à jour.", id: existante[0].id, note });
     }
 
@@ -143,6 +146,7 @@ router.post('/', requireAdmin, async (req, res) => {
       [etudiant_id, cours_id, ccFinal, examenFinal, note, session, annee_academique]
     );
 
+    journaliser({ ...acteur, action: 'Saisie de note', details: `Étudiant ${etudiant_id} · cours ${cours_id} · ${note != null ? note + '/20' : 'partiel'}`, ip: ipDeRequete(req) });
     res.status(201).json({ message: "Note ajoutée avec succès.", id: resultat.insertId, note });
   } catch (erreur) {
     console.error(erreur);
@@ -186,6 +190,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM note WHERE id = ?', [req.params.id]);
+    journaliser({ ...acteurDeReq(req), action: 'Suppression de note', details: `Note #${req.params.id} supprimée`, ip: ipDeRequete(req) });
     res.json({ message: "Note supprimée avec succès." });
   } catch (erreur) {
     console.error(erreur);

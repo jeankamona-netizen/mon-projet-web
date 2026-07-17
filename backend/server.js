@@ -109,6 +109,7 @@ const fraisScolariteRoutes = require('./routes/fraisScolarite');
 const newsletterRoutes    = require('./routes/newsletter');
 const contactRoutes       = require('./routes/contact');
 const filieresRoutes      = require('./routes/filieres');
+const auditRoutes         = require('./routes/audit');
 
 app.use('/api/auth',           authRoutes);
 app.use('/api/facultes',       facultesRoutes);
@@ -128,6 +129,7 @@ app.use('/api/frais-scolarite', fraisScolariteRoutes);
 app.use('/api/newsletter',     newsletterRoutes);
 app.use('/api/contact',        contactRoutes);
 app.use('/api/filieres',       filieresRoutes);
+app.use('/api/audit',          auditRoutes);
 
 // =====================
 // STATISTIQUES (vue d'ensemble admin)

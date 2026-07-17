@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 const { requireFinance, requireBudget } = require('../middleware/auth');
+const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // ===== GET /api/frais-scolarite — barème des frais attendus (consultation) =====
 // Accessible à l'admin, à l'administrateur du budget ET à la caisse (elle en a
@@ -44,6 +45,8 @@ router.post('/', requireBudget, async (req, res) => {
        ON DUPLICATE KEY UPDATE montant = VALUES(montant)`,
       [faculte, promotion, niveau, annee_academique, rubrique, montant]
     );
+    const { role, utilisateur, identifiant } = acteurDeReq(req);
+    journaliser({ role, utilisateur, identifiant, action: 'Barème défini', details: `${faculte} · ${niveau} ${promotion} · ${rubrique} : ${Number(montant).toFixed(2)} $ (${annee_academique})`, ip: ipDeRequete(req) });
     res.status(201).json({ message: "Barème enregistré." });
   } catch (erreur) {
     console.error('Erreur enregistrement barème:', erreur);
@@ -57,6 +60,8 @@ router.post('/', requireBudget, async (req, res) => {
 router.delete('/:id', requireBudget, async (req, res) => {
   try {
     await pool.query('DELETE FROM frais_scolarite WHERE id = ?', [req.params.id]);
+    const { role, utilisateur, identifiant } = acteurDeReq(req);
+    journaliser({ role, utilisateur, identifiant, action: 'Barème supprimé', details: `Ligne de barème #${req.params.id} supprimée`, ip: ipDeRequete(req) });
     res.json({ message: "Ligne de barème supprimée." });
   } catch (erreur) {
     console.error(erreur);

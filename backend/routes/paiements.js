@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 const { requireFinance, requireCaissier } = require('../middleware/auth');
+const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // ===== GET /api/paiements/etudiant/:id — historique des paiements d'un étudiant =====
 // Consultation ouverte aux finances (caisse, budget, admin).
@@ -38,6 +39,8 @@ router.post('/', requireCaissier, async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [etudiant_id, montant, date_paiement, mode_paiement || null, rubrique || null, reference || null, commentaire || null, annee_academique || null, agentId]
     );
+    const { role, utilisateur, identifiant } = acteurDeReq(req);
+    journaliser({ role, utilisateur, identifiant, action: 'Encaissement', details: `Versement ${Number(montant).toFixed(2)} $ — étudiant ${etudiant_id}${rubrique ? ' · ' + rubrique : ''}`, ip: ipDeRequete(req) });
     res.status(201).json({ message: 'Paiement enregistré.', id: r.insertId });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });
@@ -48,6 +51,8 @@ router.post('/', requireCaissier, async (req, res) => {
 router.delete('/:id', requireCaissier, async (req, res) => {
   try {
     await pool.query('DELETE FROM paiement WHERE id = ?', [req.params.id]);
+    const { role, utilisateur, identifiant } = acteurDeReq(req);
+    journaliser({ role, utilisateur, identifiant, action: 'Suppression versement', details: `Versement #${req.params.id} supprimé`, ip: ipDeRequete(req) });
     res.json({ message: 'Paiement supprimé.' });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });

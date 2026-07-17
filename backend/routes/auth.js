@@ -4,6 +4,7 @@ const router  = express.Router();
 const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const pool = require('../database');
+const { journaliser, ipDeRequete } = require('../models/audit');
 
 // =====================
 // AUTHENTIFICATION ADMIN — identifiants dans .env, jamais dans le frontend
@@ -25,6 +26,7 @@ router.post('/admin', (req, res) => {
     return res.status(401).json({ erreur: 'Identifiant ou mot de passe incorrect.' });
 
   const token = jwt.sign({ user: adminUser, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '8h' });
+  journaliser({ role: 'admin', utilisateur: adminUser, identifiant: adminUser, action: 'Connexion', details: 'Connexion administration', ip: ipDeRequete(req) });
   res.json({ message: 'Connexion réussie.', token });
 });
 
@@ -64,6 +66,7 @@ router.post('/agent', async (req, res) => {
         nom: `${agent.prenom || ''} ${agent.noms}`.trim() },
       process.env.JWT_SECRET, { expiresIn: '8h' }
     );
+    journaliser({ role, utilisateur: `${agent.prenom || ''} ${agent.noms}`.trim(), identifiant: agent.matricule, action: 'Connexion', details: `Connexion ${agent.fonction || ''}`.trim(), ip: ipDeRequete(req) });
     res.json({
       message: 'Connexion réussie.', token,
       agent: { id: agent.id, matricule: agent.matricule, noms: agent.noms, prenom: agent.prenom, fonction: agent.fonction, role }
@@ -102,6 +105,7 @@ router.post('/login', async (req, res) => {
         { role, fonction: agent.fonction, agent_id: agent.id, matricule: agent.matricule, nom: `${agent.prenom || ''} ${agent.noms}`.trim() },
         process.env.JWT_SECRET, { expiresIn: '8h' }
       );
+      journaliser({ role, utilisateur: `${agent.prenom || ''} ${agent.noms}`.trim(), identifiant: agent.matricule, action: 'Connexion', details: `Connexion ${agent.fonction || ''}`.trim(), ip: ipDeRequete(req) });
       return res.json({ type: 'caisse', token, agent: { id: agent.id, matricule: agent.matricule, noms: agent.noms, prenom: agent.prenom, fonction: agent.fonction, role } });
     }
 
@@ -109,6 +113,7 @@ router.post('/login', async (req, res) => {
     if (process.env.ADMIN_USER && identifiant === process.env.ADMIN_USER) {
       if (mot_de_passe !== process.env.ADMIN_PASS) return echec();
       const token = jwt.sign({ user: process.env.ADMIN_USER, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '8h' });
+      journaliser({ role: 'admin', utilisateur: process.env.ADMIN_USER, identifiant: process.env.ADMIN_USER, action: 'Connexion', details: 'Connexion administration', ip: ipDeRequete(req) });
       return res.json({ type: 'admin', token });
     }
 
@@ -118,6 +123,7 @@ router.post('/login', async (req, res) => {
       const ok = await bcrypt.compare(mot_de_passe, profs[0].mot_de_passe);
       if (!ok) return echec();
       const { mot_de_passe: _, ...infos } = profs[0];
+      journaliser({ role: 'professeur', utilisateur: `${profs[0].prenom || ''} ${profs[0].nom || ''}`.trim(), identifiant: profs[0].email, action: 'Connexion', details: 'Connexion professeur', ip: ipDeRequete(req) });
       return res.json({ type: 'professeur', professeur: infos });
     }
 
@@ -134,6 +140,7 @@ router.post('/login', async (req, res) => {
       }
       if (!ok) return echec();
       const { mot_de_passe: _, ...infos } = etu;
+      journaliser({ role: 'etudiant', utilisateur: `${etu.nom || ''} ${etu.postnom || ''} ${etu.prenom || ''}`.replace(/\s+/g, ' ').trim(), identifiant: etu.id, action: 'Connexion', details: 'Connexion étudiant', ip: ipDeRequete(req) });
       return res.json({ type: 'etudiant', etudiant: infos });
     }
 
@@ -182,6 +189,7 @@ router.post('/etudiant', async (req, res) => {
 
     // Renvoyer les infos sans le mot de passe
     const { mot_de_passe: _, ...infos } = etudiant;
+    journaliser({ role: 'etudiant', utilisateur: `${etudiant.nom || ''} ${etudiant.postnom || ''} ${etudiant.prenom || ''}`.replace(/\s+/g, ' ').trim(), identifiant: etudiant.id, action: 'Connexion', details: 'Connexion étudiant', ip: ipDeRequete(req) });
     res.json({ message: 'Connexion réussie.', etudiant: infos });
 
   } catch (erreur) {
@@ -211,6 +219,7 @@ router.post('/professeur', async (req, res) => {
       return res.status(401).json({ erreur: 'Mot de passe incorrect.' });
 
     const { mot_de_passe: _, ...infos } = professeur;
+    journaliser({ role: 'professeur', utilisateur: `${professeur.prenom || ''} ${professeur.nom || ''}`.trim(), identifiant: professeur.email, action: 'Connexion', details: 'Connexion professeur', ip: ipDeRequete(req) });
     res.json({ message: 'Connexion réussie.', professeur: infos });
 
   } catch (erreur) {

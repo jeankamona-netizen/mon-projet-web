@@ -213,26 +213,40 @@ async function chargerBareme() {
     const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite?${params}`);
     const lignes = await r.json();
     if (!lignes.length) { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Aucun barème défini pour cette année.</td></tr>`; return; }
-    // Total attendu par groupe (faculté + filière + niveau) = somme des rubriques.
-    const totalGroupe = {};
-    lignes.forEach(l => { const k = `${l.faculte}|${l.promotion}|${l.niveau}`; totalGroupe[k] = (totalGroupe[k] || 0) + Number(l.montant); });
-    tbody.innerHTML = lignes.map((l, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${l.faculte}</td>
-        <td>${libelleFiliere(l.niveau, l.promotion)}</td>
-        <td>${l.rubrique || '—'}</td>
-        <td><strong>${montant(l.montant)} $</strong></td>
-        ${editable ? `<td class="admin-actions-cell"><button class="btn-icone danger" onclick="supprimerBareme(${l.id})" aria-label="Supprimer">${icone('corbeille')}</button></td>` : ''}
-      </tr>`).join('') +
-      // Ligne de total attendu par groupe (ce que l'étudiant doit pour l'année).
-      Object.entries(totalGroupe).map(([k, tot]) => {
-        const [fac, fil, niv] = k.split('|');
-        return `<tr style="background:#eef2fb">
-          <td></td><td colspan="2"><strong>Total attendu — ${fac} · ${libelleFiliere(niv, fil)}</strong></td>
-          <td></td><td><strong style="color:var(--bleu)">${montant(tot)} $</strong></td>${editable ? '<td></td>' : ''}
+    // Regroupement par faculté + filière + niveau (les lignes arrivent déjà
+    // triées par le backend). Chaque groupe affiche ses rubriques numérotées en
+    // continu, puis une ligne de démarcation « Total attendu » propre au groupe.
+    const groupes = [];
+    const posGroupe = {};
+    lignes.forEach(l => {
+      const k = `${l.faculte}|${l.promotion}|${l.niveau}`;
+      if (posGroupe[k] === undefined) { posGroupe[k] = groupes.length; groupes.push({ faculte: l.faculte, promotion: l.promotion, niveau: l.niveau, lignes: [] }); }
+      groupes[posGroupe[k]].lignes.push(l);
+    });
+    let idx = 0;
+    tbody.innerHTML = groupes.map(g => {
+      const total = g.lignes.reduce((s, l) => s + Number(l.montant), 0);
+      const rubriques = g.lignes.map(l => {
+        idx++;
+        return `<tr>
+          <td>${idx}</td>
+          <td>${l.faculte}</td>
+          <td>${libelleFiliere(l.niveau, l.promotion)}</td>
+          <td>${l.rubrique || '—'}</td>
+          <td><strong>${montant(l.montant)} $</strong></td>
+          ${editable ? `<td class="admin-actions-cell"><button class="btn-icone danger" onclick="supprimerBareme(${l.id})" aria-label="Supprimer">${icone('corbeille')}</button></td>` : ''}
         </tr>`;
       }).join('');
+      // Ligne de total attendu du groupe (ce que l'étudiant doit pour l'année).
+      const totalRow = `<tr class="bareme-total-row">
+        <td></td>
+        <td colspan="2"><strong>Total attendu : ${g.faculte} · ${libelleFiliere(g.niveau, g.promotion)}</strong></td>
+        <td></td>
+        <td><strong style="color:var(--bleu)">${montant(total)} $</strong></td>
+        ${editable ? '<td></td>' : ''}
+      </tr>`;
+      return rubriques + totalRow;
+    }).join('');
   } catch { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 

@@ -7,6 +7,7 @@ const { envoyerEmailAcceptation, envoyerEmailRejet } = require('../mailer');
 const upload = require('../upload');
 const { requireAdmin } = require('../middleware/auth');
 const { inscrireAuxCoursDuNiveau } = require('../models/inscriptionAuto');
+const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // Mot de passe temporaire aléatoire (12 caractères, non prévisible) — l'étudiant
 // devra le changer, il est de toute façon hashé en bcrypt avant stockage.
@@ -293,6 +294,10 @@ if (statut === 'accepte') {
       'SELECT * FROM preinscription WHERE id = ?',
       [req.params.id]
     );
+
+    const LIBELLE_STATUT = { accepte: 'Candidature acceptée', rejete: 'Candidature rejetée', en_attente: 'Candidature remise en attente' };
+    const d = dossierMisAJour[0] || {};
+    journaliser({ ...acteurDeReq(req), action: LIBELLE_STATUT[statut] || 'Décision candidature', details: `${d.nom || ''} ${d.prenom || ''}`.trim() + (compteCree ? ' · compte étudiant créé' : ''), ip: ipDeRequete(req) });
 
     res.json({
       message: statut === 'accepte'
