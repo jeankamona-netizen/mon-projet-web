@@ -702,7 +702,7 @@ function chargerFilieresPourFiltreNotes() {
 async function chargerNotes() {
   const tbody = document.getElementById('admin-notes-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
   try {
     const faculte = document.getElementById('notes-filtre-faculte')?.value || '';
     const filiere = document.getElementById('notes-filtre-filiere')?.value || '';
@@ -716,14 +716,14 @@ async function chargerNotes() {
     notesAdmin = await reponse.json();
     afficherTableauNotes();
   } catch (erreur) {
-    tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">⚠️ Impossible de charger les notes. Vérifiez le backend.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Impossible de charger les notes. Vérifiez le backend.</td></tr>`;
   }
 }
 
 function afficherTableauNotes(liste = notesAdmin) {
   const tbody = document.getElementById('admin-notes-body');
   if (!tbody) return;
-  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Aucune note enregistrée.</td></tr>`; return; }
+  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Aucune note enregistrée.</td></tr>`; return; }
   tbody.innerHTML = liste.map(n => `
     <tr>
       <td>${n.nom_etudiant} ${n.prenom_etudiant}<br><span style="font-size:11px;color:#999">${n.etudiant_id}</span></td>
@@ -745,14 +745,14 @@ let resumeBulletinsAdmin = [];
 async function chargerResumeBulletins() {
   const tbody = document.getElementById('bulletins-notes-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
   try {
     const r = await fetchAdmin(`${BASE_URL}/api/notes/bulletins/resume`);
     if (!r.ok) throw new Error('Erreur serveur');
     resumeBulletinsAdmin = await r.json();
     afficherTableauBulletins();
   } catch {
-    tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">⚠️ Impossible de charger le résumé des bulletins.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Impossible de charger le résumé des bulletins.</td></tr>`;
   }
 }
 
@@ -761,7 +761,7 @@ function afficherTableauBulletins(liste = resumeBulletinsAdmin) {
   if (!tbody) return;
   const selectTout = document.getElementById('notes-select-tout');
   if (selectTout) selectTout.checked = false;
-  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Aucun étudiant noté.</td></tr>`; return; }
+  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Aucun étudiant noté.</td></tr>`; return; }
   tbody.innerHTML = liste.map(e => `
     <tr>
       <td><input type="checkbox" class="note-select" data-etudiant-id="${e.etudiant_id}"></td>
@@ -2311,7 +2311,7 @@ function chargerFilieresPourInscrit() {
 async function chargerInscrits() {
   const tbody=document.getElementById('admin-inscrits-body');
   if (!tbody) return;
-  tbody.innerHTML=`<tr><td colspan="8" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML=`<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
   try {
     const nom=document.getElementById('recherche-inscrits')?.value||'';
     const annee=document.getElementById('filtre-inscrits-annee')?.value||'';
@@ -2324,14 +2324,13 @@ async function chargerInscrits() {
     if (faculte) params.append('faculte',faculte);
     const r=await fetchAdmin(`${BASE_URL}/api/etudiants?${params}`);
     inscritsAdmin=await r.json();
-    if (!inscritsAdmin.length) { tbody.innerHTML=`<tr><td colspan="8" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
+    if (!inscritsAdmin.length) { tbody.innerHTML=`<tr><td colspan="7" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
     tbody.innerHTML=inscritsAdmin.map(e=>`
       <tr>
         <td><code style="font-size:11px">${e.id}</code></td>
         <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}${e.historique?' <span class="badge attente" style="font-size:10px" title="Étudiant promu depuis — ceci est son historique pour cette période">Historique</span>':''}</td>
         <td>${e.faculte||'—'}</td>
         <td>${e.promotion||'—'}</td>
-        <td>${e.niveau?`<span class="annee-badge">${e.niveau}</span>`:'—'}</td>
         <td>${e.annee_academique||'—'}</td>
         <td><span class="badge ${e.statut==='actif'?'reussi':e.statut==='diplome'?'attente':'echec'}">${e.statut||'actif'}</span></td>
         <td class="admin-actions-cell">
@@ -2342,7 +2341,7 @@ async function chargerInscrits() {
           <button class="btn-icone danger" onclick="supprimerInscrit('${e.id}')" aria-label="Supprimer">${icone('corbeille')}</button>
         </td>
       </tr>`).join('');
-  } catch { tbody.innerHTML=`<tr><td colspan="8" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+  } catch { tbody.innerHTML=`<tr><td colspan="7" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
 // Le bulletin est réservé à l'administrateur (l'étudiant n'a pas le droit de

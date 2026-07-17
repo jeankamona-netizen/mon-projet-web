@@ -148,10 +148,9 @@
   vertical-align: middle;
 }
 .table-inscrits code { word-break: break-all; }
-/* Colonne Actions : les 5 boutons s'alignent et se replient au besoin, sans
-   étirer la ligne (2 rangées maximum sur la largeur allouée). */
-.table-inscrits .admin-actions-cell { flex-wrap: wrap; gap: 4px; }
-.table-inscrits .admin-actions-cell .btn-icone { padding: 3px 5px; font-size: 13px; }
+/* Colonne Actions : les 5 boutons tiennent sur UNE seule ligne. */
+.table-inscrits .admin-actions-cell { flex-wrap: nowrap; gap: 3px; justify-content: flex-start; }
+.table-inscrits .admin-actions-cell .btn-icone { padding: 3px 4px; font-size: 13px; flex: 0 0 auto; }
 
 /* =====================
    MODAL (formulaire popup)
