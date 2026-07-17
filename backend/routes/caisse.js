@@ -180,7 +180,7 @@ router.get('/rapport', async (req, res) => {
        LEFT JOIN filiere f ON e.filiere_id = f.id
        LEFT JOIN agent a ON p.agent_id = a.id
        WHERE ${conf.condition}
-       ORDER BY p.date_paiement DESC, p.id DESC`,
+       ORDER BY p.date_paiement DESC, e.id, p.id`,
       [valeur]
     );
     const [[resume]] = await pool.query(

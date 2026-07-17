@@ -655,18 +655,39 @@ async function genererRapport() {
   } catch { zone.innerHTML = '<div class="dash-card"><p class="admin-vide">⚠️ Erreur.</p></div>'; }
 }
 
+// Regroupe les versements par étudiant + date : quand un étudiant paie
+// plusieurs frais le même jour, son nom / niveau / date ne sont écrits qu'une
+// fois, les rubriques suivent en dessous, et une ligne de démarcation sépare
+// l'étudiant suivant. (Les lignes arrivent déjà triées par date puis étudiant.)
+function grouperVersementsRapport(lignes) {
+  const groupes = [];
+  const pos = {};
+  (lignes || []).forEach(l => {
+    const dateAff = formaterDateCaisse(l.date_paiement);
+    const cle = `${l.matricule || ''}|${dateAff}`;
+    if (pos[cle] === undefined) { pos[cle] = groupes.length; groupes.push({ dateAff, entete: l, items: [] }); }
+    groupes[pos[cle]].items.push(l);
+  });
+  return groupes;
+}
+
 function afficherRapport(d) {
   const zone = document.getElementById('rapport-resultat');
   const rub = (d.par_rubrique || []).map(r => `<tr><td>${r.rubrique}</td><td>${r.nb}</td><td>${montant(r.total)} $</td></tr>`).join('')
     || '<tr><td colspan="3" class="admin-vide">—</td></tr>';
-  const lignes = (d.lignes || []).map(l => `<tr>
-      <td>${formaterDateCaisse(l.date_paiement)}</td>
-      <td>${l.nom} ${l.postnom || ''} ${l.prenom}</td>
-      <td>${libelleFiliere(l.niveau, l.filiere || l.promotion)}</td>
+  const groupes = grouperVersementsRapport(d.lignes);
+  const lignes = groupes.length ? groupes.map(g => g.items.map((l, i) => {
+    const premier = i === 0;
+    const dernier = i === g.items.length - 1;
+    return `<tr${dernier ? ' class="rapport-sep"' : ''}>
+      <td>${premier ? g.dateAff : ''}</td>
+      <td>${premier ? `${g.entete.nom} ${g.entete.postnom || ''} ${g.entete.prenom}` : ''}</td>
+      <td>${premier ? libelleFiliere(g.entete.niveau, g.entete.filiere || g.entete.promotion) : ''}</td>
       <td>${l.rubrique || '—'}</td>
       <td>${l.reference || '—'}</td>
       <td>${montant(l.montant)} $</td>
-    </tr>`).join('') || '<tr><td colspan="6" class="admin-vide">Aucun versement sur cette période.</td></tr>';
+    </tr>`;
+  }).join('')).join('') : '<tr><td colspan="6" class="admin-vide">Aucun versement sur cette période.</td></tr>';
 
   zone.innerHTML = `
     <div class="stats-grid" style="margin-bottom:16px">
@@ -689,14 +710,20 @@ function imprimerRapport() {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const logoSrc = `${location.origin}/img/logo.png`;
   const rub = (d.par_rubrique || []).map(r => `<tr><td>${esc(r.rubrique)}</td><td>${r.nb}</td><td class="n">${montant(r.total)} $</td></tr>`).join('');
-  const lignes = (d.lignes || []).map(l => `<tr>
-      <td>${formaterDateCaisse(l.date_paiement)}</td>
-      <td>${esc(`${l.nom} ${l.postnom || ''} ${l.prenom}`)}</td>
-      <td>${esc(libelleFiliere(l.niveau, l.filiere || l.promotion))}</td>
-      <td>${esc(l.rubrique || '')}</td>
-      <td>${esc(l.reference || '')}</td>
-      <td class="n">${montant(l.montant)} $</td>
-    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#999">Aucun versement.</td></tr>';
+  const groupesImpr = grouperVersementsRapport(d.lignes);
+  const lignes = groupesImpr.length ? groupesImpr.map(g => g.items.map((l, i) => {
+    const premier = i === 0;
+    const dernier = i === g.items.length - 1;
+    const sep = dernier ? ' style="border-bottom:2px solid #1a3a6b"' : '';
+    return `<tr>
+      <td${sep}>${premier ? formaterDateCaisse(l.date_paiement) : ''}</td>
+      <td${sep}>${premier ? esc(`${g.entete.nom} ${g.entete.postnom || ''} ${g.entete.prenom}`) : ''}</td>
+      <td${sep}>${premier ? esc(libelleFiliere(g.entete.niveau, g.entete.filiere || g.entete.promotion)) : ''}</td>
+      <td${sep}>${esc(l.rubrique || '')}</td>
+      <td${sep}>${esc(l.reference || '')}</td>
+      <td class="n"${sep ? ' style="border-bottom:2px solid #1a3a6b;text-align:right"' : ''}>${montant(l.montant)} $</td>
+    </tr>`;
+  }).join('')).join('') : '<tr><td colspan="6" style="text-align:center;color:#999">Aucun versement.</td></tr>';
 
   const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport ${esc(d.libelleType)} — ${esc(d.periode)}</title>
 <style>

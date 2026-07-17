@@ -311,6 +311,12 @@
   padding-bottom: 8px;
 }
 
+/* Détail des versements : trait de démarcation entre deux étudiants (dernier
+   versement d'un même étudiant/jour). */
+.rapport-sep td {
+  border-bottom: 2px solid var(--bleu);
+}
+
 .badge.actif {
   background: #e8f5e8;
   color: var(--vert);
