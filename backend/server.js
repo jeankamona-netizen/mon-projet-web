@@ -248,6 +248,7 @@ app.get('/api/etudiants', requireAdmin, async (req, res) => {
         SELECT * FROM (
           SELECT e.id, e.nom, e.postnom, e.prenom, e.date_naissance, e.lieu_naissance,
                  e.nationalite, e.sexe, e.email, e.telephone, e.adresse, e.filiere_id,
+                 fil.nom AS filiere,
                  e.statut, e.photo,
                  e.faculte AS faculte_actuelle, e.promotion AS promotion_actuelle,
                  e.niveau AS niveau_actuel, e.annee_academique AS annee_academique_actuelle,
@@ -257,6 +258,7 @@ app.get('/api/etudiants', requireAdmin, async (req, res) => {
                  COALESCE(h.annee_academique, e.annee_academique)   AS annee_academique,
                  (h.etudiant_id IS NOT NULL AND NOT (${condCourant.length ? condCourant.join(' AND ') : '1=1'})) AS historique
           FROM etudiant e
+          LEFT JOIN filiere fil ON e.filiere_id = fil.id
           LEFT JOIN (
             SELECT ic.etudiant_id,
                    MAX(c.faculte) AS faculte, MAX(c.promotion) AS promotion,
@@ -281,11 +283,14 @@ app.get('/api/etudiants', requireAdmin, async (req, res) => {
       sql = `
         SELECT e.id, e.nom, e.postnom, e.prenom, e.date_naissance, e.lieu_naissance,
                e.nationalite, e.sexe, e.email, e.telephone, e.adresse, e.filiere_id,
+               fil.nom AS filiere,
                e.statut, e.photo, e.faculte, e.promotion, e.niveau, e.annee_academique,
                e.faculte AS faculte_actuelle, e.promotion AS promotion_actuelle,
                e.niveau AS niveau_actuel, e.annee_academique AS annee_academique_actuelle,
                FALSE AS historique
-        FROM etudiant e WHERE 1=1
+        FROM etudiant e
+        LEFT JOIN filiere fil ON e.filiere_id = fil.id
+        WHERE 1=1
       `;
     }
 

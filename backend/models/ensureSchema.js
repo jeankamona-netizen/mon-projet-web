@@ -15,27 +15,51 @@ async function assurerSchemaFraisScolarite(pool) {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS frais_scolarite (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      faculte VARCHAR(150) NOT NULL,
-      promotion VARCHAR(100) NOT NULL,
+      faculte VARCHAR(150) NOT NULL DEFAULT '',
+      promotion VARCHAR(100) NOT NULL DEFAULT '',
       niveau VARCHAR(10) NOT NULL DEFAULT '',
-      annee_academique VARCHAR(20) NOT NULL,
+      annee_academique VARCHAR(20) NOT NULL DEFAULT '',
       montant DECIMAL(10,2) NOT NULL DEFAULT 0,
       UNIQUE KEY uq_bareme (faculte, promotion, niveau, annee_academique)
     )
   `);
 
-  // 2. Table plus ancienne : ajouter la colonne `niveau` si elle manque.
+  // 2. Table plus ancienne : ajouter TOUTE colonne attendue qui manque. Une
+  //    base créée à la première version du barème (niveau seul) n'a ni
+  //    `faculte` ni `promotion` → l'INSERT échouait ("Unknown column 'faculte'").
+  const attendues = {
+    faculte:          "VARCHAR(150) NOT NULL DEFAULT ''",
+    promotion:        "VARCHAR(100) NOT NULL DEFAULT ''",
+    niveau:           "VARCHAR(10) NOT NULL DEFAULT ''",
+    annee_academique: "VARCHAR(20) NOT NULL DEFAULT ''",
+    montant:          "DECIMAL(10,2) NOT NULL DEFAULT 0",
+  };
   const [colonnes] = await pool.query(
     `SELECT COLUMN_NAME FROM information_schema.COLUMNS
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'frais_scolarite'`
   );
-  const noms = colonnes.map(c => c.COLUMN_NAME);
-  if (!noms.includes('niveau')) {
-    await pool.query("ALTER TABLE frais_scolarite ADD COLUMN niveau VARCHAR(10) NOT NULL DEFAULT '' AFTER promotion");
+  const presentes = colonnes.map(c => c.COLUMN_NAME.toLowerCase());
+  for (const [col, def] of Object.entries(attendues)) {
+    if (!presentes.includes(col)) {
+      await pool.query(`ALTER TABLE frais_scolarite ADD COLUMN ${col} ${def}`);
+    }
   }
 
-  // 3. S'assurer que la clé unique couvre bien (faculté, promotion, niveau,
-  //    année) — indispensable au ON DUPLICATE KEY UPDATE du barème.
+  // 3. Purger toute ancienne clé unique de granularité obsolète (ex. unique sur
+  //    `niveau` seul), qui empêcherait deux barèmes de facultés différentes au
+  //    même niveau. On garde PRIMARY et uq_bareme.
+  const [uniques] = await pool.query(
+    `SELECT DISTINCT INDEX_NAME FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'frais_scolarite'
+       AND NON_UNIQUE = 0 AND INDEX_NAME <> 'PRIMARY' AND INDEX_NAME <> 'uq_bareme'`
+  );
+  for (const u of uniques) {
+    try { await pool.query(`ALTER TABLE frais_scolarite DROP INDEX \`${u.INDEX_NAME}\``); }
+    catch (e) { console.warn('⚠️ suppression index', u.INDEX_NAME, ':', e.message); }
+  }
+
+  // 4. Créer la clé unique attendue si absente (indispensable au
+  //    ON DUPLICATE KEY UPDATE du barème).
   const [index] = await pool.query(
     `SELECT INDEX_NAME FROM information_schema.STATISTICS
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'frais_scolarite'
@@ -45,8 +69,6 @@ async function assurerSchemaFraisScolarite(pool) {
     try {
       await pool.query('ALTER TABLE frais_scolarite ADD UNIQUE KEY uq_bareme (faculte, promotion, niveau, annee_academique)');
     } catch (e) {
-      // Doublons existants ou ancienne clé conflictuelle : on ne bloque pas le
-      // démarrage, on signale seulement (l'INSERT fonctionnera quand même).
       console.warn('⚠️ uq_bareme non créée :', e.message);
     }
   }

@@ -2557,10 +2557,10 @@ async function chargerInscrits() {
     if (!inscritsAdmin.length) { tbody.innerHTML=`<tr><td colspan="7" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
     tbody.innerHTML=inscritsAdmin.map(e=>`
       <tr>
-        <td><code style="font-size:11px">${e.id}</code></td>
-        <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}${e.historique?' <span class="badge attente" style="font-size:10px" title="Étudiant promu depuis — ceci est son historique pour cette période">Historique</span>':''}</td>
+        <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}${e.historique?' <span class="badge attente" style="font-size:10px" title="Étudiant promu depuis — ceci est son historique pour cette période">Historique</span>':''}<br><span style="font-size:11px;color:#999">${e.id}</span></td>
+        <td>${e.niveau?`<span class="annee-badge">${e.niveau}</span>`:'—'}</td>
+        <td>${e.filiere||'—'}</td>
         <td>${e.faculte||'—'}</td>
-        <td>${e.promotion||'—'}</td>
         <td>${e.annee_academique||'—'}</td>
         <td><span class="badge ${e.statut==='actif'?'reussi':e.statut==='diplome'?'attente':'echec'}">${e.statut||'actif'}</span></td>
         <td class="admin-actions-cell">
