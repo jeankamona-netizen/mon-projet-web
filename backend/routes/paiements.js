@@ -24,7 +24,7 @@ router.get('/etudiant/:id', requireFinance, async (req, res) => {
 // Ouvert à la caisse (caissier), à l'administrateur du budget et à l'admin :
 // tous peuvent encaisser, modifier, supprimer et imprimer un versement.
 router.post('/', requireFinance, async (req, res) => {
-  const { etudiant_id, montant, date_paiement, mode_paiement, rubrique, reference, commentaire, annee_academique } = req.body;
+  const { etudiant_id, montant, date_paiement, mode_paiement, rubrique, reference, commentaire, annee_academique, niveau } = req.body;
 
   if (!etudiant_id || !montant || !date_paiement) {
     return res.status(400).json({ erreur: 'Étudiant, montant et date sont obligatoires.' });
@@ -36,10 +36,11 @@ router.post('/', requireFinance, async (req, res) => {
   try {
     // agent_id vient du token (caissier connecté), jamais du corps de la requête.
     const agentId = req.utilisateur && req.utilisateur.agent_id ? req.utilisateur.agent_id : null;
+    // niveau visé par le versement (celui de l'année réglée, pas le niveau courant).
     const [r] = await pool.query(
-      `INSERT INTO paiement (etudiant_id, montant, date_paiement, mode_paiement, rubrique, reference, commentaire, annee_academique, agent_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [etudiant_id, montant, date_paiement, mode_paiement || null, rubrique || null, reference || null, commentaire || null, annee_academique || null, agentId]
+      `INSERT INTO paiement (etudiant_id, montant, date_paiement, mode_paiement, rubrique, reference, commentaire, annee_academique, niveau, agent_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [etudiant_id, montant, date_paiement, mode_paiement || null, rubrique || null, reference || null, commentaire || null, annee_academique || null, (niveau || '').trim(), agentId]
     );
     const { role, utilisateur, identifiant } = acteurDeReq(req);
     journaliser({ role, utilisateur, identifiant, action: 'Encaissement', details: `Versement ${Number(montant).toFixed(2)} $ — étudiant ${etudiant_id}${rubrique ? ' · ' + rubrique : ''}`, ip: ipDeRequete(req) });

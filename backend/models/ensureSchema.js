@@ -102,10 +102,26 @@ async function assurerSchemaJournalAudit(pool) {
   `);
 }
 
+// Versements : on mémorise le NIVEAU visé par le paiement (ex. un étudiant promu
+// en L2 qui règle une dette de L1 → niveau = L1), afin que l'affichage et les
+// rapports montrent le niveau réellement concerné et non le niveau courant.
+async function assurerSchemaPaiement(pool) {
+  const [cols] = await pool.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'paiement'`
+  );
+  if (!cols.length) return; // table créée ailleurs (schéma principal)
+  const noms = cols.map(c => c.COLUMN_NAME.toLowerCase());
+  if (!noms.includes('niveau')) {
+    await pool.query("ALTER TABLE paiement ADD COLUMN niveau VARCHAR(10) NOT NULL DEFAULT ''");
+  }
+}
+
 async function assurerSchema(pool) {
   await assurerSchemaFraisScolarite(pool);
   await assurerSchemaJournalAudit(pool);
-  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit).');
+  await assurerSchemaPaiement(pool);
+  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement).');
 }
 
 module.exports = { assurerSchema };

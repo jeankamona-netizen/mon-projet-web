@@ -135,11 +135,13 @@ router.get('/stats', async (req, res) => {
     );
     // 8 derniers versements, tous étudiants confondus.
     const [recents] = await pool.query(
-      `SELECT p.id, p.montant, p.date_paiement, p.mode_paiement, p.rubrique, p.reference,
-              e.nom, e.postnom, e.prenom, e.id AS etudiant_id, e.niveau, f.nom AS filiere, e.promotion
+      `SELECT p.id, p.montant, p.date_paiement, p.mode_paiement, p.rubrique, p.reference, p.annee_academique,
+              e.nom, e.postnom, e.prenom, e.id AS matricule, e.id AS etudiant_id,
+              COALESCE(NULLIF(p.niveau, ''), e.niveau) AS niveau, f.nom AS filiere, e.promotion
        FROM paiement p JOIN etudiant e ON p.etudiant_id = e.id
        LEFT JOIN filiere f ON e.filiere_id = f.id
-       ORDER BY p.date_paiement DESC, p.id DESC LIMIT 8`
+       ORDER BY p.date_paiement DESC, e.id, p.id
+       LIMIT 20`
     );
     res.json({
       total_encaisse: Number(global.total),
@@ -173,7 +175,8 @@ router.get('/rapport', async (req, res) => {
   try {
     const [lignes] = await pool.query(
       `SELECT p.id, p.date_paiement, p.montant, p.rubrique, p.mode_paiement, p.reference,
-              e.id AS matricule, e.nom, e.postnom, e.prenom, f.nom AS filiere, e.promotion, e.niveau,
+              e.id AS matricule, e.nom, e.postnom, e.prenom, f.nom AS filiere, e.promotion,
+              COALESCE(NULLIF(p.niveau, ''), e.niveau) AS niveau,
               a.noms AS agent_noms, a.prenom AS agent_prenom
        FROM paiement p
        JOIN etudiant e ON p.etudiant_id = e.id

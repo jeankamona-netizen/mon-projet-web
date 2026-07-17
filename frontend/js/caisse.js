@@ -121,17 +121,24 @@ async function chargerStatsCaisse() {
       : `<tr><td colspan="3" class="admin-vide">Aucun encaissement.</td></tr>`;
 
     const tbRec = document.getElementById('caisse-recents');
-    if (tbRec) tbRec.innerHTML = (d.recents || []).length
-      ? d.recents.map(p => `<tr>
-          <td>${formaterDateCaisse(p.date_paiement)}</td>
-          <td>${p.nom} ${p.postnom || ''} ${p.prenom}</td>
-          <td>${p.niveau || '—'}</td>
-          <td>${p.filiere || p.promotion || '—'}</td>
-          <td>${p.rubrique || '—'}</td>
-          <td>${p.reference || '—'}</td>
-          <td>${montant(p.montant)}</td>
-        </tr>`).join('')
-      : `<tr><td colspan="7" class="admin-vide">Aucun versement récent.</td></tr>`;
+    if (tbRec) {
+      const groupes = grouperVersementsRapport(d.recents);
+      tbRec.innerHTML = groupes.length
+        ? groupes.map(g => g.items.map((p, i) => {
+            const premier = i === 0;
+            const dernier = i === g.items.length - 1;
+            return `<tr${dernier ? ' class="rapport-sep"' : ''}>
+              <td>${premier ? g.dateAff : ''}</td>
+              <td>${premier ? `${g.entete.nom} ${g.entete.postnom || ''} ${g.entete.prenom}` : ''}</td>
+              <td>${premier ? (g.entete.niveau || '—') : ''}</td>
+              <td>${premier ? (g.entete.filiere || g.entete.promotion || '—') : ''}</td>
+              <td>${p.rubrique || '—'}</td>
+              <td>${p.reference || '—'}</td>
+              <td>${montant(p.montant)}</td>
+            </tr>`;
+          }).join('')).join('')
+        : `<tr><td colspan="7" class="admin-vide">Aucun versement récent.</td></tr>`;
+    }
   } catch { /* redirigé si 401 */ }
 }
 
@@ -482,13 +489,16 @@ async function ajouterPaiementCaisse() {
   // antérieure pour régulariser une dette d'un étudiant promu).
   const annee_academique = document.getElementById('paiement-annee')?.value || (etudiantCourantCaisse || {}).annee_academique || null;
   const periode = periodeSelectionnee();
+  // Niveau visé = celui de la période choisie (ex. L1 pour une dette de L1
+  // réglée par un étudiant désormais en L2), pas le niveau courant.
+  const niveau = (periode && periode.niveau) || (etudiantCourantCaisse || {}).niveau || '';
 
   if (isNaN(montantVal) || montantVal <= 0) { afficherToast('⚠️ Entrez un montant valide.', 'erreur'); return; }
   if (!date_paiement) { afficherToast('⚠️ La date est obligatoire.', 'erreur'); return; }
   try {
     const r = await fetchCaisse(`${BASE_URL}/api/paiements`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ etudiant_id, montant: montantVal, date_paiement, mode_paiement, rubrique, reference, annee_academique })
+      body: JSON.stringify({ etudiant_id, montant: montantVal, date_paiement, mode_paiement, rubrique, reference, annee_academique, niveau })
     });
     const d = await r.json();
     if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
