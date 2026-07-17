@@ -5,6 +5,7 @@ const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const pool = require('../database');
 const { journaliser, ipDeRequete } = require('../models/audit');
+const { requireFinance } = require('../middleware/auth');
 
 // =====================
 // AUTHENTIFICATION ADMIN — identifiants dans .env, jamais dans le frontend
@@ -350,6 +351,80 @@ router.put('/etudiant/:id/profil', async (req, res) => {
     const [maj] = await pool.query('SELECT * FROM etudiant WHERE id = ?', [req.params.id]);
     const { mot_de_passe: _, ...infos } = maj[0];
     res.json({ message: 'Profil mis à jour avec succès.', etudiant: infos });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// =====================
+// AGENT (caissier / administrateur du budget) — libre-service de son propre
+// compte : consultation + modification de l'identité et du mot de passe.
+// L'agent ne peut agir QUE sur son propre compte (agent_id du JWT).
+// =====================
+function memeAgent(req, res, next) {
+  const idToken = req.utilisateur && req.utilisateur.agent_id;
+  if (!idToken || String(idToken) !== String(req.params.id)) {
+    return res.status(403).json({ erreur: "Vous ne pouvez modifier que votre propre compte." });
+  }
+  next();
+}
+
+// Consultation de son propre profil (pré-remplissage du formulaire).
+router.get('/agent/:id/profil', requireFinance, memeAgent, async (req, res) => {
+  try {
+    const [agents] = await pool.query(
+      'SELECT id, matricule, noms, prenom, email, telephone, fonction FROM agent WHERE id = ?',
+      [req.params.id]
+    );
+    if (agents.length === 0) return res.status(404).json({ erreur: 'Agent non trouvé.' });
+    res.json({ agent: agents[0] });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// Modification de son identité (nom, prénom, email, téléphone). Le matricule
+// reste géré par l'administration (identifiant de connexion).
+router.put('/agent/:id/profil', requireFinance, memeAgent, async (req, res) => {
+  const { noms, prenom, email, telephone } = req.body;
+  if (!noms || !noms.trim()) return res.status(400).json({ erreur: 'Le nom est obligatoire.' });
+  try {
+    await pool.query(
+      'UPDATE agent SET noms = ?, prenom = ?, email = ?, telephone = ? WHERE id = ?',
+      [noms.trim(), prenom || null, email || null, telephone || null, req.params.id]
+    );
+    const [maj] = await pool.query(
+      'SELECT id, matricule, noms, prenom, email, telephone, fonction FROM agent WHERE id = ?',
+      [req.params.id]
+    );
+    journaliser({ role: req.utilisateur.role, utilisateur: `${maj[0].prenom || ''} ${maj[0].noms}`.trim(), identifiant: maj[0].matricule, action: 'Modification profil', details: 'Mise à jour de ses informations personnelles', ip: ipDeRequete(req) });
+    res.json({ message: 'Profil mis à jour avec succès.', agent: maj[0] });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// Changement de son mot de passe (vérifie l'ancien).
+router.put('/agent/:id/password', requireFinance, memeAgent, async (req, res) => {
+  const { mot_de_passe_actuel, nouveau_mot_de_passe } = req.body;
+  if (!mot_de_passe_actuel || !nouveau_mot_de_passe)
+    return res.status(400).json({ erreur: 'Tous les champs sont requis.' });
+  if (nouveau_mot_de_passe.length < 6)
+    return res.status(400).json({ erreur: 'Le nouveau mot de passe doit contenir au moins 6 caractères.' });
+  try {
+    const [agents] = await pool.query('SELECT matricule, mot_de_passe FROM agent WHERE id = ?', [req.params.id]);
+    if (agents.length === 0) return res.status(404).json({ erreur: 'Agent non trouvé.' });
+
+    const valide = await bcrypt.compare(mot_de_passe_actuel, agents[0].mot_de_passe || '');
+    if (!valide) return res.status(401).json({ erreur: 'Mot de passe actuel incorrect.' });
+
+    const hash = await bcrypt.hash(nouveau_mot_de_passe, 10);
+    await pool.query('UPDATE agent SET mot_de_passe = ? WHERE id = ?', [hash, req.params.id]);
+    journaliser({ role: req.utilisateur.role, utilisateur: req.utilisateur.nom || agents[0].matricule, identifiant: agents[0].matricule, action: 'Changement mot de passe', details: 'A modifié son mot de passe', ip: ipDeRequete(req) });
+    res.json({ message: 'Mot de passe mis à jour avec succès.' });
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });

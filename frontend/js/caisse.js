@@ -1000,6 +1000,84 @@ function imprimerRapport() {
 }
 
 // =====================
+// INFORMATIONS PERSONNELLES DE L'AGENT (libre-service)
+// =====================
+async function ouvrirInfosAgent(event) {
+  if (event) event.preventDefault();
+  document.getElementById('caisse-menu')?.classList.remove('ouvert');
+  const a = getAgentCaisse() || {};
+  // Pré-remplissage immédiat depuis la session, complété par le serveur.
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  set('agent-noms', a.noms); set('agent-prenom', a.prenom); set('agent-matricule', a.matricule);
+  set('agent-email', ''); set('agent-telephone', '');
+  ['agent-pass-actuel', 'agent-pass-nouveau', 'agent-pass-confirmer'].forEach(id => set(id, ''));
+  document.getElementById('modal-infos-agent')?.classList.add('active');
+  try {
+    const r = await fetchCaisse(`${BASE_URL}/api/auth/agent/${a.id}/profil`);
+    if (r.ok) {
+      const ag = (await r.json()).agent || {};
+      set('agent-noms', ag.noms); set('agent-prenom', ag.prenom);
+      set('agent-email', ag.email); set('agent-telephone', ag.telephone);
+      set('agent-matricule', ag.matricule);
+    }
+  } catch { /* la session suffit au pré-remplissage */ }
+}
+
+function fermerInfosAgent() { document.getElementById('modal-infos-agent')?.classList.remove('active'); }
+
+// Rafraîchit l'affichage du profil (avatar sidebar + menu) après modification.
+function majAffichageAgent(agent) {
+  const nomComplet = `${agent.prenom || ''} ${agent.noms || ''}`.trim();
+  const initiales = `${(agent.prenom || '')[0] || ''}${(agent.noms || '')[0] || ''}`.toUpperCase() || 'AG';
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('caisse-avatar-sidebar', initiales);
+  set('caisse-nom-sidebar', nomComplet);
+  set('caisse-menu-prenom', agent.prenom || nomComplet);
+}
+
+async function sauverProfilAgent() {
+  const a = getAgentCaisse() || {};
+  const noms = document.getElementById('agent-noms').value.trim();
+  const prenom = document.getElementById('agent-prenom').value.trim();
+  const email = document.getElementById('agent-email').value.trim();
+  const telephone = document.getElementById('agent-telephone').value.trim();
+  if (!noms) { afficherToast('⚠️ Le nom est obligatoire.', 'erreur'); return; }
+  try {
+    const r = await fetchCaisse(`${BASE_URL}/api/auth/agent/${a.id}/profil`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ noms, prenom, email, telephone })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    // Met à jour la session + l'affichage (garde le token et le rôle).
+    const maj = { ...a, noms, prenom, email, telephone };
+    sessionStorage.setItem('caisse_agent', JSON.stringify(maj));
+    majAffichageAgent(maj);
+    afficherToast('✅ Informations mises à jour.');
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function changerMotDePasseAgent() {
+  const a = getAgentCaisse() || {};
+  const actuel = document.getElementById('agent-pass-actuel').value;
+  const nouveau = document.getElementById('agent-pass-nouveau').value;
+  const confirmer = document.getElementById('agent-pass-confirmer').value;
+  if (!actuel || !nouveau) { afficherToast('⚠️ Remplissez tous les champs.', 'erreur'); return; }
+  if (nouveau.length < 6) { afficherToast('⚠️ Le nouveau mot de passe doit contenir au moins 6 caractères.', 'erreur'); return; }
+  if (nouveau !== confirmer) { afficherToast('⚠️ La confirmation ne correspond pas.', 'erreur'); return; }
+  try {
+    const r = await fetchCaisse(`${BASE_URL}/api/auth/agent/${a.id}/password`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mot_de_passe_actuel: actuel, nouveau_mot_de_passe: nouveau })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    afficherToast('✅ Mot de passe mis à jour.');
+    ['agent-pass-actuel', 'agent-pass-nouveau', 'agent-pass-confirmer'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+// =====================
 // CLOCHE — communiqués de l'admin destinés au rôle de l'agent (caisse / budget)
 // =====================
 let communiquesCaisse = [];
