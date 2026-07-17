@@ -78,10 +78,13 @@ app.use('/uploads', express.static(path.join(__dirname, '../frontend/uploads')))
 // =====================
 // TEST CONNEXION MySQL
 // =====================
+const { assurerSchema } = require('./models/ensureSchema');
 pool.getConnection()
-  .then(connection => {
+  .then(async connection => {
     console.log('✅ Connexion à MySQL réussie !');
     connection.release();
+    try { await assurerSchema(pool); }
+    catch (e) { console.error('⚠️ Vérification du schéma échouée :', e.message); }
   })
   .catch(err => console.error('❌ Erreur MySQL :', err.message));
 
