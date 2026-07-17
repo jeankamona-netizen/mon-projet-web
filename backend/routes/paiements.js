@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../database');
-const { requireFinance, requireCaissier } = require('../middleware/auth');
+const { requireFinance } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // ===== GET /api/paiements/etudiant/:id — historique des paiements d'un étudiant =====
@@ -20,8 +20,10 @@ router.get('/etudiant/:id', requireFinance, async (req, res) => {
   }
 });
 
-// ===== POST /api/paiements — enregistrer un paiement (caissier/admin) =====
-router.post('/', requireCaissier, async (req, res) => {
+// ===== POST /api/paiements — enregistrer un paiement =====
+// Ouvert à la caisse (caissier), à l'administrateur du budget et à l'admin :
+// tous peuvent encaisser, modifier, supprimer et imprimer un versement.
+router.post('/', requireFinance, async (req, res) => {
   const { etudiant_id, montant, date_paiement, mode_paiement, rubrique, reference, commentaire, annee_academique } = req.body;
 
   if (!etudiant_id || !montant || !date_paiement) {
@@ -47,8 +49,8 @@ router.post('/', requireCaissier, async (req, res) => {
   }
 });
 
-// ===== DELETE /api/paiements/:id — supprimer un paiement (caissier/admin) =====
-router.delete('/:id', requireCaissier, async (req, res) => {
+// ===== DELETE /api/paiements/:id — supprimer un paiement =====
+router.delete('/:id', requireFinance, async (req, res) => {
   try {
     await pool.query('DELETE FROM paiement WHERE id = ?', [req.params.id]);
     const { role, utilisateur, identifiant } = acteurDeReq(req);

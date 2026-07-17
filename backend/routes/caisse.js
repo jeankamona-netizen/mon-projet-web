@@ -58,6 +58,69 @@ router.get('/etudiants', async (req, res) => {
   }
 });
 
+// ===== GET /api/caisse/etudiant/:id/situation — périodes & soldes par année =====
+// Un étudiant promu (L1→L2→L3) peut traîner une dette d'une année antérieure.
+// On renvoie donc TOUTES les périodes (année + niveau) qu'il a traversées, avec
+// pour chacune le barème attendu, le total versé et le solde — afin que la
+// caisse puisse régulariser une dette passée (ajout/modif/suppression ciblés).
+router.get('/etudiant/:id/situation', async (req, res) => {
+  try {
+    const [etus] = await pool.query(
+      'SELECT id, nom, postnom, prenom, faculte, promotion, niveau, annee_academique FROM etudiant WHERE id = ?',
+      [req.params.id]
+    );
+    if (!etus.length) return res.status(404).json({ erreur: 'Étudiant introuvable.' });
+    const etu = etus[0];
+
+    // Périodes = année → niveau. Sources : profil courant, historique
+    // d'inscription aux cours (niveau réel de l'année), années des versements.
+    const periodesMap = new Map();
+    const ajouter = (annee, niveau) => {
+      if (!annee) return;
+      if (!periodesMap.has(annee)) periodesMap.set(annee, { annee_academique: annee, niveau: niveau || etu.niveau });
+      else if (niveau && !periodesMap.get(annee).niveau) periodesMap.get(annee).niveau = niveau;
+    };
+    ajouter(etu.annee_academique, etu.niveau);
+    const [hist] = await pool.query(
+      `SELECT DISTINCT c.annee_academique, c.niveau
+       FROM inscription_cours ic JOIN cours c ON c.id = ic.cours_id
+       WHERE ic.etudiant_id = ?`, [req.params.id]
+    );
+    hist.forEach(h => ajouter(h.annee_academique, h.niveau));
+    const [ap] = await pool.query('SELECT DISTINCT annee_academique FROM paiement WHERE etudiant_id = ?', [req.params.id]);
+    ap.forEach(a => ajouter(a.annee_academique, null));
+
+    // Barème (somme des rubriques) + versements de l'année, pour chaque période.
+    const periodes = [];
+    for (const p of periodesMap.values()) {
+      const [[bareme]] = await pool.query(
+        'SELECT SUM(montant) AS total FROM frais_scolarite WHERE faculte = ? AND promotion = ? AND niveau = ? AND annee_academique = ?',
+        [etu.faculte, etu.promotion, p.niveau, p.annee_academique]
+      );
+      const [[verse]] = await pool.query(
+        'SELECT COALESCE(SUM(montant),0) AS total FROM paiement WHERE etudiant_id = ? AND annee_academique = ?',
+        [req.params.id, p.annee_academique]
+      );
+      const montant_attendu = bareme && bareme.total !== null ? Number(bareme.total) : null;
+      const total_verse = Number(verse.total);
+      periodes.push({
+        annee_academique: p.annee_academique, niveau: p.niveau,
+        faculte: etu.faculte, promotion: etu.promotion,
+        montant_attendu, total_verse,
+        solde: montant_attendu === null ? null : Math.max(0, montant_attendu - total_verse),
+      });
+    }
+    periodes.sort((a, b) => (a.annee_academique < b.annee_academique ? 1 : -1));
+    res.json({
+      etudiant: { id: etu.id, nom: etu.nom, postnom: etu.postnom, prenom: etu.prenom, annee_courante: etu.annee_academique },
+      periodes,
+    });
+  } catch (erreur) {
+    console.error('Erreur situation étudiant:', erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
 // ===== GET /api/caisse/stats — synthèse financière =====
 router.get('/stats', async (req, res) => {
   try {

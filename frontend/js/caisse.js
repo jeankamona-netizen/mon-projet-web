@@ -44,8 +44,9 @@ function deconnecterCaisse() {
 function getAgentCaisse() {
   try { return JSON.parse(sessionStorage.getItem('caisse_agent') || 'null'); } catch { return null; }
 }
-// L'administrateur du budget consulte sans encaisser (lecture seule des versements).
-function estLectureSeule() { return (getAgentCaisse() || {}).role === 'budget'; }
+// Encaissement ouvert à tous les rôles des finances (caissier ET administrateur
+// du budget) : plus aucun rôle n'est en lecture seule sur les versements.
+function estLectureSeule() { return false; }
 // À l'inverse, le barème est fixé par l'administrateur du budget (et l'admin) ;
 // le caissier ne peut que le consulter.
 function peutEditerBareme() { const r = (getAgentCaisse() || {}).role; return r === 'budget' || r === 'admin'; }
@@ -223,13 +224,12 @@ async function chargerBareme() {
       if (posGroupe[k] === undefined) { posGroupe[k] = groupes.length; groupes.push({ faculte: l.faculte, promotion: l.promotion, niveau: l.niveau, lignes: [] }); }
       groupes[posGroupe[k]].lignes.push(l);
     });
-    let idx = 0;
     tbody.innerHTML = groupes.map(g => {
       const total = g.lignes.reduce((s, l) => s + Number(l.montant), 0);
-      const rubriques = g.lignes.map(l => {
-        idx++;
+      // Numérotation qui redémarre à 1 pour chaque groupe (faculté · filière).
+      const rubriques = g.lignes.map((l, j) => {
         return `<tr>
-          <td>${idx}</td>
+          <td>${j + 1}</td>
           <td>${l.faculte}</td>
           <td>${libelleFiliere(l.niveau, l.promotion)}</td>
           <td>${l.rubrique || '—'}</td>
@@ -338,6 +338,11 @@ async function chargerEtudiantsCaisse() {
 // =====================
 // MODAL VERSEMENTS
 // =====================
+// Situation de l'étudiant courant (périodes/soldes par année) + cache des
+// versements toutes années confondues, pour filtrer par année sélectionnée.
+let situationCaisse = null;
+let paiementsToutesAnnees = [];
+
 async function ouvrirModalPaiementsCaisse(etudiantId) {
   etudiantCourantCaisse = etudiantsCaisse.find(e => e.id === etudiantId) || null;
   const nomEtudiant = etudiantCourantCaisse
@@ -348,67 +353,135 @@ async function ouvrirModalPaiementsCaisse(etudiantId) {
   document.getElementById('paiement-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('paiement-reference').value = '';
 
-  // Administrateur du budget : consultation seule → on masque tout le formulaire de saisie.
   const saisie = document.getElementById('paiement-saisie');
   if (saisie) saisie.style.display = estLectureSeule() ? 'none' : '';
 
   document.getElementById('modal-paiements')?.classList.add('active');
+
+  // Charger la situation (périodes/soldes par année) et remplir le sélecteur.
+  situationCaisse = null;
+  const selAnnee = document.getElementById('paiement-annee');
+  if (selAnnee) selAnnee.innerHTML = '<option>Chargement...</option>';
+  await rafraichirSituationCaisse(etudiantId);
+  const courante = (situationCaisse && situationCaisse.etudiant && situationCaisse.etudiant.annee_courante) || (etudiantCourantCaisse || {}).annee_academique || '';
+  remplirAnneesPaiement(courante);
+
   await chargerPaiementsCaisse();
 }
 
 function fermerModalPaiements() { document.getElementById('modal-paiements')?.classList.remove('active'); }
 
+// Récupère la situation (périodes/soldes par année) de l'étudiant courant.
+async function rafraichirSituationCaisse(etudiantId) {
+  try {
+    const r = await fetchCaisse(`${BASE_URL}/api/caisse/etudiant/${etudiantId}/situation`);
+    situationCaisse = await r.json();
+  } catch { situationCaisse = { periodes: [] }; }
+}
+
+// Remplit le sélecteur d'année depuis la situation (dette signalée dans l'option).
+function remplirAnneesPaiement(anneePref) {
+  const selAnnee = document.getElementById('paiement-annee');
+  if (!selAnnee) return;
+  const periodes = (situationCaisse && situationCaisse.periodes) || [];
+  const courante = (situationCaisse && situationCaisse.etudiant && situationCaisse.etudiant.annee_courante) || (etudiantCourantCaisse || {}).annee_academique || '';
+  selAnnee.innerHTML = periodes.length
+    ? periodes.map(p => `<option value="${p.annee_academique}">${p.annee_academique}${p.niveau ? ' · ' + p.niveau : ''}${p.solde > 0 ? '  — dette ' + montant(p.solde) + ' $' : ''}</option>`).join('')
+    : `<option value="${courante}">${courante || '—'}</option>`;
+  const cible = (anneePref && periodes.some(p => p.annee_academique === anneePref)) ? anneePref
+              : (courante && periodes.some(p => p.annee_academique === courante)) ? courante
+              : (periodes[0] ? periodes[0].annee_academique : courante);
+  if (cible) selAnnee.value = cible;
+}
+
+// Recharge situation + versements après un ajout/suppression, en conservant
+// l'année sélectionnée (régularisation d'une dette antérieure).
+async function rafraichirModalPaiements() {
+  const etudiantId = document.getElementById('paiements-etudiant-id').value;
+  const anneeAvant = document.getElementById('paiement-annee')?.value;
+  await rafraichirSituationCaisse(etudiantId);
+  remplirAnneesPaiement(anneeAvant);
+  await chargerPaiementsCaisse();
+}
+
+// Re-render lorsqu'on change l'année (régularisation d'une dette antérieure).
+function changerAnneePaiement() { afficherPaiementsAnnee(); }
+
+// Période (barème/solde) correspondant à l'année sélectionnée.
+function periodeSelectionnee() {
+  const annee = document.getElementById('paiement-annee')?.value || '';
+  const periodes = (situationCaisse && situationCaisse.periodes) || [];
+  return periodes.find(p => p.annee_academique === annee) || null;
+}
+
 async function chargerPaiementsCaisse() {
   const etudiantId = document.getElementById('paiements-etudiant-id').value;
   const tbody = document.getElementById('paiements-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="4" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
   try {
     const r = await fetchCaisse(`${BASE_URL}/api/paiements/etudiant/${etudiantId}`);
-    const paiements = await r.json();
-    const total = paiements.reduce((s, p) => s + Number(p.montant), 0);
-    document.getElementById('paiements-total').textContent = `${total.toFixed(2)} $`;
-
-    // Solde = barème (attaché à l'étudiant depuis GET /api/caisse/etudiants) −
-    // total versé recalculé ici (à jour même juste après un ajout/suppression).
-    const soldeEl = document.getElementById('paiements-solde');
-    if (soldeEl) {
-      const attendu = etudiantCourantCaisse?.montant_attendu;
-      if (attendu == null) { soldeEl.textContent = 'Barème non défini'; soldeEl.style.fontSize = '13px'; }
-      else {
-        const solde = Math.max(0, Number(attendu) - total);
-        soldeEl.textContent = `${solde.toFixed(2)} $`;
-        soldeEl.style.fontSize = '22px';
-        soldeEl.style.color = solde > 0 ? 'var(--rouge, #c0392b)' : 'var(--vert)';
-      }
-    }
-
-    const lecture = estLectureSeule();
-    tbody.innerHTML = paiements.length === 0
-      ? `<tr><td colspan="6" class="admin-vide">Aucun versement enregistré.</td></tr>`
-      : paiements.map(p => `<tr>
-          <td>${formaterDateCaisse(p.date_paiement)}</td>
-          <td>${Number(p.montant).toFixed(2)} $</td>
-          <td>${p.rubrique || '—'}</td>
-          <td>${p.reference || '—'}</td>
-          <td>${p.mode_paiement || '—'}</td>
-          <td class="admin-actions-cell">
-            <button class="btn-icone" onclick='reimprimerRecu(${JSON.stringify(p)})' title="Réimprimer le reçu">🧾</button>
-            ${lecture ? '' : `<button class="btn-icone danger" onclick="supprimerPaiementCaisse(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button>`}
-          </td>
-        </tr>`).join('');
+    paiementsToutesAnnees = await r.json();
+    afficherPaiementsAnnee();
   } catch { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
+// Affiche les versements de l'année sélectionnée + total & solde de cette année.
+function afficherPaiementsAnnee() {
+  const tbody = document.getElementById('paiements-body');
+  if (!tbody) return;
+  const annee = document.getElementById('paiement-annee')?.value || '';
+  const periode = periodeSelectionnee();
+  const paiements = paiementsToutesAnnees.filter(p => (p.annee_academique || '') === annee);
+  const total = paiements.reduce((s, p) => s + Number(p.montant), 0);
+  document.getElementById('paiements-total').textContent = `${total.toFixed(2)} $`;
+
+  // Info sur le barème de l'année choisie (utile pour une année antérieure).
+  const info = document.getElementById('paiement-annee-info');
+  if (info) info.textContent = periode && periode.montant_attendu != null
+    ? `Barème ${annee} : ${montant(periode.montant_attendu)} $`
+    : (periode ? 'Aucun barème défini pour cette année.' : '');
+
+  const soldeEl = document.getElementById('paiements-solde');
+  if (soldeEl) {
+    const attendu = periode ? periode.montant_attendu : (etudiantCourantCaisse || {}).montant_attendu;
+    if (attendu == null) { soldeEl.textContent = 'Barème non défini'; soldeEl.style.fontSize = '13px'; soldeEl.style.color = '#999'; }
+    else {
+      const solde = Math.max(0, Number(attendu) - total);
+      soldeEl.textContent = `${solde.toFixed(2)} $`;
+      soldeEl.style.fontSize = '22px';
+      soldeEl.style.color = solde > 0 ? 'var(--rouge, #c0392b)' : 'var(--vert)';
+    }
+  }
+
+  const lecture = estLectureSeule();
+  tbody.innerHTML = paiements.length === 0
+    ? `<tr><td colspan="6" class="admin-vide">Aucun versement pour ${annee || 'cette année'}.</td></tr>`
+    : paiements.map(p => `<tr>
+        <td>${formaterDateCaisse(p.date_paiement)}</td>
+        <td>${Number(p.montant).toFixed(2)} $</td>
+        <td>${p.rubrique || '—'}</td>
+        <td>${p.reference || '—'}</td>
+        <td>${p.mode_paiement || '—'}</td>
+        <td class="admin-actions-cell">
+          <button class="btn-icone" onclick='reimprimerRecu(${JSON.stringify(p)})' title="Réimprimer le reçu">🧾</button>
+          ${lecture ? '' : `<button class="btn-icone danger" onclick="supprimerPaiementCaisse(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button>`}
+        </td>
+      </tr>`).join('');
+}
+
 async function ajouterPaiementCaisse() {
-  if (estLectureSeule()) { afficherToast('⚠️ Consultation seule : encaissement réservé au caissier.', 'erreur'); return; }
+  if (estLectureSeule()) { afficherToast('⚠️ Encaissement non autorisé pour ce compte.', 'erreur'); return; }
   const etudiant_id = document.getElementById('paiements-etudiant-id').value;
   const montantVal = parseFloat(document.getElementById('paiement-montant').value);
   const date_paiement = document.getElementById('paiement-date').value;
   const mode_paiement = document.getElementById('paiement-mode').value;
   const rubrique = document.getElementById('paiement-rubrique').value;
   const reference = document.getElementById('paiement-reference').value.trim();
-  const annee_academique = (etudiantCourantCaisse || {}).annee_academique || null;
+  // Année choisie dans le sélecteur (année courante par défaut, ou une année
+  // antérieure pour régulariser une dette d'un étudiant promu).
+  const annee_academique = document.getElementById('paiement-annee')?.value || (etudiantCourantCaisse || {}).annee_academique || null;
+  const periode = periodeSelectionnee();
 
   if (isNaN(montantVal) || montantVal <= 0) { afficherToast('⚠️ Entrez un montant valide.', 'erreur'); return; }
   if (!date_paiement) { afficherToast('⚠️ La date est obligatoire.', 'erreur'); return; }
@@ -420,11 +493,12 @@ async function ajouterPaiementCaisse() {
     const d = await r.json();
     if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
     afficherToast('✅ Versement enregistré.');
-    // Reçu imprimé automatiquement après encaissement.
-    imprimerRecu({ id: d.id, montant: montantVal, date_paiement, rubrique, reference, mode_paiement }, etudiantCourantCaisse, nomCaissier());
+    // Reçu imprimé automatiquement — avec le niveau/année de la période visée.
+    const etuRecu = { ...etudiantCourantCaisse, annee_academique, niveau: (periode && periode.niveau) || (etudiantCourantCaisse || {}).niveau };
+    imprimerRecu({ id: d.id, montant: montantVal, date_paiement, rubrique, reference, mode_paiement }, etuRecu, nomCaissier());
     document.getElementById('paiement-montant').value = '';
     document.getElementById('paiement-reference').value = '';
-    chargerPaiementsCaisse();
+    await rafraichirModalPaiements();
     chargerEtudiantsCaisse();
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
@@ -434,7 +508,7 @@ async function supprimerPaiementCaisse(id) {
   try {
     await fetchCaisse(`${BASE_URL}/api/paiements/${id}`, { method: 'DELETE' });
     afficherToast('🗑️ Versement supprimé.');
-    chargerPaiementsCaisse();
+    await rafraichirModalPaiements();
     chargerEtudiantsCaisse();
   } catch (err) { console.error(err); }
 }
