@@ -9,13 +9,13 @@ const { requireFinance, requireBudget } = require('../middleware/auth');
 router.get('/', requireFinance, async (req, res) => {
   try {
     const { annee, faculte, promotion, niveau } = req.query;
-    let sql = 'SELECT id, faculte, promotion, niveau, annee_academique, montant FROM frais_scolarite WHERE 1=1';
+    let sql = 'SELECT id, faculte, promotion, niveau, annee_academique, rubrique, montant FROM frais_scolarite WHERE 1=1';
     const params = [];
     if (annee)     { sql += ' AND annee_academique = ?'; params.push(annee); }
     if (faculte)   { sql += ' AND faculte = ?'; params.push(faculte); }
     if (promotion) { sql += ' AND promotion = ?'; params.push(promotion); }
     if (niveau)    { sql += ' AND niveau = ?'; params.push(niveau); }
-    sql += ' ORDER BY annee_academique DESC, faculte, promotion, niveau';
+    sql += ' ORDER BY annee_academique DESC, faculte, promotion, niveau, rubrique';
     const [lignes] = await pool.query(sql, params);
     res.json(lignes.map(l => ({ ...l, montant: Number(l.montant) })));
   } catch (erreur) {
@@ -32,14 +32,17 @@ router.post('/', requireBudget, async (req, res) => {
   // pas de filière (ex. Pré-U, licence non subdivisée). On enregistre alors
   // avec « - ».
   const promotion = (req.body.promotion || '').trim() || '-';
+  // Rubrique (frais) : chaque niveau peut avoir plusieurs rubriques (carte,
+  // frais académiques, labo…), chacune avec son montant.
+  const rubrique = (req.body.rubrique || '').trim() || 'Frais académiques';
   if (!faculte || !niveau || !annee_academique || montant === undefined || isNaN(montant) || Number(montant) < 0) {
     return res.status(400).json({ erreur: "Faculté, niveau, année académique et montant (≥ 0) sont obligatoires." });
   }
   try {
     await pool.query(
-      `INSERT INTO frais_scolarite (faculte, promotion, niveau, annee_academique, montant) VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO frais_scolarite (faculte, promotion, niveau, annee_academique, rubrique, montant) VALUES (?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE montant = VALUES(montant)`,
-      [faculte, promotion, niveau, annee_academique, montant]
+      [faculte, promotion, niveau, annee_academique, rubrique, montant]
     );
     res.status(201).json({ message: "Barème enregistré." });
   } catch (erreur) {

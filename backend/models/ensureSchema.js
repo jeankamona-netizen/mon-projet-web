@@ -11,7 +11,10 @@
 // avant cette évolution peut manquer la colonne `niveau` ou la clé unique,
 // ce qui fait échouer l'INSERT du barème (erreur 500).
 async function assurerSchemaFraisScolarite(pool) {
-  // 1. Table absente → on la crée avec le schéma complet et à jour.
+  // 1. Table absente → on la crée avec le schéma complet et à jour. Chaque
+  //    ligne = une rubrique (frais) d'un niveau ; un niveau peut donc avoir
+  //    plusieurs lignes (carte, frais académiques, labo…), le total étant ce
+  //    que l'étudiant doit pour l'année.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS frais_scolarite (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -19,19 +22,19 @@ async function assurerSchemaFraisScolarite(pool) {
       promotion VARCHAR(100) NOT NULL DEFAULT '',
       niveau VARCHAR(10) NOT NULL DEFAULT '',
       annee_academique VARCHAR(20) NOT NULL DEFAULT '',
+      rubrique VARCHAR(100) NOT NULL DEFAULT '-',
       montant DECIMAL(10,2) NOT NULL DEFAULT 0,
-      UNIQUE KEY uq_bareme (faculte, promotion, niveau, annee_academique)
+      UNIQUE KEY uq_bareme (faculte, promotion, niveau, annee_academique, rubrique)
     )
   `);
 
-  // 2. Table plus ancienne : ajouter TOUTE colonne attendue qui manque. Une
-  //    base créée à la première version du barème (niveau seul) n'a ni
-  //    `faculte` ni `promotion` → l'INSERT échouait ("Unknown column 'faculte'").
+  // 2. Table plus ancienne : ajouter TOUTE colonne attendue qui manque.
   const attendues = {
     faculte:          "VARCHAR(150) NOT NULL DEFAULT ''",
     promotion:        "VARCHAR(100) NOT NULL DEFAULT ''",
     niveau:           "VARCHAR(10) NOT NULL DEFAULT ''",
     annee_academique: "VARCHAR(20) NOT NULL DEFAULT ''",
+    rubrique:         "VARCHAR(100) NOT NULL DEFAULT '-'",
     montant:          "DECIMAL(10,2) NOT NULL DEFAULT 0",
   };
   const [colonnes] = await pool.query(
@@ -45,29 +48,34 @@ async function assurerSchemaFraisScolarite(pool) {
     }
   }
 
-  // 3. Purger toute ancienne clé unique de granularité obsolète (ex. unique sur
-  //    `niveau` seul), qui empêcherait deux barèmes de facultés différentes au
-  //    même niveau. On garde PRIMARY et uq_bareme.
+  // 3. Clé unique : elle doit maintenant inclure `rubrique`. On repère les
+  //    colonnes de uq_bareme ; si elle existe sans `rubrique` (ancienne
+  //    granularité), on la supprime pour la recréer complète.
+  const [colsUq] = await pool.query(
+    `SELECT COLUMN_NAME FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'frais_scolarite' AND INDEX_NAME = 'uq_bareme'`
+  );
+  const uqExiste = colsUq.length > 0;
+  const uqAvecRubrique = colsUq.some(c => c.COLUMN_NAME.toLowerCase() === 'rubrique');
+
+  // Purger toute clé unique obsolète (autres que PRIMARY), + uq_bareme si elle
+  // n'inclut pas encore la rubrique.
   const [uniques] = await pool.query(
     `SELECT DISTINCT INDEX_NAME FROM information_schema.STATISTICS
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'frais_scolarite'
-       AND NON_UNIQUE = 0 AND INDEX_NAME <> 'PRIMARY' AND INDEX_NAME <> 'uq_bareme'`
+       AND NON_UNIQUE = 0 AND INDEX_NAME <> 'PRIMARY'`
   );
   for (const u of uniques) {
-    try { await pool.query(`ALTER TABLE frais_scolarite DROP INDEX \`${u.INDEX_NAME}\``); }
-    catch (e) { console.warn('⚠️ suppression index', u.INDEX_NAME, ':', e.message); }
+    const nom = u.INDEX_NAME;
+    if (nom === 'uq_bareme' && uqAvecRubrique) continue; // déjà bonne
+    try { await pool.query(`ALTER TABLE frais_scolarite DROP INDEX \`${nom}\``); }
+    catch (e) { console.warn('⚠️ suppression index', nom, ':', e.message); }
   }
 
-  // 4. Créer la clé unique attendue si absente (indispensable au
-  //    ON DUPLICATE KEY UPDATE du barème).
-  const [index] = await pool.query(
-    `SELECT INDEX_NAME FROM information_schema.STATISTICS
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'frais_scolarite'
-       AND INDEX_NAME = 'uq_bareme' LIMIT 1`
-  );
-  if (index.length === 0) {
+  // 4. Créer uq_bareme (avec rubrique) si elle n'existe pas ou vient d'être purgée.
+  if (!uqExiste || !uqAvecRubrique) {
     try {
-      await pool.query('ALTER TABLE frais_scolarite ADD UNIQUE KEY uq_bareme (faculte, promotion, niveau, annee_academique)');
+      await pool.query('ALTER TABLE frais_scolarite ADD UNIQUE KEY uq_bareme (faculte, promotion, niveau, annee_academique, rubrique)');
     } catch (e) {
       console.warn('⚠️ uq_bareme non créée :', e.message);
     }

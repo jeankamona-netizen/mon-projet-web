@@ -15,16 +15,22 @@ router.use(requireFinance);
 router.get('/etudiants', async (req, res) => {
   try {
     const { nom, annee, niveau, faculte } = req.query;
+    // montant_attendu = SOMME de toutes les rubriques du barème correspondant
+    // (faculté + filière + niveau + année) — sous-requête pour ne pas multiplier
+    // le total des versements par le nombre de rubriques.
     let sql = `
       SELECT e.id, e.nom, e.postnom, e.prenom, e.faculte, f.nom AS filiere, e.promotion, e.niveau,
              e.annee_academique, e.statut,
              COALESCE(SUM(p.montant), 0) AS total_verse,
              COUNT(p.id) AS nb_versements,
-             fs.montant AS montant_attendu
+             (SELECT SUM(fs.montant) FROM frais_scolarite fs
+               WHERE fs.faculte = e.faculte AND fs.promotion = e.promotion
+                 AND fs.niveau = e.niveau AND fs.annee_academique = e.annee_academique) AS montant_attendu,
+             (SELECT p2.rubrique  FROM paiement p2 WHERE p2.etudiant_id = e.id ORDER BY p2.date_paiement DESC, p2.id DESC LIMIT 1) AS dernier_motif,
+             (SELECT p2.reference FROM paiement p2 WHERE p2.etudiant_id = e.id ORDER BY p2.date_paiement DESC, p2.id DESC LIMIT 1) AS derniere_reference
       FROM etudiant e
       LEFT JOIN filiere f ON e.filiere_id = f.id
       LEFT JOIN paiement p ON p.etudiant_id = e.id
-      LEFT JOIN frais_scolarite fs ON fs.faculte = e.faculte AND fs.promotion = e.promotion AND fs.niveau = e.niveau AND fs.annee_academique = e.annee_academique
       WHERE 1=1
     `;
     const params = [];

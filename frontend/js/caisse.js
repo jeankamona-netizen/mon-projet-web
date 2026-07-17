@@ -199,24 +199,36 @@ async function chargerBareme() {
   if (form) form.style.display = editable ? '' : 'none';
   const colAction = document.getElementById('bareme-col-action');
   if (colAction) colAction.style.display = editable ? '' : 'none';
-  tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
   try {
     const annee = document.getElementById('bareme-annee')?.value || '';
     const params = new URLSearchParams();
     if (annee) params.append('annee', annee);
     const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite?${params}`);
     const lignes = await r.json();
-    if (!lignes.length) { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Aucun barème défini pour cette année.</td></tr>`; return; }
+    if (!lignes.length) { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Aucun barème défini pour cette année.</td></tr>`; return; }
+    // Total attendu par groupe (faculté + filière + niveau) = somme des rubriques.
+    const totalGroupe = {};
+    lignes.forEach(l => { const k = `${l.faculte}|${l.promotion}|${l.niveau}`; totalGroupe[k] = (totalGroupe[k] || 0) + Number(l.montant); });
     tbody.innerHTML = lignes.map((l, i) => `
       <tr>
         <td>${i + 1}</td>
         <td>${l.faculte}</td>
         <td>${l.promotion}</td>
         <td><span class="annee-badge">${l.niveau}</span></td>
+        <td>${l.rubrique || '—'}</td>
         <td><strong>${montant(l.montant)} $</strong></td>
         ${editable ? `<td class="admin-actions-cell"><button class="btn-icone danger" onclick="supprimerBareme(${l.id})" aria-label="Supprimer">${icone('corbeille')}</button></td>` : ''}
-      </tr>`).join('');
-  } catch { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+      </tr>`).join('') +
+      // Ligne de total attendu par groupe (ce que l'étudiant doit pour l'année).
+      Object.entries(totalGroupe).map(([k, tot]) => {
+        const [fac, fil, niv] = k.split('|');
+        return `<tr style="background:#eef2fb">
+          <td></td><td colspan="3"><strong>Total attendu — ${fac} · ${fil} · ${niv}</strong></td>
+          <td></td><td><strong style="color:var(--bleu)">${montant(tot)} $</strong></td>${editable ? '<td></td>' : ''}
+        </tr>`;
+      }).join('');
+  } catch { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
 async function enregistrerBareme() {
@@ -225,6 +237,7 @@ async function enregistrerBareme() {
   const faculte = document.getElementById('bareme-faculte')?.value;
   const promotion = document.getElementById('bareme-promotion')?.value;
   const niveau = document.getElementById('bareme-niveau')?.value;
+  const rubrique = document.getElementById('bareme-rubrique')?.value || 'Frais académiques';
   const montantVal = parseFloat(document.getElementById('bareme-montant')?.value);
   // La filière est OPTIONNELLE : un niveau/faculté sans filière (ex. Pré-U,
   // licence non subdivisée) s'enregistre avec « - ».
@@ -242,7 +255,7 @@ async function enregistrerBareme() {
     for (const fil of cibles) {
       const r = await fetchCaisse(`${BASE_URL}/api/frais-scolarite`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ faculte, promotion: fil, niveau, annee_academique, montant: montantVal })
+        body: JSON.stringify({ faculte, promotion: fil, niveau, annee_academique, rubrique, montant: montantVal })
       });
       const d = await r.json();
       if (r.ok) ok++; else { echecs++; dernierMsg = d.erreur || ''; }
@@ -284,22 +297,23 @@ async function chargerEtudiantsCaisse() {
     if (niveau) params.append('niveau', niveau);
     const r = await fetchCaisse(`${BASE_URL}/api/caisse/etudiants?${params}`);
     etudiantsCaisse = await r.json();
-    if (!etudiantsCaisse.length) { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
+    if (!etudiantsCaisse.length) { tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
     const libelle = estLectureSeule() ? 'Consulter la situation' : 'Gérer les versements';
     tbody.innerHTML = etudiantsCaisse.map(e => `
       <tr>
-        <td><code style="font-size:11px">${e.id}</code></td>
-        <td><strong>${e.nom}</strong> ${e.postnom || ''} ${e.prenom}</td>
+        <td><strong>${e.nom}</strong> ${e.postnom || ''} ${e.prenom}<br><span style="font-size:11px;color:#999">${e.id}</span></td>
         <td>${e.faculte || '—'}</td>
         <td>${e.niveau ? `<span class="annee-badge">${e.niveau}</span>` : '—'}</td>
         <td>${e.annee_academique || '—'}</td>
+        <td>${e.dernier_motif || '—'}</td>
+        <td>${e.derniere_reference || '—'}</td>
         <td><strong style="color:var(--vert)">${montant(e.total_verse)} $</strong></td>
         <td>${e.solde === null ? '<span style="color:#999">Barème non défini</span>' : `<strong style="color:${e.solde > 0 ? 'var(--rouge,#c0392b)' : 'var(--vert)'}">${montant(e.solde)} $</strong>`}</td>
         <td class="admin-actions-cell">
           <button class="btn-icone" onclick="ouvrirModalPaiementsCaisse('${e.id}')" title="${libelle}">💵</button>
         </td>
       </tr>`).join('');
-  } catch { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+  } catch { tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
 // =====================

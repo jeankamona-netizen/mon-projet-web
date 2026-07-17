@@ -457,17 +457,17 @@ app.get('/api/etudiant/:id/paiements', async (req, res) => {
     );
     const total = paiements.reduce((s, p) => s + Number(p.montant), 0);
 
-    // Solde restant = barème (frais_scolarite) de la faculté/promotion/année de
-    // l'étudiant − ses versements pour cette même année. null si aucun barème
-    // n'a encore été défini pour ce triplet.
+    // Solde restant = SOMME de toutes les rubriques du barème (frais_scolarite)
+    // de la faculté/filière/niveau/année de l'étudiant − ses versements de cette
+    // même année. null si aucun barème n'a encore été défini.
     const [[bareme]] = await pool.query(
-      'SELECT montant FROM frais_scolarite WHERE faculte = ? AND promotion = ? AND niveau = ? AND annee_academique = ?',
+      'SELECT SUM(montant) AS total FROM frais_scolarite WHERE faculte = ? AND promotion = ? AND niveau = ? AND annee_academique = ?',
       [etu.faculte, etu.promotion, etu.niveau, etu.annee_academique]
     );
     const totalAnneeCourante = paiements
       .filter(p => p.annee_academique === etu.annee_academique)
       .reduce((s, p) => s + Number(p.montant), 0);
-    const montant_attendu = bareme ? Number(bareme.montant) : null;
+    const montant_attendu = bareme && bareme.total !== null ? Number(bareme.total) : null;
     const solde = montant_attendu === null ? null : Math.max(0, montant_attendu - totalAnneeCourante);
 
     res.json({ paiements, total, montant_attendu, solde });

@@ -154,12 +154,12 @@
           </select>
         </div>
 
-        <div class="dash-card">
+        <div class="dash-card" style="overflow-x:auto">
           <table class="dash-table">
             <thead>
-              <tr><th>Matricule</th><th>Étudiant</th><th>Faculté</th><th>Niveau</th><th>Année</th><th>Total versé</th><th>Solde restant</th><th>Actions</th></tr>
+              <tr><th>Étudiant</th><th>Faculté</th><th>Niveau</th><th>Année</th><th>Motif</th><th>Référence</th><th>Total versé</th><th>Solde restant</th><th>Actions</th></tr>
             </thead>
-            <tbody id="caisse-etudiants-body"><tr><td colspan="8" class="admin-vide">Chargement...</td></tr></tbody>
+            <tbody id="caisse-etudiants-body"><tr><td colspan="9" class="admin-vide">Chargement...</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -201,19 +201,30 @@
           <div class="admin-toolbar" id="bareme-form" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-top:1px dashed #e0e6ef;padding-top:12px;margin-top:4px">
             <select class="admin-recherche" id="bareme-faculte" onchange="majPromotionsBareme()" style="flex:1 1 200px;min-width:160px"><option value="">— Faculté —</option></select>
             <select class="admin-recherche" id="bareme-promotion" style="flex:1 1 190px;min-width:160px"><option value="">— Filière —</option></select>
-            <select class="admin-recherche" id="bareme-niveau" onchange="majPromotionsBareme()" style="flex:0 0 118px">
+            <select class="admin-recherche" id="bareme-niveau" onchange="majPromotionsBareme()" style="flex:0 0 110px">
               <option value="">— Niveau —</option>
               <option value="Pré-U">Pré-U</option><option value="L1">L1</option><option value="L2">L2</option><option value="L3">L3</option>
               <option value="M1">M1</option><option value="M2">M2</option><option value="D1">D1</option><option value="D2">D2</option>
             </select>
-            <input type="number" class="admin-recherche" id="bareme-montant" placeholder="Montant ($)" min="0" step="0.01" style="flex:0 0 140px">
+            <select class="admin-recherche" id="bareme-rubrique" style="flex:1 1 170px;min-width:150px">
+              <option value="Frais académiques">Frais académiques</option>
+              <option value="Minerval">Minerval</option>
+              <option value="Frais d'inscription">Frais d'inscription</option>
+              <option value="Carte d'étudiant">Carte d'étudiant</option>
+              <option value="Frais de connexion">Frais de connexion</option>
+              <option value="Frais de laboratoire">Frais de laboratoire</option>
+              <option value="Frais de session">Frais de session</option>
+              <option value="Frais connexes">Frais connexes</option>
+              <option value="Autre">Autre</option>
+            </select>
+            <input type="number" class="admin-recherche" id="bareme-montant" placeholder="Montant ($)" min="0" step="0.01" style="flex:0 0 130px">
             <button class="btn-ajouter" onclick="enregistrerBareme()" style="flex:0 0 auto">✅ Enregistrer</button>
           </div>
 
           <div style="overflow-x:auto">
             <table class="dash-table">
-              <thead><tr><th style="width:52px">N°</th><th>Faculté</th><th>Filière</th><th>Niveau</th><th>Montant attendu ($)</th><th id="bareme-col-action">Action</th></tr></thead>
-              <tbody id="bareme-body"><tr><td colspan="6" class="admin-vide">Chargement...</td></tr></tbody>
+              <thead><tr><th style="width:52px">N°</th><th>Faculté</th><th>Filière</th><th>Niveau</th><th>Rubrique</th><th>Montant ($)</th><th id="bareme-col-action">Action</th></tr></thead>
+              <tbody id="bareme-body"><tr><td colspan="7" class="admin-vide">Chargement...</td></tr></tbody>
             </table>
           </div>
         </div>
