@@ -204,11 +204,14 @@ async function enregistrerBareme() {
   const promotion = document.getElementById('bareme-promotion')?.value;
   const niveau = document.getElementById('bareme-niveau')?.value;
   const montantVal = parseFloat(document.getElementById('bareme-montant')?.value);
-  if (!annee_academique || !faculte || !promotion || !niveau) { afficherToast('⚠️ Choisissez année, faculté, filière et niveau.', 'erreur'); return; }
+  // La filière est OPTIONNELLE : un niveau/faculté sans filière (ex. Pré-U,
+  // licence non subdivisée) s'enregistre avec « - ».
+  if (!annee_academique || !faculte || !niveau) { afficherToast('⚠️ Choisissez année, faculté et niveau.', 'erreur'); return; }
   if (isNaN(montantVal) || montantVal < 0) { afficherToast('⚠️ Entrez un montant valide.', 'erreur'); return; }
 
-  // « Toutes les filières » : on applique le barème à chacune des filières de la faculté.
-  const cibles = promotion === '__toutes__' ? filieresDeFaculte(faculte) : [promotion];
+  // « Toutes les filières » → une ligne par filière ; sinon la filière choisie,
+  // ou « - » si aucune n'est sélectionnée.
+  const cibles = promotion === '__toutes__' ? filieresDeFaculte(faculte) : [promotion || '-'];
   if (!cibles.length) { afficherToast('⚠️ Aucune filière trouvée pour cette faculté.', 'erreur'); return; }
 
   try {

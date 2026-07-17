@@ -27,9 +27,13 @@ router.get('/', requireFinance, async (req, res) => {
 // ===== POST /api/frais-scolarite — définir/mettre à jour le montant attendu =====
 // Réservé à l'administrateur du budget (et à l'admin) ; la caisse est en lecture seule.
 router.post('/', requireBudget, async (req, res) => {
-  const { faculte, promotion, niveau, annee_academique, montant } = req.body;
-  if (!faculte || !promotion || !niveau || !annee_academique || montant === undefined || isNaN(montant) || Number(montant) < 0) {
-    return res.status(400).json({ erreur: "Faculté, filière, niveau, année académique et montant (≥ 0) sont obligatoires." });
+  const { faculte, niveau, annee_academique, montant } = req.body;
+  // La filière (promotion) est optionnelle : certains niveaux/facultés n'ont
+  // pas de filière (ex. Pré-U, licence non subdivisée). On enregistre alors
+  // avec « - ».
+  const promotion = (req.body.promotion || '').trim() || '-';
+  if (!faculte || !niveau || !annee_academique || montant === undefined || isNaN(montant) || Number(montant) < 0) {
+    return res.status(400).json({ erreur: "Faculté, niveau, année académique et montant (≥ 0) sont obligatoires." });
   }
   try {
     await pool.query(

@@ -189,17 +189,17 @@
 
 /* Tableau « Gérer les inscrits » : largeurs fixes (colgroup) respectées,
    contenu coupé proprement pour que les lignes restent compactes. */
-.table-inscrits { table-layout: fixed; width: 100%; min-width: 860px; }
+.table-inscrits { table-layout: fixed; width: 100%; }
 .table-inscrits th,
 .table-inscrits td {
-  overflow-wrap: break-word;
-  word-break: break-word;
+  padding: 8px 5px;              /* intercolonnes réduits */
+  overflow-wrap: break-word;     /* coupe seulement si nécessaire (pas au milieu des mots) */
   vertical-align: middle;
+  font-size: 12.5px;
 }
-.table-inscrits code { word-break: break-all; }
-/* Colonne Actions : les 5 boutons tiennent sur UNE seule ligne. */
-.table-inscrits .admin-actions-cell { flex-wrap: nowrap; gap: 3px; justify-content: flex-start; }
-.table-inscrits .admin-actions-cell .btn-icone { padding: 3px 4px; font-size: 13px; flex: 0 0 auto; }
+/* Colonne Actions : les 5 boutons tiennent sur UNE seule ligne, resserrés. */
+.table-inscrits .admin-actions-cell { flex-wrap: nowrap; gap: 2px; justify-content: flex-start; }
+.table-inscrits .admin-actions-cell .btn-icone { padding: 2px 3px; font-size: 13px; flex: 0 0 auto; }
 
 /* =====================
    MODAL (formulaire popup)
