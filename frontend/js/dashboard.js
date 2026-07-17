@@ -498,9 +498,14 @@ function afficherHoraires() {
 function afficherCoursAujourdhui() {
   const c = document.getElementById('cours-aujourdhui');
   if (!c) return;
-  const jours = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-  const auj   = jours[new Date().getDay()];
-  const cours = horairesDuCursus().filter(h => h.jour === auj);
+  // Cohérent avec le calendrier hebdomadaire : on rattache un cours à
+  // aujourd'hui par correspondance exacte de date (date_debut), pas par le
+  // simple libellé du jour. Sinon un cours programmé un autre vendredi
+  // s'afficherait ici alors qu'il est absent de la grille de la semaine.
+  const auj = aujourdhuiUTC();
+  const cours = horairesDuCursus()
+    .filter(h => h.date_debut && memeJourUTC(new Date(h.date_debut), auj))
+    .sort((a, b) => a.heure_debut.localeCompare(b.heure_debut));
 
   c.innerHTML = cours.length === 0
     ? '<p style="color:#999;font-size:13px">Pas de cours aujourd\'hui.</p>'
