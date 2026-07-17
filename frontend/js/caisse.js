@@ -157,6 +157,10 @@ async function chargerStatsCaisse() {
 // =====================
 let etudiantsCaisse = [];
 let etudiantCourantCaisse = null;
+// Toutes les années académiques du système (pour rattacher un versement à
+// n'importe quelle année, même une dette antérieure hors historique de cours).
+let anneesCaisse = [];
+let anneeCouranteCaisse = '';
 // Modal « Frais de scolarité » (consultation par année) — état isolé.
 let fraisEtudiantCourant = null;
 let situationFrais = null;
@@ -168,6 +172,8 @@ async function chargerAnneesCaisse() {
     if (!r.ok) return;
     const annees = await r.json();
     const courante = annees.find(a => a.est_courante)?.libelle;
+    anneesCaisse = annees;
+    anneeCouranteCaisse = courante || '';
     const opts = annees.map(a => `<option value="${a.libelle}">${a.libelle}</option>`).join('');
     // Filtre étudiants : « Toutes » + défaut année en cours.
     const selEtu = document.getElementById('caisse-filtre-annee');
@@ -523,19 +529,37 @@ async function rafraichirSituationCaisse(etudiantId) {
   } catch { situationCaisse = { periodes: [] }; }
 }
 
-// Remplit le sélecteur d'année depuis la situation (dette signalée dans l'option).
+// Remplit le sélecteur d'année : UNION des périodes de l'étudiant (avec niveau
+// et dette) ET de toutes les années académiques du système — afin de pouvoir
+// rattacher un versement à n'importe quelle année (ex. une dette de L1
+// 2026-2027 pour un étudiant admis directement en L2). La dette est signalée.
 function remplirAnneesPaiement(anneePref) {
   const selAnnee = document.getElementById('paiement-annee');
   if (!selAnnee) return;
   const periodes = (situationCaisse && situationCaisse.periodes) || [];
-  const courante = (situationCaisse && situationCaisse.etudiant && situationCaisse.etudiant.annee_courante) || (etudiantCourantCaisse || {}).annee_academique || '';
-  selAnnee.innerHTML = periodes.length
-    ? periodes.map(p => `<option value="${p.annee_academique}">${p.annee_academique}${p.niveau ? ' · ' + p.niveau : ''}${p.solde > 0 ? '  — dette ' + montant(p.solde) + ' $' : ''}</option>`).join('')
+  const courante = (situationCaisse && situationCaisse.etudiant && situationCaisse.etudiant.annee_courante) || (etudiantCourantCaisse || {}).annee_academique || anneeCouranteCaisse || '';
+  const parAnnee = {};
+  periodes.forEach(p => { parAnnee[p.annee_academique] = p; });
+
+  // Ensemble des années : périodes + toutes les années du système + courante.
+  const set = new Set(periodes.map(p => p.annee_academique));
+  (anneesCaisse || []).forEach(a => set.add(a.libelle));
+  if (courante) set.add(courante);
+  const liste = [...set].filter(Boolean).sort((a, b) => (a < b ? 1 : -1)); // décroissant
+
+  selAnnee.innerHTML = liste.length
+    ? liste.map(an => {
+        const p = parAnnee[an];
+        const suffixe = p ? `${p.niveau ? ' · ' + p.niveau : ''}${p.solde > 0 ? '  — dette ' + montant(p.solde) + ' $' : ''}` : '';
+        return `<option value="${an}">${an}${suffixe}</option>`;
+      }).join('')
     : `<option value="${courante}">${courante || '—'}</option>`;
-  const cible = (anneePref && periodes.some(p => p.annee_academique === anneePref)) ? anneePref
-              : (courante && periodes.some(p => p.annee_academique === courante)) ? courante
-              : (periodes[0] ? periodes[0].annee_academique : courante);
+
+  const cible = (anneePref && liste.includes(anneePref)) ? anneePref
+              : (courante && liste.includes(courante)) ? courante
+              : (liste[0] || courante);
   if (cible) selAnnee.value = cible;
+  majNiveauPaiement();
 }
 
 // Recharge situation + versements après un ajout/suppression, en conservant
@@ -549,7 +573,17 @@ async function rafraichirModalPaiements() {
 }
 
 // Re-render lorsqu'on change l'année (régularisation d'une dette antérieure).
-function changerAnneePaiement() { afficherPaiementsAnnee(); }
+function changerAnneePaiement() { majNiveauPaiement(); afficherPaiementsAnnee(); }
+
+// Aligne le sélecteur de niveau sur celui de la période de l'année choisie
+// (si connue) ; sinon on laisse le caissier choisir le niveau réglé.
+function majNiveauPaiement() {
+  const sel = document.getElementById('paiement-niveau-select');
+  if (!sel) return;
+  const periode = periodeSelectionnee();
+  const niv = (periode && periode.niveau) || (etudiantCourantCaisse || {}).niveau || '';
+  if (niv && [...sel.options].some(o => o.value === niv)) sel.value = niv;
+}
 
 // Période (barème/solde) correspondant à l'année sélectionnée.
 function periodeSelectionnee() {
@@ -584,12 +618,14 @@ function afficherPaiementsAnnee() {
   const info = document.getElementById('paiement-annee-info');
   if (info) info.textContent = periode && periode.montant_attendu != null
     ? `Barème ${annee} : ${montant(periode.montant_attendu)} $`
-    : (periode ? 'Aucun barème défini pour cette année.' : '');
+    : (periode ? 'Aucun barème défini pour cette année.' : 'Année hors cursus enregistré — choisissez le niveau réglé.');
 
   const soldeEl = document.getElementById('paiements-solde');
   if (soldeEl) {
-    const attendu = periode ? periode.montant_attendu : (etudiantCourantCaisse || {}).montant_attendu;
-    if (attendu == null) { soldeEl.textContent = 'Barème non défini'; soldeEl.style.fontSize = '13px'; soldeEl.style.color = '#999'; }
+    // Solde uniquement pour une période connue (barème rattaché) ; pour une
+    // année hors cursus, on n'affiche pas de solde trompeur.
+    const attendu = periode ? periode.montant_attendu : null;
+    if (attendu == null) { soldeEl.textContent = periode ? 'Barème non défini' : '—'; soldeEl.style.fontSize = '13px'; soldeEl.style.color = '#999'; }
     else {
       const solde = Math.max(0, Number(attendu) - total);
       soldeEl.textContent = `${solde.toFixed(2)} $`;
@@ -626,9 +662,9 @@ async function ajouterPaiementCaisse() {
   // antérieure pour régulariser une dette d'un étudiant promu).
   const annee_academique = document.getElementById('paiement-annee')?.value || (etudiantCourantCaisse || {}).annee_academique || null;
   const periode = periodeSelectionnee();
-  // Niveau visé = celui de la période choisie (ex. L1 pour une dette de L1
-  // réglée par un étudiant désormais en L2), pas le niveau courant.
-  const niveau = (periode && periode.niveau) || (etudiantCourantCaisse || {}).niveau || '';
+  // Niveau visé par le versement (ex. L1 pour une dette de L1 réglée par un
+  // étudiant désormais en L2) : le sélecteur de niveau du modal fait foi.
+  const niveau = document.getElementById('paiement-niveau-select')?.value || (periode && periode.niveau) || (etudiantCourantCaisse || {}).niveau || '';
 
   if (isNaN(montantVal) || montantVal <= 0) { afficherToast('⚠️ Entrez un montant valide.', 'erreur'); return; }
   if (!date_paiement) { afficherToast('⚠️ La date est obligatoire.', 'erreur'); return; }
