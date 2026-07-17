@@ -1,12 +1,21 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 
+// Port 587 (STARTTLS) plutôt que 465 : sur certains hébergeurs (ex. Render
+// free) le port 465 est bloqué et la connexion expire. Timeouts courts pour
+// échouer vite au lieu d'attendre ~2 min si le port est fermé.
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false,          // STARTTLS (démarre en clair puis chiffre)
+  requireTLS: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  }
+  },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 20000,
 });
 
 // En local FRONTEND_URL n'est pas toujours défini : on retombe sur le
