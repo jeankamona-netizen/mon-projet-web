@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
+const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // Toutes les routes professeurs sont réservées à l'admin
 router.use(requireAdmin);
@@ -36,6 +37,7 @@ router.post('/', async (req, res) => {
       'INSERT INTO professeur (nom, prenom, email, telephone, grade, mot_de_passe) VALUES (?, ?, ?, ?, ?, ?)',
       [nom, prenom || null, email || null, telephone || null, grade || null, hash]
     );
+    journaliser({ ...acteurDeReq(req), action: 'Création professeur', details: `${prenom || ''} ${nom}`.trim() + (email ? ` (${email})` : ''), ip: ipDeRequete(req) });
     res.status(201).json({
       message: "Professeur ajouté.",
       id: r.insertId,
@@ -54,6 +56,7 @@ router.put('/:id', async (req, res) => {
       'UPDATE professeur SET nom=?, prenom=?, email=?, telephone=?, grade=? WHERE id=?',
       [nom, prenom || null, email || null, telephone || null, grade || null, req.params.id]
     );
+    journaliser({ ...acteurDeReq(req), action: 'Modification professeur', details: `${prenom || ''} ${nom || ''}`.trim() + ` (#${req.params.id})`, ip: ipDeRequete(req) });
     res.json({ message: "Professeur modifié." });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });
@@ -63,7 +66,9 @@ router.put('/:id', async (req, res) => {
 // DELETE — supprimer un professeur
 router.delete('/:id', async (req, res) => {
   try {
+    const [[prof]] = await pool.query('SELECT nom, prenom FROM professeur WHERE id = ?', [req.params.id]);
     await pool.query('DELETE FROM professeur WHERE id=?', [req.params.id]);
+    journaliser({ ...acteurDeReq(req), action: 'Suppression professeur', details: prof ? `${prof.prenom || ''} ${prof.nom}`.trim() : `Professeur #${req.params.id}`, ip: ipDeRequete(req) });
     res.json({ message: "Professeur supprimé." });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });
@@ -82,6 +87,7 @@ router.post('/:id/reinitialiser-mot-de-passe', async (req, res) => {
     const hash = await bcrypt.hash(motDePasseTemporaire, 10);
     await pool.query('UPDATE professeur SET mot_de_passe = ? WHERE id = ?', [hash, req.params.id]);
 
+    journaliser({ ...acteurDeReq(req), action: 'Réinit. mot de passe professeur', details: `Professeur #${req.params.id}`, ip: ipDeRequete(req) });
     res.json({ motDePasseTemporaire });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });

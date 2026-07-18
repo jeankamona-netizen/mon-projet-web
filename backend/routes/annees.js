@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
+const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // ===== GET /api/annees — liste des années académiques (pour alimenter les menus) =====
 router.get('/', async (req, res) => {
@@ -24,6 +25,7 @@ router.post('/', requireAdmin, async (req, res) => {
   }
   try {
     await pool.query('INSERT IGNORE INTO annee_academique (libelle) VALUES (?)', [libelle]);
+    journaliser({ ...acteurDeReq(req), action: 'Ajout année académique', details: libelle, ip: ipDeRequete(req) });
     res.status(201).json({ message: 'Année ajoutée.' });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });
@@ -36,6 +38,7 @@ router.patch('/:libelle/courante', requireAdmin, async (req, res) => {
     const [r] = await pool.query('UPDATE annee_academique SET est_courante = 1 WHERE libelle = ?', [req.params.libelle]);
     if (r.affectedRows === 0) return res.status(404).json({ erreur: 'Année introuvable.' });
     await pool.query('UPDATE annee_academique SET est_courante = 0 WHERE libelle != ?', [req.params.libelle]);
+    journaliser({ ...acteurDeReq(req), action: 'Année courante définie', details: req.params.libelle, ip: ipDeRequete(req) });
     res.json({ message: 'Année courante définie.' });
   } catch (erreur) {
     res.status(500).json({ erreur: erreur.message });

@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
+const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // La gestion des agents (personnel) est réservée à l'administration.
 router.use(requireAdmin);
@@ -46,6 +47,7 @@ router.post('/', async (req, res) => {
       'INSERT INTO agent (matricule, noms, prenom, email, telephone, fonction, mot_de_passe) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [matricule, noms, prenom || null, email || null, telephone || null, fonction, hash]
     );
+    journaliser({ ...acteurDeReq(req), action: 'Création agent', details: `${prenom || ''} ${noms} (${matricule}) · ${fonction}`.trim(), ip: ipDeRequete(req) });
     res.status(201).json({ message: 'Agent créé.', id: r.insertId });
   } catch (erreur) {
     if (erreur.code === 'ER_DUP_ENTRY') return res.status(409).json({ erreur: 'Ce matricule existe déjà.' });
@@ -78,6 +80,7 @@ router.put('/:id', async (req, res) => {
         [matricule, noms, prenom || null, email || null, telephone || null, fonction, req.params.id]
       );
     }
+    journaliser({ ...acteurDeReq(req), action: 'Modification agent', details: `${prenom || ''} ${noms} (${matricule})`.trim(), ip: ipDeRequete(req) });
     res.json({ message: 'Agent mis à jour.' });
   } catch (erreur) {
     if (erreur.code === 'ER_DUP_ENTRY') return res.status(409).json({ erreur: 'Ce matricule existe déjà.' });
@@ -89,7 +92,9 @@ router.put('/:id', async (req, res) => {
 // ===== DELETE /api/agents/:id =====
 router.delete('/:id', async (req, res) => {
   try {
+    const [[ag]] = await pool.query('SELECT noms, prenom, matricule FROM agent WHERE id = ?', [req.params.id]);
     await pool.query('DELETE FROM agent WHERE id = ?', [req.params.id]);
+    journaliser({ ...acteurDeReq(req), action: 'Suppression agent', details: ag ? `${ag.prenom || ''} ${ag.noms} (${ag.matricule})`.trim() : `Agent #${req.params.id}`, ip: ipDeRequete(req) });
     res.json({ message: 'Agent supprimé.' });
   } catch (erreur) {
     console.error(erreur);
@@ -109,6 +114,7 @@ router.post('/:id/reinitialiser-mot-de-passe', async (req, res) => {
     const hash = await bcrypt.hash(motDePasseTemporaire, 10);
     await pool.query('UPDATE agent SET mot_de_passe = ? WHERE id = ?', [hash, req.params.id]);
 
+    journaliser({ ...acteurDeReq(req), action: 'Réinit. mot de passe agent', details: `Agent #${req.params.id}`, ip: ipDeRequete(req) });
     res.json({ motDePasseTemporaire });
   } catch (erreur) {
     console.error(erreur);

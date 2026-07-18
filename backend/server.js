@@ -13,6 +13,7 @@ const bcrypt      = require('bcryptjs');
 const { genererBulletinPDF } = require('./bulletin');
 const { envoyerEmailReinitialisation } = require('./mailer');
 const { inscrireAuxCoursDuNiveau } = require('./models/inscriptionAuto');
+const { journaliser, ipDeRequete, acteurDeReq } = require('./models/audit');
 const upload    = require('./upload');
 const app       = express();
 
@@ -343,6 +344,7 @@ app.put('/api/etudiants/:id', requireAdmin, async (req, res) => {
     // création/promotion (voir models/inscriptionAuto.js).
     await inscrireAuxCoursDuNiveau(req.params.id, faculte, niveau, filiere_id, annee_academique);
 
+    journaliser({ ...acteurDeReq(req), action: 'Modification étudiant', details: `${nom} ${prenom} (${req.params.id}) · ${niveau || ''} ${promotion || ''}`.trim(), ip: ipDeRequete(req) });
     res.json({ message: 'Étudiant mis à jour.' });
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });
@@ -361,7 +363,11 @@ app.post('/api/etudiants/:id/photo', requireAdmin, upload.single('photo'), uploa
 
 app.delete('/api/etudiants/:id', requireAdmin, async (req, res) => {
   try {
+    // On récupère le nom avant suppression, pour un journal d'audit lisible.
+    const [[etu]] = await pool.query('SELECT nom, postnom, prenom FROM etudiant WHERE id = ?', [req.params.id]);
     await pool.query('DELETE FROM etudiant WHERE id = ?', [req.params.id]);
+    const libelle = etu ? `${etu.nom || ''} ${etu.postnom || ''} ${etu.prenom || ''}`.replace(/\s+/g, ' ').trim() : '';
+    journaliser({ ...acteurDeReq(req), action: 'Suppression étudiant', details: `${libelle} (${req.params.id})`.trim(), ip: ipDeRequete(req) });
     res.json({ message: 'Étudiant supprimé.' });
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });
@@ -384,6 +390,7 @@ app.post('/api/etudiants/:id/reinitialiser-mot-de-passe', requireAdmin, async (r
       ? await envoyerEmailReinitialisation(etudiant, motDePasse).then(() => true).catch(err => { console.error('⚠️ Erreur envoi email:', err.message); return false; })
       : false;
 
+    journaliser({ ...acteurDeReq(req), action: 'Réinit. mot de passe étudiant', details: `${etudiant.nom || ''} ${etudiant.prenom || ''} (${etudiant.id})`.trim(), ip: ipDeRequete(req) });
     res.json({ matricule: etudiant.id, motDePasseTemporaire: motDePasse, emailEnvoye });
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });

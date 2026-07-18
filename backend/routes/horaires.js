@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
+const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // Toutes les routes horaires sont réservées à l'admin (gestion des cours/salles)
 router.use(requireAdmin);
@@ -166,6 +167,7 @@ router.post('/', async (req, res) => {
       [promotion, annee_academique, jour, date_debut, heure_debut, heure_fin, cours_id, professeur_id || null, salle]
     );
 
+    journaliser({ ...acteurDeReq(req), action: 'Ajout horaire', details: `${promotion} · ${jour} ${heure_debut}-${heure_fin} · salle ${salle}`, ip: ipDeRequete(req) });
     res.status(201).json({ message: "Cours ajouté à l'horaire.", id: resultat.insertId });
   } catch (erreur) {
     console.error(erreur);
@@ -193,6 +195,7 @@ router.put('/:id', async (req, res) => {
       [promotion, annee_academique, jour, date_debut, heure_debut, heure_fin, cours_id, professeur_id || null, salle, req.params.id]
     );
 
+    journaliser({ ...acteurDeReq(req), action: 'Modification horaire', details: `${promotion} · ${jour} ${heure_debut}-${heure_fin} (#${req.params.id})`, ip: ipDeRequete(req) });
     res.json({ message: "Horaire modifié avec succès." });
   } catch (erreur) {
     console.error(erreur);
@@ -204,6 +207,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM horaire WHERE id = ?', [req.params.id]);
+    journaliser({ ...acteurDeReq(req), action: 'Suppression horaire', details: `Créneau #${req.params.id}`, ip: ipDeRequete(req) });
     res.json({ message: "Cours supprimé de l'horaire." });
   } catch (erreur) {
     console.error(erreur);

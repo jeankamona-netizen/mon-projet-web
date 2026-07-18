@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
+const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 const upload = require('../upload');
 
 // ===== POST /api/annonces/image — téléverser l'image d'un événement (admin) =====
@@ -52,6 +53,7 @@ router.post('/', requireAdmin, async (req, res) => {
       [type, titre, description, date_annonce, icone || '📢', image || '', actif !== false, cible_faculte || null, cible_role || null]
     );
 
+    journaliser({ ...acteurDeReq(req), action: 'Publication annonce', details: `${type} · ${titre}`, ip: ipDeRequete(req) });
     res.status(201).json({ message: "Annonce publiée avec succès.", id: resultat.insertId });
   } catch (erreur) {
     console.error(erreur);
@@ -69,6 +71,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
       [type, titre, description, date_annonce, icone, image, actif, cible_faculte || null, cible_role || null, req.params.id]
     );
 
+    journaliser({ ...acteurDeReq(req), action: 'Modification annonce', details: `${titre || ''} (#${req.params.id})`.trim(), ip: ipDeRequete(req) });
     res.json({ message: "Annonce modifiée avec succès." });
   } catch (erreur) {
     console.error(erreur);
@@ -98,7 +101,9 @@ router.patch('/:id/toggle', requireAdmin, async (req, res) => {
 // ===== DELETE /api/annonces/:id =====
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
+    const [[an]] = await pool.query('SELECT titre FROM annonce WHERE id = ?', [req.params.id]);
     await pool.query('DELETE FROM annonce WHERE id = ?', [req.params.id]);
+    journaliser({ ...acteurDeReq(req), action: 'Suppression annonce', details: an ? an.titre : `Annonce #${req.params.id}`, ip: ipDeRequete(req) });
     res.json({ message: "Annonce supprimée." });
   } catch (erreur) {
     console.error(erreur);

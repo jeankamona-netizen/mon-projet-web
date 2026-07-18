@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
 const { inscrireEtudiantsAuCours } = require('../models/inscriptionAuto');
+const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // Abréviations affichées sur le libellé "promotion" d'un cours commun, dans
 // cet ordre d'affichage fixe.
@@ -157,6 +158,7 @@ router.post('/', requireAdmin, async (req, res) => {
     if (listeCibles.length === 1) {
       try {
         const r = await creerCoursPourCible(champs, listeCibles[0].faculte, listeCibles[0].filiere);
+        journaliser({ ...acteurDeReq(req), action: 'Ajout cours', details: `${code} ${nom} · ${listeCibles[0].faculte} · ${niveau} ${annee_academique}`, ip: ipDeRequete(req) });
         return res.status(201).json({
           message: "Cours ajouté au programme.",
           coursCrees: 1, facultes: 1, etudiantsInscrits: r.etudiantsInscrits, doublons: [], id: r.id
@@ -171,6 +173,7 @@ router.post('/', requireAdmin, async (req, res) => {
 
     try {
       const r = await creerCoursCommun(champs);
+      journaliser({ ...acteurDeReq(req), action: 'Ajout cours commun', details: `${code} ${nom} · ${niveau} ${annee_academique} · ${listeCibles.length} facultés`, ip: ipDeRequete(req) });
       res.status(201).json({
         message: "Cours commun ajouté au programme.",
         coursCrees: 1, facultes: listeCibles.length, etudiantsInscrits: r.etudiantsInscrits, doublons: [], id: r.id
@@ -202,6 +205,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
     // étudiants qui y correspondent désormais doivent l'avoir ipso facto.
     await inscrireEtudiantsAuCours(req.params.id, faculte, niveau, filiere_id, annee_academique);
 
+    journaliser({ ...acteurDeReq(req), action: 'Modification cours', details: `${code} ${nom} (#${req.params.id})`, ip: ipDeRequete(req) });
     res.json({ message: "Cours modifié avec succès." });
   } catch (erreur) {
     console.error(erreur);
@@ -217,6 +221,7 @@ router.patch('/:id', requireAdmin, async (req, res) => {
       'UPDATE cours SET professeur_id = ? WHERE id = ?',
       [professeur_id || null, req.params.id]
     );
+    journaliser({ ...acteurDeReq(req), action: 'Attribution professeur', details: `Cours #${req.params.id} → professeur ${professeur_id || '(retiré)'}`, ip: ipDeRequete(req) });
     res.json({ message: "Professeur attribué avec succès." });
   } catch (erreur) {
     console.error(erreur);
@@ -227,7 +232,9 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 // ===== DELETE /api/programme/:id =====
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
+    const [[c]] = await pool.query('SELECT code, nom FROM cours WHERE id = ?', [req.params.id]);
     await pool.query('DELETE FROM cours WHERE id = ?', [req.params.id]);
+    journaliser({ ...acteurDeReq(req), action: 'Suppression cours', details: c ? `${c.code} ${c.nom}` : `Cours #${req.params.id}`, ip: ipDeRequete(req) });
     res.json({ message: "Cours retiré du programme." });
   } catch (erreur) {
     console.error(erreur);

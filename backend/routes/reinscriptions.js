@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
 const { inscrireAuxCoursDuNiveau } = require('../models/inscriptionAuto');
+const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // Toutes les routes de réinscription sont réservées à l'admin
 router.use(requireAdmin);
@@ -59,6 +60,7 @@ router.post('/promouvoir', async (req, res) => {
 
     const coursInscrits = await inscrireAuxCoursDuNiveau(etudiant_id, etu.faculte, nouveau_niveau, etu.filiere_id, annee_academique);
 
+    journaliser({ ...acteurDeReq(req), action: 'Promotion étudiant', details: `${etu.prenom} ${etu.nom} (${etudiant_id}) → ${nouveau_niveau} ${annee_academique}`, ip: ipDeRequete(req) });
     res.json({
       message: `${etu.prenom} ${etu.nom} promu(e) en ${nouveau_niveau} (${annee_academique}).`,
       coursInscrits
@@ -101,6 +103,7 @@ router.post('/nouveau', async (req, res) => {
 
     const coursInscrits = await inscrireAuxCoursDuNiveau(matricule, faculte, niveau, filiere_id, annee_academique);
 
+    journaliser({ ...acteurDeReq(req), action: 'Inscription nouvel étudiant', details: `${nom} ${prenom} (${matricule}) · ${niveau} ${faculte} ${annee_academique}`, ip: ipDeRequete(req) });
     res.status(201).json({
       message: `Étudiant réinscrit en ${niveau}.`,
       matricule,
