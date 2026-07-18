@@ -308,9 +308,20 @@ async function supprimerAbonneNewsletter(id) {
 // =====================
 let messagesContactCache = [];
 let abonnesNewsletterCache = [];
+let preinscriptionsNotifCache = [];
 
 function construireNotificationsAdmin() {
   const items = [];
+  // Nouvelles candidatures en attente : l'admin doit être alerté dès qu'un
+  // candidat se pré-inscrit depuis le site public (seules celles encore « en
+  // attente » comptent : une décision prise n'a plus à notifier).
+  preinscriptionsNotifCache
+    .filter(p => (p.statut || 'en_attente') === 'en_attente')
+    .forEach(p => items.push({
+      categorie: 'preinscription', id: `preinsc-${p.id}`, icone: '📝',
+      titre: [p.nom, p.postnom, p.prenom].filter(Boolean).join(' ') || 'Nouveau candidat',
+      sousTitre: `Nouvelle pré-inscription${p.specialite ? ' · ' + p.specialite : ''}`
+    }));
   messagesContactCache.forEach(m => items.push({
     categorie: 'message', id: `msg-${m.id}`, icone: '✉️',
     titre: m.nom, sousTitre: m.sujet || 'Nouveau message'
@@ -333,12 +344,14 @@ function calculerNotificationsAdminNouvelles() {
 
 async function chargerNotificationsAdmin() {
   try {
-    const [rMsg, rNews] = await Promise.all([
+    const [rMsg, rNews, rPre] = await Promise.all([
       fetchAdmin(`${BASE_URL}/api/contact`),
       fetchAdmin(`${BASE_URL}/api/newsletter`),
+      fetchAdmin(`${BASE_URL}/api/preinscription`),
     ]);
     messagesContactCache = await rMsg.json();
     abonnesNewsletterCache = await rNews.json();
+    preinscriptionsNotifCache = await rPre.json();
     mettreAJourNotificationsAdmin();
   } catch { /* silencieux : la cloche reste fonctionnelle sans nouvelles données */ }
 }
@@ -355,7 +368,7 @@ function mettreAJourNotificationsAdmin() {
     liste.innerHTML = nouvelles.length === 0
       ? '<p class="notif-vide">Aucune nouvelle information.</p>'
       : nouvelles.map(it => `
-          <div class="notif-item" role="button" tabindex="0" onclick="ouvrirNotificationAdmin('${encodeURIComponent(it.id)}')">
+          <div class="notif-item" role="button" tabindex="0" onclick="ouvrirNotificationAdmin('${encodeURIComponent(it.id)}','${it.categorie}')">
             <span class="notif-item-icone">${it.icone}</span>
             <div>
               <span class="notif-item-titre">${it.titre}</span>
@@ -372,11 +385,18 @@ function marquerUneNotificationAdminLue(id) {
   localStorage.setItem('admin_notifs_vues', JSON.stringify(vues));
 }
 
-// Clic sur une notification → marquée lue PUIS ouverture de « Messages ».
-function ouvrirNotificationAdmin(idEncode) {
+// Clic sur une notification → marquée lue PUIS ouverture de la section
+// concernée : les candidatures mènent aux « Préinscriptions », le reste aux
+// « Messages ».
+function ouvrirNotificationAdmin(idEncode, categorie) {
   if (idEncode != null) marquerUneNotificationAdminLue(decodeURIComponent(idEncode));
   document.getElementById('admin-notif-panneau')?.classList.remove('ouvert');
-  afficherSection('admin-contact', document.querySelector('.nav-item[onclick*=admin-contact]'));
+  if (categorie === 'preinscription') {
+    // Sous-onglet de « Gérer les inscrits » : ouvre le groupe et l'onglet.
+    afficherOngletInscrits('admin-preinscriptions');
+  } else {
+    afficherSection('admin-contact', document.querySelector('.nav-item[onclick*=admin-contact]'));
+  }
   mettreAJourNotificationsAdmin();
 }
 
