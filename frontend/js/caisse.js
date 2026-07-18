@@ -166,7 +166,7 @@ async function chargerStatsCaisse() {
               <td>${montant(p.montant)}</td>
             </tr>`;
           }).join('')).join('')
-        : `<tr><td colspan="6" class="admin-vide">Aucun versement récent.</td></tr>`;
+        : `<tr><td colspan="6" class="admin-vide">Aucun versement aujourd'hui.</td></tr>`;
     }
   } catch { /* redirigé si 401 */ }
 }

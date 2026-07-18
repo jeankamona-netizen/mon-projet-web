@@ -235,16 +235,19 @@ router.get('/stats', async (req, res) => {
       `SELECT COALESCE(annee_academique, '—') AS annee, SUM(montant) AS total, COUNT(*) AS nb
        FROM paiement GROUP BY annee_academique ORDER BY annee DESC`
     );
-    // 8 derniers versements, tous étudiants confondus.
-    const [recents] = await pool.query(
+    // « Derniers versements » = uniquement ceux de la JOURNÉE en cours, pour
+    // l'admin, l'administrateur du budget ET le caissier. Le caissier ne voit
+    // en plus que les SIENS (cohérent avec ses indicateurs du jour).
+    const recentsSql =
       `SELECT p.id, p.montant, p.date_paiement, p.mode_paiement, p.rubrique, p.reference, p.annee_academique,
               e.nom, e.postnom, e.prenom, e.id AS matricule, e.id AS etudiant_id,
               COALESCE(NULLIF(p.niveau, ''), e.niveau) AS niveau, f.nom AS filiere, e.promotion
        FROM paiement p JOIN etudiant e ON p.etudiant_id = e.id
        LEFT JOIN filiere f ON e.filiere_id = f.id
-       ORDER BY p.date_paiement DESC, e.id, p.id
-       LIMIT 20`
-    );
+       WHERE p.date_paiement = CURDATE()${estCaissier ? ' AND p.agent_id = ?' : ''}
+       ORDER BY p.id DESC, e.id
+       LIMIT 50`;
+    const [recents] = await pool.query(recentsSql, estCaissier ? [u.agent_id || 0] : []);
     res.json({
       total_encaisse: Number(enc.total),
       nb_versements: Number(enc.nb),
