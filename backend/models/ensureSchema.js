@@ -1,3 +1,5 @@
+const { seedMaquetteIG } = require('./seedMaquetteIG');
+
 // =====================================================================
 // Migrations légères, idempotentes, exécutées au démarrage du serveur.
 // Objectif : garantir que le schéma de la base (dev OU production) contient
@@ -252,6 +254,9 @@ async function assurerSchema(pool) {
   await nettoyerPrefixesNiveauFilieres(pool);
   await nettoyerCoursCommunEtFiliere(pool);
   await majNomsMajuscules(pool);
+  // Chargement (idempotent) de la maquette Informatique de Gestion. Placé APRÈS
+  // le nettoyage des cours pour ne pas être altéré par celui-ci.
+  try { await seedMaquetteIG(); } catch (e) { console.error('⚠️ Seed maquette IG :', e.message); }
   console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement, agent.faculte, filières, cours, noms).');
 }
 
