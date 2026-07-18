@@ -14,7 +14,10 @@ let facultesDB = []; // [{id, nom, master_disponible, filieres:[...]}]
 
 async function chargerFacultesDB() {
   try {
-    const r = await fetch(`${BASE_URL}/api/facultes`);
+    // cache:'no-store' : la liste des filières doit TOUJOURS être fraîche, sinon
+    // une nouvelle filière (ex. « Informatique de Gestion ») peut manquer dans
+    // les menus tant que le navigateur ressert une réponse mise en cache.
+    const r = await fetch(`${BASE_URL}/api/facultes`, { cache: 'no-store' });
     facultesDB = await r.json();
   } catch (err) { console.error('Impossible de charger les facultés :', err); }
   return facultesDB;
