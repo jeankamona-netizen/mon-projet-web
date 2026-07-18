@@ -2548,8 +2548,22 @@ function sansPrefixeNiveau(nom) {
   const nettoye = String(nom).replace(/^\s*(Pr[ée]-?U(niversitaire)?|Master|Doctorat|[LMD][123])\s+/i, '').trim();
   return nettoye || String(nom).trim();
 }
+// La faculté propose-t-elle des filières ? (un étudiant y est censé en avoir une)
+function faculteADesFilieres(nom) {
+  return ((filiereParFaculte[nom] || []).length) > 0;
+}
+// Un étudiant sans filière alors que sa faculté en propose : ses cours de
+// filière manquent (d'où un programme incomplet vs ses camarades).
+function etudiantSansFiliere(e) {
+  const nom = sansPrefixeNiveau(e.filiere || e.promotion);
+  return (!nom || nom === '-') && faculteADesFilieres(e.faculte);
+}
 function filiereAffichee(e) {
-  return sansPrefixeNiveau(e.filiere || e.promotion) || '—';
+  const nom = sansPrefixeNiveau(e.filiere || e.promotion);
+  if (nom && nom !== '-') return nom;
+  return etudiantSansFiliere(e)
+    ? '<span class="badge echec" style="font-size:10px" title="Aucune filière attribuée : les cours de filière manquent. Modifiez cet étudiant pour lui en attribuer une.">⚠ Sans filière</span>'
+    : '—';
 }
 
 async function chargerInscrits() {
@@ -2568,8 +2582,12 @@ async function chargerInscrits() {
     if (faculte) params.append('faculte',faculte);
     const r=await fetchAdmin(`${BASE_URL}/api/etudiants?${params}`);
     inscritsAdmin=await r.json();
-    if (!inscritsAdmin.length) { tbody.innerHTML=`<tr><td colspan="7" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
-    tbody.innerHTML=inscritsAdmin.map(e=>`
+    // Filtre « sans filière » (côté client : dépend de facultesDB pour savoir
+    // quelles facultés proposent des filières).
+    const sansFiliereSeul = document.getElementById('filtre-inscrits-sansfiliere')?.checked;
+    const liste = sansFiliereSeul ? inscritsAdmin.filter(etudiantSansFiliere) : inscritsAdmin;
+    if (!liste.length) { tbody.innerHTML=`<tr><td colspan="7" class="admin-vide">${sansFiliereSeul ? 'Aucun étudiant sans filière 🎉' : 'Aucun étudiant trouvé.'}</td></tr>`; return; }
+    tbody.innerHTML=liste.map(e=>`
       <tr>
         <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}${e.historique?' <span class="badge attente" style="font-size:10px" title="Étudiant promu depuis — ceci est son historique pour cette période">Historique</span>':''}<br><span style="font-size:11px;color:#999">${e.id}</span></td>
         <td>${e.niveau?`<span class="annee-badge">${e.niveau}</span>`:'—'}</td>
@@ -3532,7 +3550,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (document.getElementById('admin-inscrits')) {
     chargerInscrits();
     const ri=document.getElementById('recherche-inscrits'); if(ri) ri.addEventListener('input',chargerInscrits);
-    ['filtre-inscrits-faculte','filtre-inscrits-niveau','filtre-inscrits-annee'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',chargerInscrits);});
+    ['filtre-inscrits-faculte','filtre-inscrits-niveau','filtre-inscrits-annee','filtre-inscrits-sansfiliere'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',chargerInscrits);});
   }
 
   if (document.getElementById('admin-attributions')) chargerAttributions();
