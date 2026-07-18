@@ -9,11 +9,27 @@ function suffixeAnnees(anneeAcademique) {
   return '0000';
 }
 
-// Code court de la faculté : initiales de ses mots significatifs (2 lettres),
-// sans accent. « Sciences Informatiques » → « SI », « Faculté de Théologie » →
-// « FT ». Le tirage aléatoire garantit l'unicité même si deux facultés ont le
-// même code.
+// Normalise un nom de faculté pour la comparaison (minuscules, sans accents,
+// lettres seules) : « Faculté de Théologie » → « facultedetheologie ».
+function normFacKey(nom) {
+  return String(nom || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+}
+
+// Codes de faculté fixes (choisis par l'université) — priment sur le calcul
+// automatique. Ajoute une entrée ici pour toute nouvelle faculté à code imposé.
+const CODES_FACULTE_FIXES = {
+  [normFacKey('Sciences Informatiques')]: 'SI',
+  [normFacKey('Sciences Économiques')]: 'SE',
+  [normFacKey("Sciences de l'Éducation & Psychologie")]: 'SP',
+  [normFacKey('Faculté de Théologie')]: 'TH',
+};
+
+// Code court de la faculté : code fixe si défini, sinon initiales de ses mots
+// significatifs (2 lettres), sans accent. « Sciences Informatiques » → « SI ».
+// Le tirage aléatoire garantit l'unicité même si deux facultés ont le même code.
 function codeFaculte(nom) {
+  const fixe = CODES_FACULTE_FIXES[normFacKey(nom)];
+  if (fixe) return fixe;
   const petits = new Set(['de', 'la', 'le', 'les', 'du', 'des', 'et', 'en', 'l', 'd', 'a', 'à', '&']);
   const mots = String(nom || '')
     .replace(/['’‘&]/g, ' ')
