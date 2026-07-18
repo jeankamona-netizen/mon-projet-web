@@ -61,14 +61,14 @@
               <input type="text" placeholder="Nom de famille" id="nom" style="text-transform:uppercase">
             </div>
             <div class="form-group">
-              <label>Post-nom <span class="required">*</span></label>
-              <input type="text" placeholder="Post-nom" id="postnom">
+            <label>Prénom <span class="required">*</span></label>
+            <input type="text" placeholder="Prénom" id="prenom">
             </div>
           </div>
 
           <div class="form-group">
-            <label>Prénom <span class="required">*</span></label>
-            <input type="text" placeholder="Prénom" id="prenom">
+            <label>Post-nom <span class="required">*</span></label>
+            <input type="text" placeholder="Post-nom" id="postnom">
           </div>
 
           <div class="form-row">
@@ -233,7 +233,14 @@
 
           <p class="form-sous-section">Choix du programme</p>
           <p class="form-sous-titre">Choisissez deux filières différentes</p>
-
+          <div class="form-group">
+              <label>Niveau souhaité <span class="required">*</span></label>
+              <select id="niveau" onchange="remplirSpecialitesPreinscription()">
+                <option value="">-- Choisir --</option>
+                <option>Licence (Bac)</option>
+                <option>Master</option>
+              </select>
+          </div>
           <div class="form-group">
             <label>1er choix <span class="required">*</span></label>
             <select id="specialite">
@@ -248,14 +255,7 @@
             </select>
           </div>
 
-          <div class="form-group">
-            <label>Niveau souhaité <span class="required">*</span></label>
-            <select id="niveau" onchange="remplirSpecialitesPreinscription()">
-              <option value="">-- Choisir --</option>
-              <option>Licence (Bac)</option>
-              <option>Master</option>
-            </select>
-          </div>
+          
 
           <div class="form-checkboxes">
             <label class="checkbox-label">

@@ -1452,7 +1452,7 @@
 
       <input type="hidden" id="prog-id-edit">
 
-      <div class="form-row-admin">
+     
         <div class="form-group-dash">
           <label>Faculté</label>
           <select id="prog-faculte" onchange="chargerFilieresPourProgramme()">
@@ -1460,12 +1460,12 @@
           </select>
         </div>
         <div class="form-group-dash">
-          <label>Filière <span class="info">(vide = cours commun à toute la faculté)</span></label>
+          <label>Filière </label>
           <select id="prog-filiere">
             <option value="">— Toute la faculté (cours commun) —</option>
           </select>
         </div>
-      </div>
+      
 
       <!-- Programmation multi-facultés : on ajoute plusieurs couples faculté/filière ;
            le cours est créé (et les étudiants inscrits) pour chacun. -->
@@ -1476,6 +1476,16 @@
       </div>
 
       <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Année académique</label>
+          <select id="prog-annee">
+            <option value="2026-2027">2026-2027</option>
+            <option value="2027-2028">2027-2028</option>
+            <option value="2028-2029">2028-2029</option>
+            <option value="2029-2030">2029-2030</option>
+            <option value="2030-2031">2030-2031</option>
+          </select>
+        </div>
         <div class="form-group-dash">
           <label>Niveau</label>
           <select id="prog-niveau">
@@ -1493,24 +1503,11 @@
             </optgroup>
           </select>
         </div>
-        <div class="form-group-dash">
-          <label>Année académique</label>
-          <select id="prog-annee">
-            <option value="2026-2027">2026-2027</option>
-            <option value="2027-2028">2027-2028</option>
-            <option value="2028-2029">2028-2029</option>
-            <option value="2029-2030">2029-2030</option>
-            <option value="2030-2031">2030-2031</option>
-          </select>
-        </div>
       </div>
 
       <div class="form-group-dash">
-        <label>Semestre</label>
-        <select id="prog-semestre">
-          <option value="S1">Semestre 1</option>
-          <option value="S2">Semestre 2</option>
-        </select>
+        <label>Intitulé UE</label>
+        <input type="text" id="prog-nom" placeholder="ex: Algorithmique avancée">
       </div>
 
       <div class="form-row-admin">
@@ -1524,11 +1521,6 @@
         </div>
       </div>
 
-      <div class="form-group-dash">
-        <label>Intitulé UE</label>
-        <input type="text" id="prog-nom" placeholder="ex: Algorithmique avancée">
-      </div>
-
       <div class="form-row-admin">
         <div class="form-group-dash">
           <label>CMI <span class="info">(heures)</span></label>
@@ -1538,10 +1530,19 @@
           <label>TD <span class="info">(heures)</span></label>
           <input type="number" id="prog-td" min="0" placeholder="ex: 20">
         </div>
+        
         <div class="form-group-dash">
           <label>TP <span class="info">(heures)</span></label>
           <input type="number" id="prog-tp" min="0" placeholder="ex: 15">
         </div>
+        
+        <div class="form-group-dash">
+        <label>Semestre</label>
+        <select id="prog-semestre">
+          <option value="S1">Semestre 1</option>
+          <option value="S2">Semestre 2</option>
+        </select>
+      </div>
       </div>
 
       <div class="admin-modal-actions">
