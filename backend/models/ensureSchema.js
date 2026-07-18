@@ -163,12 +163,53 @@ async function nettoyerPrefixesNiveauFilieres(pool) {
   }
 }
 
+// Cours en double « commun + filière » : un même cours (même code/faculté/
+// niveau/année/semestre) existe à la fois en version COMMUNE (filiere_id NULL,
+// qui couvre déjà tous les étudiants de la faculté) ET en copie(s) spécifique(s)
+// à une filière. Un étudiant de cette filière matche les deux → il voit le cours
+// EN DOUBLE (ex. Mireille : 21 cours au lieu de 14). On garde la version
+// commune, on repointe inscriptions/notes/horaires des copies vers elle, puis
+// on supprime les copies. Les cours filière SANS équivalent commun (vraie
+// spécialisation) ne sont jamais touchés. Idempotent.
+async function nettoyerCoursCommunEtFiliere(pool) {
+  const [groupes] = await pool.query(`
+    SELECT code, faculte, niveau, annee_academique, semestre,
+           MIN(CASE WHEN filiere_id IS NULL THEN id END) AS commun_id
+    FROM cours
+    GROUP BY code, faculte, niveau, annee_academique, semestre
+    HAVING SUM(filiere_id IS NULL) >= 1 AND SUM(filiere_id IS NOT NULL) >= 1
+  `);
+  let supprimes = 0;
+  for (const g of groupes) {
+    if (!g.commun_id) continue;
+    const [copies] = await pool.query(
+      `SELECT id FROM cours
+       WHERE code = ? AND (faculte <=> ?) AND niveau = ? AND annee_academique = ?
+         AND semestre = ? AND filiere_id IS NOT NULL`,
+      [g.code, g.faculte, g.niveau, g.annee_academique, g.semestre]
+    );
+    for (const c of copies) {
+      // Repointer vers le cours commun (UPDATE IGNORE évite les collisions de
+      // clé unique (etudiant_id, cours_id)), puis purger les restes.
+      await pool.query('UPDATE IGNORE inscription_cours SET cours_id = ? WHERE cours_id = ?', [g.commun_id, c.id]);
+      await pool.query('DELETE FROM inscription_cours WHERE cours_id = ?', [c.id]);
+      await pool.query('UPDATE IGNORE note SET cours_id = ? WHERE cours_id = ?', [g.commun_id, c.id]);
+      await pool.query('DELETE FROM note WHERE cours_id = ?', [c.id]);
+      await pool.query('UPDATE horaire SET cours_id = ? WHERE cours_id = ?', [g.commun_id, c.id]);
+      await pool.query('DELETE FROM cours WHERE id = ?', [c.id]);
+      supprimes++;
+    }
+  }
+  if (supprimes) console.log(`✅ Cours dupliqués (commun + filière) nettoyés : ${supprimes} copie(s) filière supprimée(s).`);
+}
+
 async function assurerSchema(pool) {
   await assurerSchemaFraisScolarite(pool);
   await assurerSchemaJournalAudit(pool);
   await assurerSchemaPaiement(pool);
   await nettoyerPrefixesNiveauFilieres(pool);
-  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement, filières).');
+  await nettoyerCoursCommunEtFiliere(pool);
+  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement, filières, cours).');
 }
 
 module.exports = { assurerSchema };

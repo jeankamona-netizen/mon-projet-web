@@ -196,6 +196,40 @@ async function envoyerEmailReinitialisationCompte({ email, nom, identifiant, mot
   console.log(`📧 Email de réinitialisation envoyé à ${email}`);
 }
 
+// Notification après un changement VOLONTAIRE de mot de passe (self-service).
+// Ne contient jamais le mot de passe : c'est une alerte de sécurité.
+async function envoyerEmailConfirmationChangementMdp({ email, nom, espace }) {
+  if (!email) return;
+  const options = {
+    to: email,
+    subject: '🔒 Votre mot de passe a été modifié — UML',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+        <div style="background:#1a3a6b;padding:20px;text-align:center">
+          <h2 style="color:#f0c020;margin:0">Université Méthodiste de Lubumbashi</h2>
+        </div>
+        <div style="padding:28px 24px;background:#f8f9fa">
+          <h3 style="color:#1a3a6b">Bonjour, ${nom || ''}</h3>
+          <p>Le mot de passe de votre ${espace || 'compte'} vient d'être <strong>modifié avec succès</strong>
+             le ${new Date().toLocaleString('fr-FR')}.</p>
+          <div style="background:#fff4f4;border:1px solid #f0c0c0;border-radius:8px;padding:14px 16px;margin:18px 0">
+            <p style="margin:0;color:#a12; font-size:13px">
+              ⚠️ Si vous n'êtes pas à l'origine de ce changement, contactez immédiatement
+              l'administration : info.uml.lubumbashi@gmail.com
+            </p>
+          </div>
+          <p style="margin-top:24px;font-size:12px;color:#888">
+            Adresse : N°249, Croisement Av. Kasavubu & Likasi, Lubumbashi, RDC<br>
+            Email : info.uml.lubumbashi@gmail.com
+          </p>
+        </div>
+      </div>
+    `,
+  };
+  await envoyer(options);
+  console.log(`📧 Confirmation de changement de mot de passe envoyée à ${email}`);
+}
+
 async function envoyerEmailRejet(etudiant) {
   if (!etudiant.email) return;
 
@@ -266,4 +300,4 @@ async function envoyerEmailReponseContact(destinataire, nomDestinataire, sujetOr
   console.log(`📧 Réponse envoyée à ${destinataire}`);
 }
 
-module.exports = { envoyerEmailAcceptation, envoyerEmailReinitialisation, envoyerEmailReinitialisationCompte, envoyerEmailRejet, envoyerEmailReponseContact };
+module.exports = { envoyerEmailAcceptation, envoyerEmailReinitialisation, envoyerEmailReinitialisationCompte, envoyerEmailConfirmationChangementMdp, envoyerEmailRejet, envoyerEmailReponseContact };

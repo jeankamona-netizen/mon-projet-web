@@ -6,6 +6,7 @@ const jwt     = require('jsonwebtoken');
 const pool = require('../database');
 const { journaliser, ipDeRequete } = require('../models/audit');
 const { requireFinance } = require('../middleware/auth');
+const { envoyerEmailConfirmationChangementMdp } = require('../mailer');
 
 // =====================
 // AUTHENTIFICATION ADMIN — identifiants dans .env, jamais dans le frontend
@@ -270,7 +271,7 @@ router.put('/professeur/:id/password', async (req, res) => {
     return res.status(400).json({ erreur: 'Le nouveau mot de passe doit contenir au moins 6 caractères.' });
 
   try {
-    const [profs] = await pool.query('SELECT mot_de_passe FROM professeur WHERE id = ?', [req.params.id]);
+    const [profs] = await pool.query('SELECT mot_de_passe, nom, prenom, email FROM professeur WHERE id = ?', [req.params.id]);
     if (profs.length === 0)
       return res.status(404).json({ erreur: 'Professeur non trouvé.' });
 
@@ -280,6 +281,10 @@ router.put('/professeur/:id/password', async (req, res) => {
 
     const hash = await bcrypt.hash(nouveau_mot_de_passe, 10);
     await pool.query('UPDATE professeur SET mot_de_passe = ? WHERE id = ?', [hash, req.params.id]);
+
+    // Notification de sécurité (sans le mot de passe) — n'interrompt jamais.
+    envoyerEmailConfirmationChangementMdp({ email: profs[0].email, nom: `${profs[0].prenom || ''} ${profs[0].nom || ''}`.trim(), espace: 'espace professeur' })
+      .catch(err => console.error('⚠️ Email confirmation mdp professeur :', err.message));
 
     res.json({ message: 'Mot de passe mis à jour avec succès.' });
   } catch (erreur) {
@@ -301,7 +306,7 @@ router.put('/etudiant/:id/password', async (req, res) => {
 
   try {
     const [etudiants] = await pool.query(
-      'SELECT mot_de_passe FROM etudiant WHERE id = ?', [req.params.id]
+      'SELECT mot_de_passe, nom, prenom, email FROM etudiant WHERE id = ?', [req.params.id]
     );
     if (etudiants.length === 0)
       return res.status(404).json({ erreur: 'Étudiant non trouvé.' });
@@ -320,6 +325,9 @@ router.put('/etudiant/:id/password', async (req, res) => {
 
     const hash = await bcrypt.hash(nouveau_mot_de_passe, 10);
     await pool.query('UPDATE etudiant SET mot_de_passe = ? WHERE id = ?', [hash, req.params.id]);
+
+    envoyerEmailConfirmationChangementMdp({ email: etudiants[0].email, nom: `${etudiants[0].prenom || ''} ${etudiants[0].nom || ''}`.trim(), espace: 'espace étudiant' })
+      .catch(err => console.error('⚠️ Email confirmation mdp étudiant :', err.message));
 
     res.json({ message: 'Mot de passe mis à jour avec succès.' });
   } catch (erreur) {
@@ -415,7 +423,7 @@ router.put('/agent/:id/password', requireFinance, memeAgent, async (req, res) =>
   if (nouveau_mot_de_passe.length < 6)
     return res.status(400).json({ erreur: 'Le nouveau mot de passe doit contenir au moins 6 caractères.' });
   try {
-    const [agents] = await pool.query('SELECT matricule, mot_de_passe FROM agent WHERE id = ?', [req.params.id]);
+    const [agents] = await pool.query('SELECT matricule, noms, prenom, email, mot_de_passe FROM agent WHERE id = ?', [req.params.id]);
     if (agents.length === 0) return res.status(404).json({ erreur: 'Agent non trouvé.' });
 
     const valide = await bcrypt.compare(mot_de_passe_actuel, agents[0].mot_de_passe || '');
@@ -423,6 +431,10 @@ router.put('/agent/:id/password', requireFinance, memeAgent, async (req, res) =>
 
     const hash = await bcrypt.hash(nouveau_mot_de_passe, 10);
     await pool.query('UPDATE agent SET mot_de_passe = ? WHERE id = ?', [hash, req.params.id]);
+
+    envoyerEmailConfirmationChangementMdp({ email: agents[0].email, nom: `${agents[0].prenom || ''} ${agents[0].noms || ''}`.trim(), espace: 'espace caisse' })
+      .catch(err => console.error('⚠️ Email confirmation mdp agent :', err.message));
+
     journaliser({ role: req.utilisateur.role, utilisateur: req.utilisateur.nom || agents[0].matricule, identifiant: agents[0].matricule, action: 'Changement mot de passe', details: 'A modifié son mot de passe', ip: ipDeRequete(req) });
     res.json({ message: 'Mot de passe mis à jour avec succès.' });
   } catch (erreur) {
