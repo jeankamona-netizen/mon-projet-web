@@ -829,7 +829,12 @@ function construireNotifications() {
 function marquerUneNotificationLue(categorie, id) {
   const vus = lireNotificationsVues();
   if (!vus[categorie]) vus[categorie] = [];
-  if (!vus[categorie].includes(id)) vus[categorie].push(id);
+  // On mémorise toujours l'id sous forme de chaîne : les ids côté données sont
+  // parfois numériques (annonce, horaire, versement…) et parfois textuels
+  // (note). Sans cette normalisation, ["5"].includes(5) renvoie false et la
+  // notification cliquée ne disparaîtrait jamais de la cloche.
+  const cible = String(id);
+  if (!vus[categorie].includes(cible)) vus[categorie].push(cible);
   const cle = cleNotifications();
   if (cle) localStorage.setItem(cle, JSON.stringify(vus));
 }
@@ -846,7 +851,9 @@ function ouvrirNotification(section, categorie, idEncode) {
 
 function calculerNotificationsNouvelles() {
   const vus = lireNotificationsVues();
-  return construireNotifications().filter(it => !vus[it.categorie].includes(it.id));
+  // Comparaison en chaîne (voir marquerUneNotificationLue) : les ids stockés
+  // sont normalisés en String, ceux construits ici peuvent être numériques.
+  return construireNotifications().filter(it => !vus[it.categorie].includes(String(it.id)));
 }
 
 function mettreAJourNotifications() {
