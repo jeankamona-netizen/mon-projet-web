@@ -545,7 +545,6 @@ function remplirAnneesPaiement(anneePref) {
               : (courante && liste.includes(courante)) ? courante
               : (liste[0] || courante);
   if (cible) selAnnee.value = cible;
-  majNiveauPaiement();
 }
 
 // Recharge situation + versements après un ajout/suppression, en conservant
@@ -559,17 +558,9 @@ async function rafraichirModalPaiements() {
 }
 
 // Re-render lorsqu'on change l'année (régularisation d'une dette antérieure).
-function changerAnneePaiement() { majNiveauPaiement(); afficherPaiementsAnnee(); }
-
-// Aligne le sélecteur de niveau sur celui de la période de l'année choisie
-// (si connue) ; sinon on laisse le caissier choisir le niveau réglé.
-function majNiveauPaiement() {
-  const sel = document.getElementById('paiement-niveau-select');
-  if (!sel) return;
-  const periode = periodeSelectionnee();
-  const niv = (periode && periode.niveau) || (etudiantCourantCaisse || {}).niveau || '';
-  if (niv && [...sel.options].some(o => o.value === niv)) sel.value = niv;
-}
+// Le niveau du versement suit désormais la période de l'année choisie (plus
+// de sélecteur manuel) : rien d'autre à synchroniser ici.
+function changerAnneePaiement() { afficherPaiementsAnnee(); }
 
 // Période (barème/solde) correspondant à l'année sélectionnée.
 function periodeSelectionnee() {
@@ -648,9 +639,10 @@ async function ajouterPaiementCaisse() {
   // antérieure pour régulariser une dette d'un étudiant promu).
   const annee_academique = document.getElementById('paiement-annee')?.value || (etudiantCourantCaisse || {}).annee_academique || null;
   const periode = periodeSelectionnee();
-  // Niveau visé par le versement (ex. L1 pour une dette de L1 réglée par un
-  // étudiant désormais en L2) : le sélecteur de niveau du modal fait foi.
-  const niveau = document.getElementById('paiement-niveau-select')?.value || (periode && periode.niveau) || (etudiantCourantCaisse || {}).niveau || '';
+  // Niveau visé par le versement : celui de la période de l'année choisie (ex.
+  // L1 pour une dette de L1 réglée par un étudiant désormais en L2). Pour une
+  // année hors cursus (aucune période), on retombe sur le niveau courant.
+  const niveau = (periode && periode.niveau) || (etudiantCourantCaisse || {}).niveau || '';
 
   if (isNaN(montantVal) || montantVal <= 0) { afficherToast('⚠️ Entrez un montant valide.', 'erreur'); return; }
   if (!date_paiement) { afficherToast('⚠️ La date est obligatoire.', 'erreur'); return; }
