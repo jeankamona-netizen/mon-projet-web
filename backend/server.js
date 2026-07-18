@@ -345,7 +345,16 @@ app.get('/api/etudiants', requireAdminOuDoyen, async (req, res) => {
       `;
     }
 
-    if (promotion) { sql += ' AND e.promotion = ?'; params.push(promotion); }
+    // Filtre par filière/promotion ROBUSTE : le paramètre est un nom de filière
+    // (ex. « Informatique de Gestion »), mais la colonne promotion affichée peut
+    // être préfixée du niveau (« L1 Informatique de Gestion », dérivée des cours)
+    // — une égalité stricte échouerait. On matche donc soit la promotion exacte,
+    // soit — surtout — la filière de rattachement de l'étudiant (filiere_id),
+    // qui est la source de vérité indépendante du libellé.
+    if (promotion) {
+      sql += ' AND (e.promotion = ? OR e.filiere_id IN (SELECT id FROM filiere WHERE nom = ?))';
+      params.push(promotion, promotion);
+    }
     if (faculte)   { sql += ' AND e.faculte = ?';   params.push(faculte); }
     if (nom) {
       // Recherche par nom, post-nom, prénom OU matricule (e.id) — utilisée par
