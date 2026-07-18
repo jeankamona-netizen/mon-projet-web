@@ -7,6 +7,11 @@ const pool = require('../database');
 // et son master, qui n'ont pas de tronc commun avec Génie Logiciel, Design, etc.
 const FILIERES_AUTONOMES = ['Informatique de Gestion', 'Master Informatique de Gestion'];
 
+// Une filière (par NOM) est-elle autonome (cursus complet, sans cours communs) ?
+function nomFiliereEstAutonome(nom) {
+  return FILIERES_AUTONOMES.includes(String(nom || '').trim());
+}
+
 // Ids (en base) des filières autonomes — utilisés pour exclure les cours/étudiants.
 async function idsFilieresAutonomes() {
   const [rows] = await pool.query(
@@ -83,4 +88,4 @@ async function inscrireEtudiantsAuCours(coursId, faculte, niveau, filiere_id, an
   return etudiants.length;
 }
 
-module.exports = { inscrireAuxCoursDuNiveau, inscrireEtudiantsAuCours };
+module.exports = { inscrireAuxCoursDuNiveau, inscrireEtudiantsAuCours, nomFiliereEstAutonome, FILIERES_AUTONOMES };

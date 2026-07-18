@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../database');
 // Programme annuel : ouvert à l'admin ET au décanat (doyen / vice-doyen).
 const { requireAdminOuDoyen: requireAdmin, faculteDuDoyen } = require('../middleware/auth');
-const { inscrireEtudiantsAuCours } = require('../models/inscriptionAuto');
+const { inscrireEtudiantsAuCours, nomFiliereEstAutonome } = require('../models/inscriptionAuto');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // Un doyen ne peut créer/modifier/supprimer que des cours de SA faculté. Vérifie
@@ -78,8 +78,17 @@ router.get('/', async (req, res) => {
     if (faculte === 'TOUTES') { sql += ' AND c.faculte IS NULL'; }
     else if (faculte)         { sql += ' AND (c.faculte = ? OR c.faculte IS NULL)'; params.push(faculte); }
     if (niveau)    { sql += ' AND c.niveau = ?'; params.push(niveau); }
-    // Filière précise choisie, ou cours commun à toute la faculté (filiere_id NULL)
-    if (filiere)   { sql += ' AND (f.nom = ? OR c.filiere_id IS NULL)'; params.push(filiere); }
+    // Filière précise choisie. En principe on inclut aussi les cours communs à
+    // toute la faculté (filiere_id NULL). EXCEPTION : une filière autonome (ex.
+    // « Informatique de Gestion ») a un cursus complet et propre, SANS cours
+    // communs → on ne renvoie QUE ses cours, jamais les communs.
+    if (filiere) {
+      if (nomFiliereEstAutonome(filiere)) {
+        sql += ' AND f.nom = ?'; params.push(filiere);
+      } else {
+        sql += ' AND (f.nom = ? OR c.filiere_id IS NULL)'; params.push(filiere);
+      }
+    }
 
     sql += ' ORDER BY c.annee_academique DESC, c.promotion, c.semestre, c.code';
 
