@@ -140,14 +140,13 @@ async function chargerStatsCaisse() {
             return `<tr${dernier ? ' class="rapport-sep"' : ''}>
               <td>${premier ? g.dateAff : ''}</td>
               <td>${premier ? `${g.entete.nom} ${g.entete.postnom || ''} ${g.entete.prenom}` : ''}</td>
-              <td>${premier ? (g.entete.niveau || '—') : ''}</td>
-              <td>${premier ? (g.entete.filiere || g.entete.promotion || '—') : ''}</td>
+              <td>${premier ? libelleFiliere(g.entete.niveau, g.entete.filiere || g.entete.promotion) : ''}</td>
               <td>${p.rubrique || '—'}</td>
               <td>${p.reference || '—'}</td>
               <td>${montant(p.montant)}</td>
             </tr>`;
           }).join('')).join('')
-        : `<tr><td colspan="7" class="admin-vide">Aucun versement récent.</td></tr>`;
+        : `<tr><td colspan="6" class="admin-vide">Aucun versement récent.</td></tr>`;
     }
   } catch { /* redirigé si 401 */ }
 }
