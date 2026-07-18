@@ -597,7 +597,7 @@ async function chargerFraisDashboard(id) {
     soldeEtudiant = { montant_attendu, solde };
     afficherFrais();
   } catch {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px">⚠️ Impossible de charger vos frais.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px">⚠️ Impossible de charger vos frais.</td></tr>';
     const totalEl = document.getElementById('frais-total');
     if (totalEl) totalEl.textContent = '—';
     const soldeEl = document.getElementById('frais-solde');
@@ -619,12 +619,13 @@ function afficherFrais() {
     soldeEl.textContent = soldeEtudiant.solde === null ? 'Non défini' : `${Number(soldeEtudiant.solde).toFixed(2)} $`;
   }
   tbody.innerHTML = liste.length === 0
-    ? '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px">Aucun versement pour ce cursus.</td></tr>'
+    ? '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px">Aucun versement pour ce cursus.</td></tr>'
     : liste.map(p => `<tr>
         <td>${formaterDateAffichage(p.date_paiement)}</td>
         <td>${Number(p.montant).toFixed(2)} $</td>
-        <td>${p.mode_paiement || '—'}</td>
+        <td>${p.rubrique || '—'}</td>
         <td>${p.reference || '—'}</td>
+        <td>${p.mode_paiement || '—'}</td>
       </tr>`).join('');
 }
 

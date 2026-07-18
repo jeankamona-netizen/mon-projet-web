@@ -201,17 +201,18 @@ h2 {
 .lang-switch-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   background: transparent;
-  border: 1.5px solid rgba(255,255,255,0.4);
+  border: 1px solid rgba(255,255,255,0.4);
   color: #fff;
-  padding: 4px 8px;
-  border-radius: 5px;
-  font-size: 11px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 9px;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.2s;
 }
+.lang-switch-btn svg { width: 11px; height: 11px; }
 
 .lang-switch-btn:hover { background: rgba(255,255,255,0.14); }
 
@@ -1448,8 +1449,8 @@ h2 {
   }
 
   .lang-switch-btn {
-    padding: 3px 7px;
-    font-size: 10px;
+    padding: 2px 4px;
+    font-size: 8px;
   }
 
   .hero {
