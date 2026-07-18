@@ -3003,7 +3003,10 @@ async function sauvegarderAgent() {
     const d = await r.json();
     if (!r.ok) { afficherToast('⚠️ ' + d.erreur, 'erreur'); return; }
     if (!idEdit && d.matricule) {
-      await confirmerAction(`Matricule attribué : ${d.matricule}\nMot de passe : ${corps.mot_de_passe}\n\nCommuniquez-les à l'agent.`, { titre: '✅ Agent créé', texteConfirmer: 'Compris' });
+      const suffixe = d.emailEnvoye
+        ? '\n\n📧 Ces identifiants ont aussi été envoyés par email à l\'agent.'
+        : '\n\n⚠️ Email non envoyé (pas d\'adresse ?), communiquez-les vous-même.';
+      await confirmerAction(`Matricule attribué : ${d.matricule}\nMot de passe : ${corps.mot_de_passe}${suffixe}`, { titre: '✅ Agent créé', texteConfirmer: 'Compris' });
     } else { afficherToast('✅ Agent modifié !'); }
     fermerModalAgent(); chargerAgents();
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }

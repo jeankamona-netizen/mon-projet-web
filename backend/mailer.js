@@ -196,6 +196,42 @@ async function envoyerEmailReinitialisationCompte({ email, nom, identifiant, mot
   console.log(`📧 Email de réinitialisation envoyé à ${email}`);
 }
 
+// Email de bienvenue à la création d'un compte agent (caissier, administrateur
+// du budget…) : contient le matricule et le mot de passe temporaire.
+async function envoyerEmailIdentifiantsAgent({ email, nom, matricule, motDePasse, espace, roleConnexion }) {
+  if (!email) return;
+  const lien = roleConnexion ? `${URL_CONNEXION}?role=${encodeURIComponent(roleConnexion)}` : URL_CONNEXION;
+  const options = {
+    to: email,
+    subject: '🎉 Votre compte UML a été créé — Identifiants de connexion',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+        <div style="background:#1a3a6b;padding:20px;text-align:center">
+          <h2 style="color:#f0c020;margin:0">Université Méthodiste de Lubumbashi</h2>
+        </div>
+        <div style="padding:28px 24px;background:#f8f9fa">
+          <h3 style="color:#1a3a6b">Bonjour, ${nom || ''}</h3>
+          <p>Un compte vous a été créé pour accéder à votre ${espace || 'espace'}.</p>
+          <div style="background:#ffffff;border:1px solid #ddd;border-radius:8px;padding:16px;margin:20px 0">
+            <p style="margin:6px 0"><strong>Matricule :</strong>
+               <code style="background:#eef;padding:2px 8px;border-radius:4px">${matricule}</code></p>
+            <p style="margin:6px 0"><strong>Mot de passe temporaire :</strong>
+               <code style="background:#eef;padding:2px 8px;border-radius:4px">${motDePasse}</code></p>
+          </div>
+          <p style="color:#cc2200;font-size:13px">⚠️ Veuillez changer votre mot de passe dès votre première connexion.</p>
+          <a href="${lien}" style="display:inline-block;background:#1a3a6b;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin-top:10px">Se connecter</a>
+          <p style="margin-top:24px;font-size:12px;color:#888">
+            Adresse : N°249, Croisement Av. Kasavubu & Likasi, Lubumbashi, RDC<br>
+            Email : info.uml.lubumbashi@gmail.com
+          </p>
+        </div>
+      </div>
+    `,
+  };
+  await envoyer(options);
+  console.log(`📧 Identifiants agent envoyés à ${email}`);
+}
+
 // Notification après un changement VOLONTAIRE de mot de passe (self-service).
 // Ne contient jamais le mot de passe : c'est une alerte de sécurité.
 async function envoyerEmailConfirmationChangementMdp({ email, nom, espace }) {
@@ -300,4 +336,4 @@ async function envoyerEmailReponseContact(destinataire, nomDestinataire, sujetOr
   console.log(`📧 Réponse envoyée à ${destinataire}`);
 }
 
-module.exports = { envoyerEmailAcceptation, envoyerEmailReinitialisation, envoyerEmailReinitialisationCompte, envoyerEmailConfirmationChangementMdp, envoyerEmailRejet, envoyerEmailReponseContact };
+module.exports = { envoyerEmailAcceptation, envoyerEmailReinitialisation, envoyerEmailReinitialisationCompte, envoyerEmailIdentifiantsAgent, envoyerEmailConfirmationChangementMdp, envoyerEmailRejet, envoyerEmailReponseContact };

@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
-const { envoyerEmailReinitialisationCompte } = require('../mailer');
+const { envoyerEmailReinitialisationCompte, envoyerEmailIdentifiantsAgent } = require('../mailer');
 const { genererMatriculeAgent } = require('../models/matricule');
 
 // Libellé d'espace + rôle de connexion selon la fonction de l'agent.
@@ -57,8 +57,17 @@ router.post('/', async (req, res) => {
       'INSERT INTO agent (matricule, noms, prenom, email, telephone, fonction, mot_de_passe) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [matricule, noms, prenom || null, email || null, telephone || null, fonction, hash]
     );
-    journaliser({ ...acteurDeReq(req), action: 'Création agent', details: `${prenom || ''} ${noms} (${matricule}) · ${fonction}`.trim(), ip: ipDeRequete(req) });
-    res.status(201).json({ message: 'Agent créé.', id: r.insertId, matricule });
+    // Email de bienvenue avec les identifiants (si une adresse est fournie).
+    const conf = ESPACE_PAR_FONCTION[fonction] || { espace: 'compte', role: 'caissier' };
+    const emailEnvoye = email
+      ? await envoyerEmailIdentifiantsAgent({
+          email, nom: `${prenom || ''} ${noms}`.trim(), matricule, motDePasse: mot_de_passe,
+          espace: conf.espace, roleConnexion: conf.role,
+        }).then(() => true).catch(err => { console.error('⚠️ Email identifiants agent :', err.message); return false; })
+      : false;
+
+    journaliser({ ...acteurDeReq(req), action: 'Création agent', details: `${prenom || ''} ${noms} (${matricule}) · ${fonction}`.trim() + (emailEnvoye ? ' · email envoyé' : ''), ip: ipDeRequete(req) });
+    res.status(201).json({ message: 'Agent créé.', id: r.insertId, matricule, emailEnvoye });
   } catch (erreur) {
     if (erreur.code === 'ER_DUP_ENTRY') return res.status(409).json({ erreur: 'Ce matricule existe déjà.' });
     console.error(erreur);

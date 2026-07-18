@@ -76,6 +76,10 @@
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
           Saisir les notes
         </a>
+        <a href="#" class="nav-item" onclick="afficherSectionProf('prof-attributions', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+          Mes attributions
+        </a>
         <a href="#" class="nav-item" onclick="afficherSectionProf('prof-annonces', this)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
           Annonces
@@ -164,6 +168,27 @@
             </tbody>
           </table>
         </div>
+      </section>
+
+      <!-- ===== MES ATTRIBUTIONS (cours attribués — lecture seule) ===== -->
+      <section id="prof-attributions" class="dash-section">
+        <h2>Mes attributions</h2>
+        <p class="dash-sous-titre" id="prof-attributions-sous-titre">Cours qui vous sont attribués pour l'année en cours</p>
+
+        <div class="dash-card" style="overflow-x:auto">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Code</th><th>Intitulé</th><th>Faculté</th><th>Promotion</th>
+                <th>Semestre</th><th>CMI</th><th>TP</th><th>TD</th><th>Crédits</th>
+              </tr>
+            </thead>
+            <tbody id="prof-attributions-body">
+              <tr><td colspan="9" class="admin-vide">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:12px;color:#888;margin-top:10px">ℹ️ Ces informations sont définies par l'administration et ne sont pas modifiables.</p>
       </section>
 
       <!-- ===== ANNONCES & COMMUNIQUÉS ===== -->

@@ -650,7 +650,8 @@ app.get('/api/professeur/:id/cours', async (req, res) => {
     // Cours attribués au professeur (voir "Attributions des cours"), indépendamment
     // de l'existence d'un créneau horaire — un cours peut être attribué avant d'être programmé.
     const [cours] = await pool.query(`
-      SELECT c.id, c.code, c.nom, c.promotion, c.annee_academique, c.semestre, c.credits
+      SELECT c.id, c.code, c.nom, c.faculte, c.niveau, c.promotion, c.annee_academique,
+             c.semestre, c.credits, c.cmi, c.td, c.tp
       FROM cours c
       WHERE c.professeur_id = ?
       ORDER BY c.annee_academique DESC, c.promotion, c.code

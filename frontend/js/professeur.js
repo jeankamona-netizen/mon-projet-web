@@ -66,9 +66,51 @@ function afficherSectionProf(id, lien) {
   // Les informations affichées sont réactualisées à chaque changement de page.
   const professeur = getProfesseurConnecte();
   if (!professeur) return;
-  if (id === 'prof-horaire')  chargerHoraireProf(professeur.id);
-  if (id === 'prof-notes')    chargerCoursProf();
-  if (id === 'prof-annonces') chargerAnnoncesProf();
+  if (id === 'prof-horaire')      chargerHoraireProf(professeur.id);
+  if (id === 'prof-notes')        chargerCoursProf();
+  if (id === 'prof-attributions') chargerAttributionsProf();
+  if (id === 'prof-annonces')     chargerAnnoncesProf();
+}
+
+// =====================
+// MES ATTRIBUTIONS — cours attribués pour l'année courante (lecture seule)
+// =====================
+async function chargerAttributionsProf() {
+  const professeur = getProfesseurConnecte();
+  const tbody = document.getElementById('prof-attributions-body');
+  if (!professeur || !tbody) return;
+  tbody.innerHTML = '<tr><td colspan="9" class="admin-vide">Chargement...</td></tr>';
+  try {
+    // Année académique courante (définie par l'admin).
+    let anneeCourante = '';
+    try {
+      const ra = await fetch(`${BASE_URL}/api/annees`);
+      if (ra.ok) anneeCourante = (await ra.json()).find(a => a.est_courante)?.libelle || '';
+    } catch { /* on affichera alors toutes les années */ }
+
+    const r = await fetch(`${BASE_URL}/api/professeur/${professeur.id}/cours`);
+    let cours = await r.json();
+    if (anneeCourante) cours = cours.filter(c => c.annee_academique === anneeCourante);
+
+    const sous = document.getElementById('prof-attributions-sous-titre');
+    if (sous) sous.textContent = anneeCourante
+      ? `Cours qui vous sont attribués pour l'année ${anneeCourante}`
+      : 'Cours qui vous sont attribués';
+
+    tbody.innerHTML = cours.length === 0
+      ? `<tr><td colspan="9" class="admin-vide">Aucun cours ne vous est attribué${anneeCourante ? ' pour ' + anneeCourante : ''}.</td></tr>`
+      : cours.map(c => `<tr>
+          <td><strong>${c.code || '—'}</strong></td>
+          <td>${c.nom || '—'}</td>
+          <td>${c.faculte || '—'}</td>
+          <td>${c.promotion || '—'}</td>
+          <td>${c.semestre || '—'}</td>
+          <td>${c.cmi ?? '—'}</td>
+          <td>${c.tp ?? '—'}</td>
+          <td>${c.td ?? '—'}</td>
+          <td>${c.credits ?? '—'}</td>
+        </tr>`).join('');
+  } catch { tbody.innerHTML = '<tr><td colspan="9" class="admin-vide">⚠️ Impossible de charger vos attributions.</td></tr>'; }
 }
 
 // =====================
