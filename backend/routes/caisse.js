@@ -214,9 +214,21 @@ router.get('/liste', async (req, res) => {
 // ===== GET /api/caisse/stats — synthèse financière =====
 router.get('/stats', async (req, res) => {
   try {
-    const [[global]] = await pool.query(
-      'SELECT COALESCE(SUM(montant),0) AS total, COUNT(*) AS nb, COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement'
-    );
+    // Un CAISSIER (role 'caisse') ne voit, pour « Total encaissé » et
+    // « Versements enregistrés », que SES propres opérations de la JOURNÉE en
+    // cours. L'administrateur du budget et l'admin gardent la vue globale.
+    const u = req.utilisateur || {};
+    const estCaissier = u.role === 'caisse';
+    const [[enc]] = estCaissier
+      ? await pool.query(
+          'SELECT COALESCE(SUM(montant),0) AS total, COUNT(*) AS nb FROM paiement WHERE agent_id = ? AND date_paiement = CURDATE()',
+          [u.agent_id || 0]
+        )
+      : await pool.query('SELECT COALESCE(SUM(montant),0) AS total, COUNT(*) AS nb FROM paiement');
+
+    // « Étudiants ayant payé » et « Sans aucun versement » restent une photo
+    // globale de la population étudiante (indépendante du caissier / du jour).
+    const [[payeursRow]] = await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement');
     const [[etudiants]] = await pool.query('SELECT COUNT(*) AS n FROM etudiant');
     // Encaissements par année académique (pour le graphique / la répartition).
     const [parAnnee] = await pool.query(
@@ -234,10 +246,13 @@ router.get('/stats', async (req, res) => {
        LIMIT 20`
     );
     res.json({
-      total_encaisse: Number(global.total),
-      nb_versements: Number(global.nb),
-      nb_payeurs: Number(global.payeurs),
+      total_encaisse: Number(enc.total),
+      nb_versements: Number(enc.nb),
+      nb_payeurs: Number(payeursRow.payeurs),
       nb_etudiants: Number(etudiants.n),
+      // Indique au frontend que les deux premiers indicateurs sont « du jour »
+      // (pour adapter les libellés côté caissier).
+      encaisse_du_jour: estCaissier,
       par_annee: parAnnee.map(a => ({ annee: a.annee, total: Number(a.total), nb: Number(a.nb) })),
       recents: recents.map(r => ({ ...r, montant: Number(r.montant) })),
     });

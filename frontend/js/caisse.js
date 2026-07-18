@@ -133,6 +133,17 @@ async function chargerStatsCaisse() {
     document.getElementById('cpt-versements').textContent = d.nb_versements;
     document.getElementById('cpt-payeurs').textContent = d.nb_payeurs;
     document.getElementById('cpt-restants').textContent = Math.max(0, (d.nb_etudiants || 0) - (d.nb_payeurs || 0));
+    // Caissier : les deux premiers indicateurs ne concernent que SES versements
+    // du jour → on l'indique clairement dans les libellés.
+    const lblTotal = document.getElementById('lbl-total');
+    const lblVers  = document.getElementById('lbl-versements');
+    if (d.encaisse_du_jour) {
+      if (lblTotal) lblTotal.textContent = "Total encaissé aujourd'hui ($)";
+      if (lblVers)  lblVers.textContent  = "Mes versements du jour";
+    } else {
+      if (lblTotal) lblTotal.textContent = 'Total encaissé ($)';
+      if (lblVers)  lblVers.textContent  = 'Versements enregistrés';
+    }
 
     const tbAnnee = document.getElementById('caisse-par-annee');
     if (tbAnnee) tbAnnee.innerHTML = (d.par_annee || []).length
