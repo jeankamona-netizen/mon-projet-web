@@ -117,11 +117,58 @@ async function assurerSchemaPaiement(pool) {
   }
 }
 
+// Nettoyage des NOMS de filières : retire les préfixes de niveau parasites
+// (« L1 Systèmes Informatiques » → « Systèmes Informatiques ») qui font doublon
+// avec la colonne Niveau. Les préfixes de CYCLE « Master »/« Doctorat » sont
+// volontairement conservés (ils encodent le cycle pour le filtre du barème).
+// On répercute le renommage sur les clés texte « promotion » qui doivent rester
+// alignées sur le nom de filière : etudiant.promotion et frais_scolarite.promotion.
+//  - horaire.promotion N'EST PAS touché : c'est un libellé composé « NIVEAU
+//    LIBELLÉ » (pas de colonne niveau sur horaire), avec sa propre sémantique.
+//  - cours : rattachement par filiere_id (clé étrangère), pas par le texte.
+// Idempotent : au 2e passage plus aucune filière ne commence par un préfixe.
+async function nettoyerPrefixesNiveauFilieres(pool) {
+  // Uniquement les préfixes de niveau Licence (Pré-U, L1, L2, L3).
+  const rx = /^(pr[ée]-?u(niversitaire)?|l[123])\s+/i;
+  const [filieres] = await pool.query('SELECT id, nom, faculte_id FROM filiere');
+  let renommees = 0, fusionnees = 0;
+  for (const f of filieres) {
+    if (!rx.test(f.nom)) continue;
+    const ancien = f.nom;
+    const nouveau = ancien.replace(rx, '').trim();
+    if (!nouveau || nouveau === ancien) continue;
+
+    // Collision : une autre filière de la même faculté porte déjà le nom nettoyé
+    // → on fusionne (repointage des clés étrangères puis suppression du doublon).
+    const [[existante]] = await pool.query(
+      'SELECT id FROM filiere WHERE faculte_id = ? AND nom = ? AND id <> ? LIMIT 1',
+      [f.faculte_id, nouveau, f.id]
+    );
+    if (existante) {
+      await pool.query('UPDATE etudiant SET filiere_id = ? WHERE filiere_id = ?', [existante.id, f.id]);
+      await pool.query('UPDATE cours    SET filiere_id = ? WHERE filiere_id = ?', [existante.id, f.id]);
+      await pool.query('DELETE FROM filiere WHERE id = ?', [f.id]);
+      fusionnees++;
+    } else {
+      await pool.query('UPDATE filiere SET nom = ? WHERE id = ?', [nouveau, f.id]);
+      renommees++;
+    }
+
+    // Aligner les clés texte « promotion » sur le nouveau nom de filière.
+    await pool.query('UPDATE etudiant        SET promotion = ? WHERE promotion = ?', [nouveau, ancien]);
+    await pool.query('UPDATE frais_scolarite SET promotion = ? WHERE promotion = ?', [nouveau, ancien]);
+  }
+  if (renommees || fusionnees) {
+    console.log(`✅ Filières nettoyées (préfixe niveau retiré) : ${renommees} renommée(s), ${fusionnees} fusionnée(s).`);
+  }
+}
+
 async function assurerSchema(pool) {
   await assurerSchemaFraisScolarite(pool);
   await assurerSchemaJournalAudit(pool);
   await assurerSchemaPaiement(pool);
-  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement).');
+  await nettoyerPrefixesNiveauFilieres(pool);
+  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement, filières).');
 }
 
 module.exports = { assurerSchema };
