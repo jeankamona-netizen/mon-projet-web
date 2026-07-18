@@ -7,6 +7,7 @@ const { requireAdmin } = require('../middleware/auth');
 const { inscrireAuxCoursDuNiveau } = require('../models/inscriptionAuto');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 const { genererMatricule } = require('../models/matricule');
+const { nomMajuscule } = require('../nom');
 
 // Toutes les routes de réinscription sont réservées à l'admin
 router.use(requireAdmin);
@@ -78,7 +79,7 @@ router.post('/nouveau', async (req, res) => {
                             mot_de_passe, filiere_id, faculte, promotion, niveau, annee_academique, statut)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'actif')
     `, [
-      matricule, nom, postnom || null, prenom, date_naissance || null, sexe || null,
+      matricule, nomMajuscule(nom), postnom || null, prenom, date_naissance || null, sexe || null,
       email || null, telephone || null, hash, filiere_id, faculte, filiere || '', niveau, annee_academique
     ]);
 

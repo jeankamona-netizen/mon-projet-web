@@ -7,6 +7,7 @@ const pool = require('../database');
 const { journaliser, ipDeRequete } = require('../models/audit');
 const { requireFinance } = require('../middleware/auth');
 const { envoyerEmailConfirmationChangementMdp } = require('../mailer');
+const { nomMajuscule } = require('../nom');
 
 // =====================
 // AUTHENTIFICATION ADMIN — identifiants dans .env, jamais dans le frontend
@@ -245,7 +246,7 @@ router.put('/professeur/:id/profil', async (req, res) => {
 
     await pool.query(
       'UPDATE professeur SET nom = ?, prenom = ?, email = ?, telephone = ? WHERE id = ?',
-      [nom, prenom || null, email, telephone || null, req.params.id]
+      [nomMajuscule(nom), prenom || null, email, telephone || null, req.params.id]
     );
 
     const [maj] = await pool.query(
@@ -353,7 +354,7 @@ router.put('/etudiant/:id/profil', async (req, res) => {
 
     await pool.query(
       'UPDATE etudiant SET nom = ?, postnom = ?, prenom = ?, date_naissance = ?, nationalite = ?, telephone = ?, email = ?, adresse = ? WHERE id = ?',
-      [nom, postnom || null, prenom, date_naissance || null, nationalite || null, telephone || null, email || null, adresse || null, req.params.id]
+      [nomMajuscule(nom), postnom || null, prenom, date_naissance || null, nationalite || null, telephone || null, email || null, adresse || null, req.params.id]
     );
 
     const [maj] = await pool.query('SELECT * FROM etudiant WHERE id = ?', [req.params.id]);
@@ -401,7 +402,7 @@ router.put('/agent/:id/profil', requireFinance, memeAgent, async (req, res) => {
   try {
     await pool.query(
       'UPDATE agent SET noms = ?, prenom = ?, email = ?, telephone = ? WHERE id = ?',
-      [noms.trim(), prenom || null, email || null, telephone || null, req.params.id]
+      [nomMajuscule(noms), prenom || null, email || null, telephone || null, req.params.id]
     );
     const [maj] = await pool.query(
       'SELECT id, matricule, noms, prenom, email, telephone, fonction FROM agent WHERE id = ?',

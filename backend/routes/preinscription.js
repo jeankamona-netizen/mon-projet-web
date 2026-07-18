@@ -9,6 +9,7 @@ const { requireAdmin } = require('../middleware/auth');
 const { inscrireAuxCoursDuNiveau } = require('../models/inscriptionAuto');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 const { genererMatricule } = require('../models/matricule');
+const { nomMajuscule } = require('../nom');
 
 // Mot de passe temporaire aléatoire (12 caractères, non prévisible) — l'étudiant
 // devra le changer, il est de toute façon hashé en bcrypt avant stockage.
@@ -57,7 +58,7 @@ router.post('/', async (req, res) => {
         canal_decouverte, statut
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'en_attente')
     `, [
-      nom, postnom || null, prenom,
+      nomMajuscule(nom), postnom || null, prenom,
       dateNaissance || null,
       lieuNaissance || null,
       nationalite || null,
@@ -236,7 +237,7 @@ if (statut === 'accepte') {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'actif')
     `, [
       numeroEtudiant,
-      dossier.nom,
+      nomMajuscule(dossier.nom),
       dossier.postnom || '',
       dossier.prenom,
       dossier.date_naissance || null,

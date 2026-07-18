@@ -203,13 +203,38 @@ async function nettoyerCoursCommunEtFiliere(pool) {
   if (supprimes) console.log(`✅ Cours dupliqués (commun + filière) nettoyés : ${supprimes} copie(s) filière supprimée(s).`);
 }
 
+// Le nom de famille (étudiant/professeur.nom, agent.noms, preinscription.nom)
+// doit toujours être en MAJUSCULES. On met à niveau l'existant. La comparaison
+// « <> BINARY UPPER(...) » est sensible à la casse (sinon la collation ci
+// considérerait « kamona » = « KAMONA » et rien ne serait mis à jour).
+async function majNomsMajuscules(pool) {
+  const cibles = [
+    { table: 'etudiant', col: 'nom' },
+    { table: 'professeur', col: 'nom' },
+    { table: 'agent', col: 'noms' },
+    { table: 'preinscription', col: 'nom' },
+  ];
+  let total = 0;
+  for (const c of cibles) {
+    try {
+      const [r] = await pool.query(
+        `UPDATE ${c.table} SET ${c.col} = UPPER(${c.col})
+         WHERE ${c.col} IS NOT NULL AND ${c.col} <> BINARY UPPER(${c.col})`
+      );
+      total += r.affectedRows || 0;
+    } catch (e) { console.warn(`⚠️ MAJ noms ${c.table} :`, e.message); }
+  }
+  if (total) console.log(`✅ Noms de famille passés en majuscules : ${total} ligne(s).`);
+}
+
 async function assurerSchema(pool) {
   await assurerSchemaFraisScolarite(pool);
   await assurerSchemaJournalAudit(pool);
   await assurerSchemaPaiement(pool);
   await nettoyerPrefixesNiveauFilieres(pool);
   await nettoyerCoursCommunEtFiliere(pool);
-  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement, filières, cours).');
+  await majNomsMajuscules(pool);
+  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement, filières, cours, noms).');
 }
 
 module.exports = { assurerSchema };

@@ -6,6 +6,7 @@ const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 const { envoyerEmailReinitialisationCompte } = require('../mailer');
+const { nomMajuscule } = require('../nom');
 
 // Toutes les routes professeurs sont réservées à l'admin
 router.use(requireAdmin);
@@ -36,7 +37,7 @@ router.post('/', async (req, res) => {
 
     const [r] = await pool.query(
       'INSERT INTO professeur (nom, prenom, email, telephone, grade, mot_de_passe) VALUES (?, ?, ?, ?, ?, ?)',
-      [nom, prenom || null, email || null, telephone || null, grade || null, hash]
+      [nomMajuscule(nom), prenom || null, email || null, telephone || null, grade || null, hash]
     );
     journaliser({ ...acteurDeReq(req), action: 'Création professeur', details: `${prenom || ''} ${nom}`.trim() + (email ? ` (${email})` : ''), ip: ipDeRequete(req) });
     res.status(201).json({
@@ -55,7 +56,7 @@ router.put('/:id', async (req, res) => {
   try {
     await pool.query(
       'UPDATE professeur SET nom=?, prenom=?, email=?, telephone=?, grade=? WHERE id=?',
-      [nom, prenom || null, email || null, telephone || null, grade || null, req.params.id]
+      [nomMajuscule(nom), prenom || null, email || null, telephone || null, grade || null, req.params.id]
     );
     journaliser({ ...acteurDeReq(req), action: 'Modification professeur', details: `${prenom || ''} ${nom || ''}`.trim() + ` (#${req.params.id})`, ip: ipDeRequete(req) });
     res.json({ message: "Professeur modifié." });

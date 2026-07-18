@@ -6,6 +6,7 @@ const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 const { envoyerEmailReinitialisationCompte, envoyerEmailIdentifiantsAgent } = require('../mailer');
+const { nomMajuscule } = require('../nom');
 const { genererMatriculeAgent } = require('../models/matricule');
 
 // Libellé d'espace + rôle de connexion selon la fonction de l'agent.
@@ -55,7 +56,7 @@ router.post('/', async (req, res) => {
     const hash = await bcrypt.hash(mot_de_passe, 10);
     const [r] = await pool.query(
       'INSERT INTO agent (matricule, noms, prenom, email, telephone, fonction, mot_de_passe) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [matricule, noms, prenom || null, email || null, telephone || null, fonction, hash]
+      [matricule, nomMajuscule(noms), prenom || null, email || null, telephone || null, fonction, hash]
     );
     // Email de bienvenue avec les identifiants (si une adresse est fournie).
     const conf = ESPACE_PAR_FONCTION[fonction] || { espace: 'compte', role: 'caissier' };
@@ -93,12 +94,12 @@ router.put('/:id', async (req, res) => {
       const hash = await bcrypt.hash(mot_de_passe, 10);
       await pool.query(
         'UPDATE agent SET noms=?, prenom=?, email=?, telephone=?, fonction=?, mot_de_passe=? WHERE id=?',
-        [noms, prenom || null, email || null, telephone || null, fonction, hash, req.params.id]
+        [nomMajuscule(noms), prenom || null, email || null, telephone || null, fonction, hash, req.params.id]
       );
     } else {
       await pool.query(
         'UPDATE agent SET noms=?, prenom=?, email=?, telephone=?, fonction=? WHERE id=?',
-        [noms, prenom || null, email || null, telephone || null, fonction, req.params.id]
+        [nomMajuscule(noms), prenom || null, email || null, telephone || null, fonction, req.params.id]
       );
     }
     journaliser({ ...acteurDeReq(req), action: 'Modification agent', details: `${prenom || ''} ${noms}`.trim(), ip: ipDeRequete(req) });

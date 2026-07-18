@@ -14,6 +14,7 @@ const { genererBulletinPDF } = require('./bulletin');
 const { envoyerEmailReinitialisation } = require('./mailer');
 const { inscrireAuxCoursDuNiveau } = require('./models/inscriptionAuto');
 const { journaliser, ipDeRequete, acteurDeReq } = require('./models/audit');
+const { nomMajuscule } = require('./nom');
 const upload    = require('./upload');
 const app       = express();
 
@@ -335,7 +336,7 @@ app.put('/api/etudiants/:id', requireAdmin, async (req, res) => {
     await pool.query(
       `UPDATE etudiant SET nom=?,postnom=?,prenom=?,date_naissance=?,sexe=?,email=?,
        telephone=?,faculte=?,promotion=?,filiere_id=?,niveau=?,annee_academique=?,statut=? WHERE id=?`,
-      [nom, postnom||null, prenom, date_naissance||null, sexe||null, email||null,
+      [nomMajuscule(nom), postnom||null, prenom, date_naissance||null, sexe||null, email||null,
        telephone||null, faculte||null, promotion||null, filiere_id, niveau||null, annee_academique||null, statut||'actif', req.params.id]
     );
 
