@@ -1557,8 +1557,8 @@ async function ouvrirModalHoraire() {
   document.getElementById('horaire-annee').value  = '2025-2026';
   document.getElementById('horaire-jour').value = '';
   document.getElementById('horaire-date-debut').value = '';
-  document.getElementById('horaire-debut').value  = '07:30';
-  document.getElementById('horaire-fin').value    = '09:30';
+  document.getElementById('horaire-debut').value  = '08:00';
+  document.getElementById('horaire-fin').value    = '10:30';
   document.getElementById('horaire-salle').value  = '';
   chargerFilieresPourHoraire();
   document.getElementById('modal-horaire')?.classList.add('active');
@@ -1583,8 +1583,7 @@ async function modifierHoraire(id) {
     const programme = await r.json();
     const coursActuel = programme.find(c => c.id === h.cours_id);
     if (coursActuel) {
-      // Cours commun (faculte NULL en base) = option « Toutes les facultés ».
-      document.getElementById('horaire-faculte').value = coursActuel.faculte || 'TOUTES';
+      document.getElementById('horaire-faculte').value = coursActuel.faculte || '';
       document.getElementById('horaire-niveau').value  = coursActuel.niveau || 'L1';
       chargerFilieresPourHoraire();
       document.getElementById('horaire-filiere').value = coursActuel.filiere_nom || '';
@@ -3522,7 +3521,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     'notes-filtre-faculte', 'filtre-faculte', 'filtre-faculte-prog',
     'reins-faculte', 'prog-faculte', 'inscrit-faculte', 'attr-faculte-select', 'annonce-cible',
   ].forEach(id => remplirSelectFacultes(id));
-  remplirSelectFacultes('horaire-faculte', { garder: 2 }); // conserve aussi l'option "TOUTES"
+  remplirSelectFacultes('horaire-faculte', { garder: 1 }); // conserve le placeholder "— Choisir —"
   remplirSelectFacultes('filtre-inscrits-faculte', { libelleCourt: libelleCourtFaculte });
   remplirSelectFacultes('filtre-note-faculte', { libelleCourt: libelleCourtFaculte });
   remplirCheckboxesFacultes('inscriptions-facultes-checkboxes');
