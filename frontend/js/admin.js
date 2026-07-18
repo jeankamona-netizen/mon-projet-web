@@ -3164,9 +3164,10 @@ function rechercherEtudiantDelib() {
       zone.innerHTML = etudiants.length === 0
         ? '<p style="color:#999;font-size:12px;padding:6px 0">Aucun étudiant trouvé.</p>'
         : etudiants.slice(0, 8).map(e => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 4px;border-bottom:1px solid #f0f0f0;font-size:13px">
-              <span>${e.nom} ${e.postnom||''} ${e.prenom} <span style="color:#999;font-size:11px">(${e.id} · ${e.niveau||'—'} ${e.promotion||''})</span></span>
-              <button class="btn-icone" onclick="selectionnerEtudiantDelib('${e.id}','${(e.nom+' '+(e.postnom||'')+' '+e.prenom).replace(/'/g,"\\'")}','${e.niveau||''}','${(e.promotion||'').replace(/'/g,"\\'")}','${e.faculte||''}','${e.annee_academique||''}')" aria-label="Sélectionner">${icone('coche')}</button>
+            <div role="button" tabindex="0" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:8px 6px;border-bottom:1px solid #f0f0f0;font-size:13px"
+                 onclick="selectionnerEtudiantDelib('${e.id}','${(e.nom+' '+(e.postnom||'')+' '+e.prenom).replace(/'/g,"\\'")}','${e.niveau||''}','${(e.promotion||'').replace(/'/g,"\\'")}','${e.faculte||''}','${e.annee_academique||''}')">
+              <span><b>${e.nom} ${e.postnom||''} ${e.prenom}</b> <span style="color:#999;font-size:11px">(${e.id} · ${e.niveau||'—'} ${e.promotion||''})</span></span>
+              <span style="color:var(--bleu);font-size:12px">Voir ses notes →</span>
             </div>`).join('');
     } catch { zone.innerHTML = ''; }
   }, 300);
@@ -3181,6 +3182,70 @@ function selectionnerEtudiantDelib(id, nomComplet, niveau, promotion, faculte, a
   document.getElementById('delib-selection').style.display = 'block';
   const suite = { L1:'L2', L2:'L3', L3:'M1', M1:'M2', M2:'D1', D1:'D2' };
   if (suite[niveau]) document.getElementById('delib-nouveau-niveau').value = suite[niveau];
+  chargerNotesDelib(id);
+}
+
+// Recharge le relevé si l'année change alors qu'un étudiant est déjà sélectionné.
+function rafraichirNotesDelib() {
+  const id = document.getElementById('delib-etudiant-id')?.value;
+  if (id) chargerNotesDelib(id);
+}
+
+// Affiche les notes de l'étudiant pour l'année sélectionnée (base de la
+// délibération) : moyenne générale, crédits validés et éligibilité indicative.
+async function chargerNotesDelib(id) {
+  const annee = document.getElementById('delib-annee')?.value || '';
+  const labelAnnee = document.getElementById('delib-notes-annee');
+  if (labelAnnee) labelAnnee.textContent = annee || '—';
+  const zone = document.getElementById('delib-notes');
+  if (!zone) return;
+  zone.innerHTML = '<p style="color:#888;font-size:12px">Chargement du relevé...</p>';
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/etudiant/${encodeURIComponent(id)}/notes`);
+    const toutes = await r.json();
+    const notes = toutes.filter(n => (n.annee_academique || '') === annee);
+    if (!notes.length) {
+      zone.innerHTML = `<p style="color:#999;font-size:12px">Aucun cours enregistré pour ${annee || 'cette année'}.</p>`;
+      return;
+    }
+    const fmt = v => (v === null || v === undefined) ? '—' : Number(v).toFixed(1);
+    const notees = notes.filter(n => n.note !== null && n.note !== undefined);
+    const moyenne = notees.length ? notees.reduce((s, n) => s + Number(n.note), 0) / notees.length : null;
+    const creditsTotal   = notes.reduce((s, n) => s + (Number(n.credits) || 0), 0);
+    const creditsValides = notes.reduce((s, n) => s + ((n.note !== null && n.note >= 10) ? (Number(n.credits) || 0) : 0), 0);
+    const rows = notes.map(n => {
+      const reussi = n.note !== null && n.note >= 10;
+      const statut = n.note === null || n.note === undefined
+        ? '<span class="badge attente">En attente</span>'
+        : (reussi ? '<span class="badge reussi">Validé</span>' : '<span class="badge echec">Échec</span>');
+      return `<tr>
+        <td>${n.matiere} <span style="color:#999;font-size:11px">(${n.code})</span></td>
+        <td style="text-align:center">${n.session || '—'}</td>
+        <td style="text-align:center">${fmt(n.note_cc)}</td>
+        <td style="text-align:center">${fmt(n.note_examen)}</td>
+        <td style="text-align:center"><b>${fmt(n.note)}</b></td>
+        <td style="text-align:center">${n.credits ?? '—'}</td>
+        <td style="text-align:center">${statut}</td>
+      </tr>`;
+    }).join('');
+    const eligible = moyenne !== null && moyenne >= 10;
+    const verdict = moyenne === null
+      ? '<span style="color:#888">Notes incomplètes — délibération à l\'appréciation.</span>'
+      : (eligible
+          ? `<span style="color:var(--vert,#1a7f37);font-weight:600">Moyenne ${moyenne.toFixed(2)}/20 — éligible à la promotion.</span>`
+          : `<span style="color:var(--rouge,#c0392b);font-weight:600">Moyenne ${moyenne.toFixed(2)}/20 — sous le seuil (à l'appréciation).</span>`);
+    zone.innerHTML = `
+      <div class="dash-card" style="padding:0;overflow:hidden">
+        <table class="dash-table" style="margin:0">
+          <thead><tr><th>Matière</th><th style="text-align:center">Sess.</th><th style="text-align:center">CC</th><th style="text-align:center">Exam.</th><th style="text-align:center">Moy.</th><th style="text-align:center">Crédits</th><th style="text-align:center">Statut</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:13px;margin-top:8px">
+        <span>Crédits validés : <b>${creditsValides}/${creditsTotal}</b></span>
+        <span>${verdict}</span>
+      </div>`;
+  } catch { zone.innerHTML = '<p style="color:#c0392b;font-size:12px">⚠️ Erreur lors du chargement du relevé.</p>'; }
 }
 
 async function deliberEtudiant() {

@@ -288,9 +288,10 @@
               </div>
               <div class="form-group-dash">
                 <label>Année académique <span class="required">*</span></label>
-                <select id="delib-annee"></select>
+                <select id="delib-annee" onchange="rafraichirNotesDelib()"></select>
               </div>
             </div>
+            <p style="font-size:12px;color:#888;margin:-4px 0 10px">Cliquez sur un étudiant pour consulter ses notes de l'année sélectionnée avant de décider.</p>
             <div id="delib-resultats" style="max-height:180px;overflow-y:auto;margin-bottom:14px"></div>
 
             <div id="delib-selection" style="display:none">
@@ -299,6 +300,11 @@
                 <div id="delib-etudiant-info" style="font-size:13px"></div>
                 <input type="hidden" id="delib-etudiant-id">
               </div>
+
+              <!-- Relevé de notes de l'année sélectionnée (base de la délibération) -->
+              <p class="form-sous-section">Relevé de l'année <span id="delib-notes-annee"></span></p>
+              <div id="delib-notes" style="margin-bottom:16px"></div>
+
               <div class="form-group-dash">
                 <label>Nouveau niveau <span class="required">*</span></label>
                 <select id="delib-nouveau-niveau">
