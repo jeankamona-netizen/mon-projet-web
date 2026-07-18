@@ -409,7 +409,7 @@ app.get('/api/etudiant/:id/notes', async (req, res) => {
     const [notes] = await pool.query(`
       SELECT n.id, n.note_cc, n.note_examen, n.note, n.modifie_le, c.semestre AS session,
              c.annee_academique, c.niveau,
-             c.nom AS matiere, c.code, c.credits
+             c.nom AS matiere, c.code, c.credits, c.cmi, c.td, c.tp
       FROM inscription_cours ic
       JOIN cours c ON ic.cours_id = c.id
       LEFT JOIN note n ON n.etudiant_id = ic.etudiant_id AND n.cours_id = c.id

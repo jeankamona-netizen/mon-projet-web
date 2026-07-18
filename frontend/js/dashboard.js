@@ -263,7 +263,7 @@ async function chargerNotesDashboard(id) {
     mettreAJourNotifications();
   } catch {
     const tbody = document.getElementById('notes-body');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#999;padding:20px">⚠️ Impossible de charger les notes. Vérifiez le backend.</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#999;padding:20px">⚠️ Impossible de charger les notes. Vérifiez le backend.</td></tr>`;
   }
 }
 
@@ -282,18 +282,20 @@ function afficherNotesTableau(session = '') {
   const liste = session ? base.filter(n => n.session === session) : base;
 
   if (liste.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#999;padding:20px">Aucune note disponible${session?' pour ce semestre':''}.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#999;padding:20px">Aucune note disponible${session?' pour ce semestre':''}.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = liste.map(n => `<tr>
       <td>${n.code}</td>
       <td>${n.matiere}</td>
+      <td>${n.cmi ?? '—'}</td>
+      <td>${n.tp ?? '—'}</td>
+      <td>${n.td ?? '—'}</td>
       <td>${n.credits}</td>
       <td>${n.note_cc ?? '—'}</td>
       <td>${n.note_examen ?? '—'}</td>
       <td>${n.note !== null ? n.note+'/20' : '—'}</td>
-      <td>${n.session === 'S1' ? 'Semestre 1' : 'Semestre 2'}</td>
       <td>${badgeStatutNote(n.note)}</td>
     </tr>`).join('');
 }
