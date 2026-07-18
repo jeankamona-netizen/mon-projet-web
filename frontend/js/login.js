@@ -93,18 +93,24 @@ async function connecterUniverselle() {
 // filière de licence propre (ex. Théologie, dont la licence n'est pas
 // subdivisée), son propre nom devient l'option à choisir.
 function remplirSpecialitesPreinscription() {
+  // Le « niveau souhaité » (Licence / Master) définit le cycle : on ne propose
+  // que les filières de CE cycle, pour ne pas mélanger licence et master.
+  const niveauSouhaite = document.getElementById('niveau')?.value || '';
+  const cible = /master/i.test(niveauSouhaite) ? 'master'
+              : /doctorat/i.test(niveauSouhaite) ? 'doctorat' : 'licence';
   const html = facultesDB.map(f => {
-    // Pré-inscription = entrée en 1er cycle : on ne propose que les filières de
-    // Licence (on exclut les cycles Master et Doctorat).
-    const filieresLicence = (f.filieres || []).filter(nom => !/^(Master|Doctorat)\s/i.test(nom));
-    // Faculté avec des filières de licence → groupe déroulant de ses filières.
-    if (filieresLicence.length > 0) {
+    const toutes = (f.filieres || []).map(x => (typeof x === 'string' ? x : x.nom));
+    const filieres = cible === 'master'   ? toutes.filter(n => /^master/i.test(n))
+                   : cible === 'doctorat' ? toutes.filter(n => /^doctorat/i.test(n))
+                   : toutes.filter(n => !/^master/i.test(n) && !/^doctorat/i.test(n));
+    // Faculté avec des filières pour ce cycle → groupe déroulant.
+    if (filieres.length > 0) {
       return `<optgroup label="${f.nom}">` +
-        filieresLicence.map(nom => `<option>${nom}</option>`).join('') +
+        filieres.map(nom => `<option>${nom}</option>`).join('') +
         `</optgroup>`;
     }
-    // Faculté dont la licence n'est pas subdivisée (ex. Théologie) : le nom de
-    // la faculté est directement l'option à choisir, sans mention négative.
+    // Faculté non subdivisée pour ce cycle (ex. Théologie licence) : le nom de
+    // la faculté est directement l'option à choisir.
     return `<option value="${f.nom}">${f.nom}</option>`;
   }).join('');
   ['specialite', 'specialite2'].forEach(id => {

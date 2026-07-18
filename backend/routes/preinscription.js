@@ -216,7 +216,15 @@ if (statut === 'accepte') {
   // La colonne "promotion" reçoit le nom RÉEL de la filière (celui de la base,
   // propre), pas la chaîne brute du dossier — pour rester aligné avec filiere_id
   // et cohérent partout (barème, horaires, listes).
-  const promotion = match ? match.nom : brute;
+  // Cas Pré-U : année commune SANS filière → promotion générique « Sciences »
+  // (pas de « Pré-U Design ») et aucune filière rattachée.
+  let promotion;
+  if (niveauCourt === 'Pré-U') {
+    filiere_id = null;
+    promotion = 'Sciences';
+  } else {
+    promotion = match ? match.nom : brute;
+  }
   const motDePasse = genererMotDePasseTemporaire();
   const motDePasseHash = await bcrypt.hash(motDePasse, 10);
 

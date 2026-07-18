@@ -195,42 +195,20 @@ async function chargerAnneesCaisse() {
   } catch { /* silencieux */ }
 }
 
-// Remplit la liste des filières selon la faculté choisie (formulaire de saisie).
-function filieresDeFaculte(nomFaculte) {
-  const fac = (facultesDB || []).find(f => f.nom === nomFaculte);
-  return (fac && fac.filieres ? fac.filieres : []).map(fl => (typeof fl === 'string' ? fl : fl.nom));
-}
-
-// Cycle d'un niveau : la convention encode le cycle dans le nom de la filière
-// (préfixe « Master » / « Doctorat », sinon Licence).
-function cycleNiveau(niveau) {
-  if (/^M/i.test(niveau)) return 'master';
-  if (/^D/i.test(niveau)) return 'doctorat';
-  return 'licence'; // Pré-U, L1, L2, L3
-}
-// Filières d'une faculté correspondant au cycle du niveau choisi : un barème
-// L1 « toutes les filières » ne doit viser que les filières de Licence, pas les
-// filières Master de la même faculté.
-function filieresDeFacultePourNiveau(nomFaculte, niveau) {
-  const toutes = filieresDeFaculte(nomFaculte);
-  if (!niveau) return toutes;
-  const cyc = cycleNiveau(niveau);
-  if (cyc === 'master')   return toutes.filter(n => /^master\s/i.test(n));
-  if (cyc === 'doctorat') return toutes.filter(n => /^doctorat\s/i.test(n));
-  return toutes.filter(n => !/^master\s/i.test(n) && !/^doctorat\s/i.test(n));
-}
-
 function majPromotionsBareme() {
   const facSel = document.getElementById('bareme-faculte');
   const promoSel = document.getElementById('bareme-promotion');
   const nivSel = document.getElementById('bareme-niveau');
   if (!facSel || !promoSel) return;
-  // Filières limitées au cycle du niveau sélectionné (Licence / Master / Doctorat).
-  const filieres = filieresDeFacultePourNiveau(facSel.value, nivSel?.value || '');
-  // « Toutes les filières » applique le barème à toutes les filières du cycle.
-  const optToutes = filieres.length ? '<option value="__toutes__">— Toutes les filières —</option>' : '';
+  // Options limitées à la faculté ET au niveau (cycle) choisis ; option
+  // générique (« Sciences »/« Théologie ») quand il n'y a pas de vraie filière.
+  const filieres = optionsFiliereFacNiveau(facSel.value, nivSel?.value || '');
+  // « Toutes les filières » seulement quand il y a réellement plusieurs filières.
+  const optToutes = filieres.length > 1 ? '<option value="__toutes__">— Toutes les filières —</option>' : '';
   promoSel.innerHTML = '<option value="">— Filière —</option>' + optToutes +
     filieres.map(fl => `<option value="${fl}">${fl}</option>`).join('');
+  // Une seule option (générique) → on la présélectionne pour éviter « — Filière — ».
+  if (filieres.length === 1) promoSel.value = filieres[0];
 }
 
 // =====================
@@ -423,7 +401,7 @@ async function enregistrerBareme() {
   // « Toutes les filières » → une ligne par filière DU CYCLE du niveau (L1 →
   // filières de Licence uniquement, M1 → filières Master, etc.) ; sinon la
   // filière choisie, ou « - » si aucune n'est sélectionnée.
-  const cibles = promotion === '__toutes__' ? filieresDeFacultePourNiveau(faculte, niveau) : [promotion || '-'];
+  const cibles = promotion === '__toutes__' ? filieresDuCycle(faculte, niveau) : [promotion || '-'];
   if (!cibles.length) { afficherToast('⚠️ Aucune filière de ce cycle pour cette faculté (laissez « — Filière — » pour enregistrer sans filière).', 'erreur'); return; }
 
   try {

@@ -50,6 +50,49 @@ function remplirCheckboxesFacultes(conteneurId) {
   ).join('');
 }
 
+// =====================
+// FILIÈRES selon FACULTÉ + NIVEAU (cycle) — logique partagée (barème, inscription,
+// réinscription, pré-inscription) pour ne jamais proposer une filière hors sujet
+// (ex. « Pré-U Design » ou « Pré-U Master 1 »).
+// =====================
+function filieresDeFaculteNom(nomFaculte) {
+  const fac = (facultesDB || []).find(f => f.nom === nomFaculte);
+  return (fac && fac.filieres ? fac.filieres : []).map(fl => (typeof fl === 'string' ? fl : fl.nom));
+}
+// Cycle d'un niveau (codes courts : Pré-U, L1..L3, M1/M2, D1/D2).
+function cycleDuNiveau(niveau) {
+  if (/^M/i.test(niveau)) return 'master';
+  if (/^D/i.test(niveau)) return 'doctorat';
+  return 'licence';
+}
+// Le nom d'une filière encode son cycle : « Master… »/« Master1… », « Doctorat… ».
+function filiereEstMaster(nom)   { return /^master/i.test(String(nom || '')); }
+function filiereEstDoctorat(nom) { return /^doctorat/i.test(String(nom || '')); }
+// Filières d'une faculté correspondant au CYCLE du niveau choisi.
+function filieresDuCycle(nomFaculte, niveau) {
+  const toutes = filieresDeFaculteNom(nomFaculte);
+  const cyc = cycleDuNiveau(niveau);
+  if (cyc === 'master')   return toutes.filter(filiereEstMaster);
+  if (cyc === 'doctorat') return toutes.filter(filiereEstDoctorat);
+  return toutes.filter(n => !filiereEstMaster(n) && !filiereEstDoctorat(n)); // licence
+}
+// Nom générique quand aucune filière ne s'applique : Pré-U → « Sciences » ; sinon
+// le nom de la faculté sans le préfixe « Faculté de/d' » (ex. « Théologie »).
+function nomFiliereGenerique(nomFaculte, niveau) {
+  if (/^Pr[ée]-?U/i.test(niveau || '')) return 'Sciences';
+  return String(nomFaculte || '').replace(/^Facult[ée]\s+(de\s+|d['’]\s*)?/i, '').trim() || nomFaculte || '';
+}
+// Options de filière à proposer pour (faculté, niveau) :
+//  - Pré-U : aucune subdivision → une seule option générique (« Sciences »).
+//  - Niveau avec filières du cycle → ces filières.
+//  - Sinon (ex. Théologie licence, ou cycle sans filière propre) → option générique.
+function optionsFiliereFacNiveau(nomFaculte, niveau) {
+  if (!nomFaculte || !niveau) return [];
+  if (/^Pr[ée]-?U/i.test(niveau)) return [nomFiliereGenerique(nomFaculte, niveau)];
+  const cibles = filieresDuCycle(nomFaculte, niveau);
+  return cibles.length ? cibles : [nomFiliereGenerique(nomFaculte, niveau)];
+}
+
 function afficherToast(message, type = 'succes') {
   let toast = document.getElementById('toast');
   if (!toast) {

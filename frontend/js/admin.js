@@ -2541,11 +2541,18 @@ let inscritsAdmin=[];
 
 function chargerFilieresPourInscrit() {
   const f=document.getElementById('inscrit-faculte')?.value||'';
+  const niveau=document.getElementById('inscrit-promotion')?.value||'';
   const sel=document.getElementById('inscrit-filiere');
   if (!sel) return;
-  const fl=filiereParFaculte[f]||[];
-  sel.innerHTML=fl.length===0?'<option value="">— Choisir une faculté d\'abord —</option>':
-    '<option value="">— Choisir une filière —</option>'+fl.map(x=>`<option value="${x}">${x}</option>`).join('');
+  if (!f) { sel.innerHTML='<option value="">— Choisir une faculté d\'abord —</option>'; return; }
+  // Filières limitées à la faculté ET au niveau (cycle) ; option générique
+  // (« Sciences »/« Théologie ») quand il n'y a pas de vraie filière (Pré-U…).
+  const fl=optionsFiliereFacNiveau(f, niveau);
+  sel.innerHTML = fl.length===0
+    ? '<option value="">— Choisir un niveau —</option>'
+    : (fl.length===1
+        ? fl.map(x=>`<option value="${x}">${x}</option>`).join('')
+        : '<option value="">— Choisir une filière —</option>'+fl.map(x=>`<option value="${x}">${x}</option>`).join(''));
 }
 
 // « promotion » (colonne texte) et « filière » (via filiere_id) désignent la
@@ -3042,11 +3049,12 @@ function chargerFilieresPourReinscription() {
   const sel = document.getElementById('reins-filiere');
   if (!sel) return;
   if (!faculte) { sel.innerHTML = '<option value="">— Choisir une faculté d\'abord —</option>'; return; }
-  const cycleSuperieur = niveau === 'M1' || niveau === 'M2' || niveau === 'D1' || niveau === 'D2';
-  const filieres = (filiereParFaculte[faculte] || []).filter(f => f.startsWith('Master ') === cycleSuperieur);
+  const filieres = optionsFiliereFacNiveau(faculte, niveau);
   sel.innerHTML = filieres.length === 0
-    ? `<option value="">— Aucune filière à ce niveau (faculté non subdivisée) —</option>`
-    : '<option value="">— Choisir une filière —</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join('');
+    ? `<option value="">— Choisir un niveau —</option>`
+    : (filieres.length === 1
+        ? filieres.map(f => `<option value="${f}">${f}</option>`).join('')
+        : '<option value="">— Choisir une filière —</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join(''));
 }
 
 async function reinscrireNouvelEtudiant() {
