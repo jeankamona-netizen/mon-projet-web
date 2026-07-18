@@ -1708,19 +1708,20 @@ async function chargerProgramme() {
     return;
   }
 
+  // Sélection précise : on utilise la MÊME présentation pleine largeur que la
+  // vue « Toutes les facultés » (bloc par niveau/filière, S1 puis S2 empilés),
+  // plus lisible que l'ancien affichage en deux colonnes étroites.
   message.style.display = 'none';
-  groupe.style.display = 'none';
-  normal.style.display = 'flex';
-  const t1 = document.getElementById('prog-s1-body');
-  const t2 = document.getElementById('prog-s2-body');
-  t1.innerHTML = t2.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
+  normal.style.display = 'none';
+  groupe.style.display = 'block';
+  groupe.innerHTML = '<div class="dash-card" style="text-align:center;color:#888">Chargement...</div>';
   try {
     const params = new URLSearchParams({ faculte, annee, niveau });
     if (filiere) params.append('filiere', filiere);
     const r = await fetch(`${BASE_URL}/api/programme?${params}`);
     programmeAdmin = await r.json();
-    afficherTableauProgramme();
-  } catch { t1.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Erreur.</td></tr>`; t2.innerHTML=''; }
+    afficherProgrammeGroupe();
+  } catch { groupe.innerHTML = '<div class="dash-card" style="text-align:center;color:#888">⚠️ Erreur de chargement.</div>'; }
 }
 
 function afficherTableauProgramme(liste = programmeAdmin) {
