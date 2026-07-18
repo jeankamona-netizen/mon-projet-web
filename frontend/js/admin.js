@@ -996,7 +996,7 @@ function afficherTableauBulletins() {
       <td><input type="checkbox" class="note-select" data-etudiant-id="${e.etudiant_id}"></td>
       <td>${e.nom} ${e.postnom || ''} ${e.prenom}<br><span style="font-size:11px;color:#999">${e.etudiant_id}</span></td>
       <td>${e.niveau && e.niveau !== '—' ? `<span class="annee-badge">${e.niveau}</span>` : '—'}</td>
-      <td>${e.filiere || '—'}</td>
+      <td>${sansPrefixeNiveau(e.filiere) || '—'}</td>
       <td>${e.faculte || '—'}</td>
       <td>${e.annee_academique || '—'}</td>
       <td>${e.moyenne_generale !== null ? e.moyenne_generale.toFixed(2) + '/20' : '—'}</td>
@@ -2538,6 +2538,20 @@ function chargerFilieresPourInscrit() {
     '<option value="">— Choisir une filière —</option>'+fl.map(x=>`<option value="${x}">${x}</option>`).join('');
 }
 
+// « promotion » (colonne texte) et « filière » (via filiere_id) désignent la
+// MÊME chose : la filière de l'étudiant. On affiche donc une valeur unique
+// (filière, avec repli sur promotion) en retirant tout préfixe de niveau/cycle
+// (« L1 Systèmes Informatiques » → « Systèmes Informatiques ») pour ne pas
+// répéter la colonne Niveau. N'altère pas les données, seulement l'affichage.
+function sansPrefixeNiveau(nom) {
+  if (!nom) return '';
+  const nettoye = String(nom).replace(/^\s*(Pr[ée]-?U(niversitaire)?|Master|Doctorat|[LMD][123])\s+/i, '').trim();
+  return nettoye || String(nom).trim();
+}
+function filiereAffichee(e) {
+  return sansPrefixeNiveau(e.filiere || e.promotion) || '—';
+}
+
 async function chargerInscrits() {
   const tbody=document.getElementById('admin-inscrits-body');
   if (!tbody) return;
@@ -2559,7 +2573,7 @@ async function chargerInscrits() {
       <tr>
         <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}${e.historique?' <span class="badge attente" style="font-size:10px" title="Étudiant promu depuis — ceci est son historique pour cette période">Historique</span>':''}<br><span style="font-size:11px;color:#999">${e.id}</span></td>
         <td>${e.niveau?`<span class="annee-badge">${e.niveau}</span>`:'—'}</td>
-        <td>${e.filiere||'—'}</td>
+        <td>${filiereAffichee(e)}</td>
         <td>${e.faculte||'—'}</td>
         <td>${e.annee_academique||'—'}</td>
         <td><span class="badge ${e.statut==='actif'?'reussi':e.statut==='diplome'?'attente':'echec'}">${e.statut||'actif'}</span></td>

@@ -106,10 +106,19 @@ function formaterDateCaisse(dateStr) {
   return new Date(dateStr).toLocaleDateString('fr-FR');
 }
 function montant(n) { return Number(n || 0).toFixed(2); }
-// Libellé « niveau + filière » (ex. « L2 Sciences de gestion ») ; si la filière
-// vaut « - » (niveau sans filière : Pré-U, licence non subdivisée) → niveau seul.
+// Retire un préfixe de niveau/cycle en tête d'un nom de filière (« L1 Systèmes
+// Informatiques » → « Systèmes Informatiques »), pour ne pas répéter le niveau.
+function sansPrefixeNiveau(nom) {
+  if (!nom) return '';
+  const nettoye = String(nom).replace(/^\s*(Pr[ée]-?U(niversitaire)?|Master|Doctorat|[LMD][123])\s+/i, '').trim();
+  return nettoye || String(nom).trim();
+}
+// Libellé « niveau + filière » (ex. « L2 Sciences de gestion »). La filière
+// affichée est nettoyée de tout préfixe de niveau pour éviter « L2 L2 … ».
+// Si la filière vaut « - » (niveau sans filière : Pré-U, licence non
+// subdivisée) → niveau seul.
 function libelleFiliere(niveau, filiere) {
-  const f = (filiere || '').trim();
+  const f = sansPrefixeNiveau((filiere || '').trim());
   return f && f !== '-' ? `${niveau || ''} ${f}`.trim() : (niveau || '—');
 }
 
