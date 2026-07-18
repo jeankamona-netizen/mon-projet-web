@@ -467,7 +467,7 @@ app.get('/api/etudiant/:id/notes', async (req, res) => {
     // permet de séparer les cursus (L1 2025-2026 vs L2 2026-2027) après promotion.
     const [notes] = await pool.query(`
       SELECT n.id, n.note_cc, n.note_examen, n.note, n.modifie_le, c.semestre AS session,
-             c.annee_academique, c.niveau,
+             c.annee_academique, c.niveau, c.id AS cours_id,
              c.nom AS matiere, c.code, c.credits, c.cmi, c.td, c.tp
       FROM inscription_cours ic
       JOIN cours c ON ic.cours_id = c.id

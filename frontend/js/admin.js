@@ -1159,7 +1159,7 @@ async function filtrerEtudiants() {
       return;
     }
     select.innerHTML = '<option value="">— Choisir un étudiant —</option>' +
-      etudiants.map(e => `<option value="${e.id}" data-faculte="${e.faculte||''}" data-niveau="${e.niveau||''}" data-filiere="${e.promotion||''}" data-annee="${e.annee_academique||''}">${e.nom} ${e.postnom||''} ${e.prenom} (${[e.niveau,e.promotion].filter(Boolean).join(' ')})</option>`).join('');
+      etudiants.map(e => `<option value="${e.id}" data-faculte="${e.faculte||''}" data-niveau="${e.niveau||''}" data-filiere="${e.filiere||sansPrefixeNiveau(e.promotion)||''}" data-annee="${e.annee_academique||''}">${e.nom} ${e.postnom||''} ${e.prenom} (${[e.niveau, sansPrefixeNiveau(e.promotion)].filter(Boolean).join(' ')})</option>`).join('');
     // La liste des matières suit les mêmes filtres (faculté/année/niveau/filière).
     await chargerMatieresPourNote();
   } catch (err) {
@@ -1193,30 +1193,32 @@ async function chargerMatieresPourNote() {
   } catch { sel.innerHTML = '<option value="">⚠️ Erreur</option>'; }
 }
 
-// Quand un étudiant est choisi : matières exactement de sa faculté/niveau/filière
-// pour l'année sélectionnée (le plus précis possible).
+// Quand un étudiant est choisi : ses matières sont EXACTEMENT les cours auxquels
+// il est réellement inscrit (inscription_cours), filtrés sur l'année choisie —
+// pas une liste dérivée du nom de filière. C'est plus fiable et ça respecte les
+// filières autonomes (ex. Informatique de Gestion : ses 21 cours, sans les cours
+// communs auxquels ses étudiants ne sont pas inscrits).
 async function chargerCoursEtudiant() {
   const select = document.getElementById('note-etudiant');
   const sel = document.getElementById('note-matiere');
   if (!select || !sel) return;
   const option = select.options[select.selectedIndex];
-  if (!option?.value) return;
-  const faculte = option.dataset.faculte || '';
-  const niveau  = option.dataset.niveau  || '';
-  const filiere = option.dataset.filiere || '';
-  const annee   = document.getElementById('filtre-note-annee')?.value || option.dataset.annee || '';
-  const params = new URLSearchParams();
-  if (faculte) params.append('faculte', faculte);
-  if (niveau)  params.append('niveau', niveau);
-  if (annee)   params.append('annee', annee);
-  if (filiere) params.append('filiere', filiere);
+  if (!option?.value) { sel.innerHTML = '<option value="">— Sélectionnez un étudiant —</option>'; return; }
+  const annee = document.getElementById('filtre-note-annee')?.value || option.dataset.annee || '';
   sel.innerHTML = '<option value="">Chargement...</option>';
   try {
-    const r = await fetch(`${BASE_URL}/api/programme?${params}`);
-    const cours = await r.json();
-    sel.innerHTML = (!Array.isArray(cours) || cours.length === 0)
+    const r = await fetch(`${BASE_URL}/api/etudiant/${encodeURIComponent(option.value)}/notes`);
+    let cours = await r.json();
+    if (!Array.isArray(cours)) cours = [];
+    if (annee) cours = cours.filter(c => (c.annee_academique || '') === annee);
+    // Une entrée par cours (dédup), triée par semestre puis code.
+    const vus = new Set();
+    cours = cours.filter(c => { if (vus.has(c.cours_id)) return false; vus.add(c.cours_id); return true; })
+                 .sort((a, b) => String(a.session || '').localeCompare(String(b.session || '')) || String(a.code || '').localeCompare(String(b.code || '')));
+    sel.innerHTML = cours.length === 0
       ? '<option value="">Aucun cours pour cet étudiant</option>'
-      : '<option value="">— Choisir une matière —</option>' + cours.map(c => `<option value="${c.id}" data-semestre="${c.semestre}">${c.code} — ${c.nom}</option>`).join('');
+      : '<option value="">— Choisir une matière —</option>' +
+        cours.map(c => `<option value="${c.cours_id}" data-semestre="${c.session || ''}">${c.code} — ${c.matiere}</option>`).join('');
     majSemestreNote();
   } catch { sel.innerHTML = '<option value="">⚠️ Erreur</option>'; }
 }
@@ -3104,8 +3106,8 @@ function rechercherEtudiantPourPromotion() {
         ? '<p style="color:#999;font-size:12px;padding:6px 0">Aucun étudiant trouvé.</p>'
         : etudiants.slice(0, 8).map(e => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 4px;border-bottom:1px solid #f0f0f0;font-size:13px">
-              <span>${e.nom} ${e.postnom||''} ${e.prenom} <span style="color:#999;font-size:11px">(${e.id} · ${e.niveau||'—'} ${e.promotion||''})</span></span>
-              <button class="btn-icone" onclick="selectionnerEtudiantPromotion('${e.id}','${(e.nom+' '+(e.postnom||'')+' '+e.prenom).replace(/'/g,"\\'")}','${e.niveau||''}','${(e.promotion||'').replace(/'/g,"\\'")}','${e.faculte||''}','${e.annee_academique||''}')" aria-label="Sélectionner">${icone('coche')}</button>
+              <span>${e.nom} ${e.postnom||''} ${e.prenom} <span style="color:#999;font-size:11px">(${e.id} · ${e.niveau||'—'} ${sansPrefixeNiveau(e.promotion)||''})</span></span>
+              <button class="btn-icone" onclick="selectionnerEtudiantPromotion('${e.id}','${(e.nom+' '+(e.postnom||'')+' '+e.prenom).replace(/'/g,"\\'")}','${e.niveau||''}','${(sansPrefixeNiveau(e.promotion)||'').replace(/'/g,"\\'")}','${e.faculte||''}','${e.annee_academique||''}')" aria-label="Sélectionner">${icone('coche')}</button>
             </div>`).join('');
     } catch { zone.innerHTML = ''; }
   }, 300);
@@ -3165,8 +3167,8 @@ function rechercherEtudiantDelib() {
         ? '<p style="color:#999;font-size:12px;padding:6px 0">Aucun étudiant trouvé.</p>'
         : etudiants.slice(0, 8).map(e => `
             <div role="button" tabindex="0" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:8px 6px;border-bottom:1px solid #f0f0f0;font-size:13px"
-                 onclick="selectionnerEtudiantDelib('${e.id}','${(e.nom+' '+(e.postnom||'')+' '+e.prenom).replace(/'/g,"\\'")}','${e.niveau||''}','${(e.promotion||'').replace(/'/g,"\\'")}','${e.faculte||''}','${e.annee_academique||''}')">
-              <span><b>${e.nom} ${e.postnom||''} ${e.prenom}</b> <span style="color:#999;font-size:11px">(${e.id} · ${e.niveau||'—'} ${e.promotion||''})</span></span>
+                 onclick="selectionnerEtudiantDelib('${e.id}','${(e.nom+' '+(e.postnom||'')+' '+e.prenom).replace(/'/g,"\\'")}','${e.niveau||''}','${(sansPrefixeNiveau(e.promotion)||'').replace(/'/g,"\\'")}','${e.faculte||''}','${e.annee_academique||''}')">
+              <span><b>${e.nom} ${e.postnom||''} ${e.prenom}</b> <span style="color:#999;font-size:11px">(${e.id} · ${e.niveau||'—'} ${sansPrefixeNiveau(e.promotion)||''})</span></span>
               <span style="color:var(--bleu);font-size:12px">Voir ses notes →</span>
             </div>`).join('');
     } catch { zone.innerHTML = ''; }
