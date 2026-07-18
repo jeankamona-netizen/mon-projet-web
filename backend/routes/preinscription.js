@@ -15,6 +15,15 @@ function genererMotDePasseTemporaire() {
   return crypto.randomBytes(9).toString('base64').replace(/[+/=]/g, '').slice(0, 12);
 }
 
+// Normalise un nom de filière pour la correspondance tolérante : retire un
+// préfixe de niveau/cycle en tête (L1/L2/L3/Pré-U/Master/Doctorat), la casse et
+// les espaces superflus. « L1 Systèmes Informatiques » ≈ « Systèmes Informatiques ».
+function normaliserNomFiliere(s) {
+  return String(s || '')
+    .replace(/^\s*(pr[ée]-?u(niversitaire)?|master|doctorat|[lmd][123])\s+/i, '')
+    .trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 // ===== POST /api/preinscription — soumettre un dossier =====
 router.post('/', async (req, res) => {
   const {
@@ -173,14 +182,21 @@ if (statut === 'accepte') {
   // choisie. Certaines facultés n'ont pas de filière au niveau Licence (ex.
   // Théologie, dont la Licence n'est pas subdivisée) : le formulaire propose
   // alors directement le nom de la faculté comme "spécialité", sans filière.
-  const [filieres] = await pool.query(
-    'SELECT f.id, f.nom, fa.nom AS faculte_nom FROM filiere f JOIN faculte fa ON f.faculte_id = fa.id WHERE f.nom = ?',
-    [dossier.specialite]
+  // Correspondance TOLÉRANTE : on accepte une différence de préfixe de niveau/
+  // cycle (« L1 Systèmes Informatiques » ↔ « Systèmes Informatiques »), pour
+  // qu'un dossier ancien ou légèrement différent retrouve toujours SA filière
+  // et ne crée pas un étudiant « sans filière » (programme incomplet).
+  const brute = (dossier.specialite || '').trim();
+  const [toutesFilieres] = await pool.query(
+    'SELECT f.id, f.nom, fa.nom AS faculte_nom FROM filiere f JOIN faculte fa ON f.faculte_id = fa.id'
   );
-  let filiere_id = filieres.length > 0 ? filieres[0].id : null;
-  let faculteNom = filieres.length > 0 ? filieres[0].faculte_nom : null;
+  const cible = normaliserNomFiliere(brute);
+  const match = toutesFilieres.find(f => f.nom === brute)
+             || (cible ? toutesFilieres.find(f => normaliserNomFiliere(f.nom) === cible) : null);
+  let filiere_id = match ? match.id : null;
+  let faculteNom = match ? match.faculte_nom : null;
   if (!faculteNom) {
-    const [facultes] = await pool.query('SELECT nom FROM faculte WHERE nom = ?', [dossier.specialite]);
+    const [facultes] = await pool.query('SELECT nom FROM faculte WHERE nom = ?', [brute]);
     if (facultes.length > 0) faculteNom = facultes[0].nom;
   }
 
@@ -198,9 +214,10 @@ if (statut === 'accepte') {
   if (faculteNom === 'Sciences Informatiques' && niveauCourt === 'L1') {
     niveauCourt = 'Pré-U';
   }
-  // La colonne "promotion" affiche simplement le nom de la filière (même
-  // convention que l'ajout manuel d'un inscrit — voir "Gérer les inscrits").
-  const promotion = dossier.specialite || '';
+  // La colonne "promotion" reçoit le nom RÉEL de la filière (celui de la base,
+  // propre), pas la chaîne brute du dossier — pour rester aligné avec filiere_id
+  // et cohérent partout (barème, horaires, listes).
+  const promotion = match ? match.nom : brute;
   const motDePasse = genererMotDePasseTemporaire();
   const motDePasseHash = await bcrypt.hash(motDePasse, 10);
 

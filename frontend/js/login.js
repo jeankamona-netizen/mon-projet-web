@@ -94,7 +94,9 @@ async function connecterUniverselle() {
 // subdivisée), son propre nom devient l'option à choisir.
 function remplirSpecialitesPreinscription() {
   const html = facultesDB.map(f => {
-    const filieresLicence = (f.filieres || []).filter(nom => !nom.startsWith('Master '));
+    // Pré-inscription = entrée en 1er cycle : on ne propose que les filières de
+    // Licence (on exclut les cycles Master et Doctorat).
+    const filieresLicence = (f.filieres || []).filter(nom => !/^(Master|Doctorat)\s/i.test(nom));
     // Faculté avec des filières de licence → groupe déroulant de ses filières.
     if (filieresLicence.length > 0) {
       return `<optgroup label="${f.nom}">` +
