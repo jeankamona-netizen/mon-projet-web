@@ -634,10 +634,12 @@ function majNotifsProf() {
 
   const liste = document.getElementById('prof-notif-liste');
   if (liste) {
-    liste.innerHTML = communiquesProf.length === 0
+    // La cloche n'affiche que les communiqués NON LUS : ils restent tant que le
+    // professeur n'a pas cliqué dessus.
+    liste.innerHTML = nouvelles.length === 0
       ? '<p class="notif-vide">Aucune information pour le moment.</p>'
-      : communiquesProf.map(c => `
-          <div class="notif-item" role="button" tabindex="0" onclick="ouvrirAnnoncesProfDepuisCloche()">
+      : nouvelles.map(c => `
+          <div class="notif-item" role="button" tabindex="0" onclick="ouvrirAnnoncesProfDepuisCloche(${JSON.stringify(c.id)})">
             <span class="notif-item-icone">📣</span>
             <div>
               <span class="notif-item-titre">${c.titre}</span>
@@ -647,11 +649,20 @@ function majNotifsProf() {
   }
 }
 
-// Clic sur une info dans la cloche → ouverture de la page « Annonces ».
-function ouvrirAnnoncesProfDepuisCloche() {
+function marquerCommuniqueLuProf(id) {
+  const vus = lireNotifsProfVus();
+  if (!vus.includes(id)) vus.push(id);
+  const cle = cleNotifsProf();
+  if (cle) localStorage.setItem(cle, JSON.stringify(vus));
+}
+
+// Clic sur une info dans la cloche → marquée lue PUIS ouverture des « Annonces ».
+function ouvrirAnnoncesProfDepuisCloche(id) {
+  if (id != null) marquerCommuniqueLuProf(id);
   document.getElementById('prof-notif-panneau')?.classList.remove('ouvert');
   const lien = document.querySelector('.nav-item[onclick*="prof-annonces"]');
   afficherSectionProf('prof-annonces', lien);
+  majNotifsProf();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -659,12 +670,7 @@ function basculerNotifsProf(event) {
   if (event) event.stopPropagation();
   const panneau = document.getElementById('prof-notif-panneau');
   if (!panneau) return;
-  const ouvert = panneau.classList.toggle('ouvert');
-  // À l'ouverture, tout est marqué comme lu (le badge disparaît).
-  if (ouvert) {
-    const cle = cleNotifsProf();
-    if (cle) localStorage.setItem(cle, JSON.stringify(communiquesProf.map(c => c.id)));
-    const badge = document.getElementById('prof-notif-badge');
-    if (badge) badge.style.display = 'none';
-  }
+  // On n'efface plus le badge à l'ouverture : un communiqué ne disparaît que
+  // lorsque le professeur clique dessus (voir ouvrirAnnoncesProfDepuisCloche).
+  panneau.classList.toggle('ouvert');
 }

@@ -1142,19 +1142,30 @@ function lireNotifsCaisseVus() { const c = cleNotifsCaisse(); if (!c) return [];
 
 function majNotifsCaisse() {
   const vus = lireNotifsCaisseVus();
+  // La cloche n'affiche que les communiqués NON ENCORE lus : ils restent tant
+  // que l'agent n'a pas cliqué dessus.
   const nouvelles = communiquesCaisse.filter(c => !vus.includes(c.id));
   const badge = document.getElementById('caisse-notif-badge');
   if (badge) { if (nouvelles.length) { badge.textContent = nouvelles.length > 99 ? '99+' : nouvelles.length; badge.style.display = ''; } else badge.style.display = 'none'; }
   const liste = document.getElementById('caisse-notif-liste');
   if (liste) {
-    liste.innerHTML = communiquesCaisse.length === 0
+    liste.innerHTML = nouvelles.length === 0
       ? '<p class="notif-vide">Aucune information pour le moment.</p>'
-      : communiquesCaisse.map(c => `
-          <div class="notif-item">
+      : nouvelles.map(c => `
+          <div class="notif-item" role="button" tabindex="0" onclick="marquerCommuniqueLuCaisse(${JSON.stringify(c.id)})">
             <span class="notif-item-icone">📣</span>
             <div><span class="notif-item-titre">${c.titre}</span><span class="notif-item-sous">${c.description || ''}</span></div>
           </div>`).join('');
   }
+}
+
+// Clic sur un communiqué → marqué lu (il disparaît de la cloche).
+function marquerCommuniqueLuCaisse(id) {
+  const vus = lireNotifsCaisseVus();
+  if (!vus.includes(id)) vus.push(id);
+  const cle = cleNotifsCaisse();
+  if (cle) localStorage.setItem(cle, JSON.stringify(vus));
+  majNotifsCaisse();
 }
 
 function basculerNotifsCaisse(event) {
@@ -1162,12 +1173,9 @@ function basculerNotifsCaisse(event) {
   const p = document.getElementById('caisse-notif-panneau');
   if (!p) return;
   document.getElementById('caisse-menu')?.classList.remove('ouvert');
-  const ouvert = p.classList.toggle('ouvert');
-  if (ouvert) {
-    const cle = cleNotifsCaisse();
-    if (cle) localStorage.setItem(cle, JSON.stringify(communiquesCaisse.map(c => c.id)));
-    const badge = document.getElementById('caisse-notif-badge'); if (badge) badge.style.display = 'none';
-  }
+  // On n'efface plus le badge à l'ouverture : un communiqué ne disparaît que
+  // lorsque l'agent clique dessus (voir marquerCommuniqueLuCaisse).
+  p.classList.toggle('ouvert');
 }
 
 function basculerMenuCaisse(event) {

@@ -355,7 +355,7 @@ function mettreAJourNotificationsAdmin() {
     liste.innerHTML = nouvelles.length === 0
       ? '<p class="notif-vide">Aucune nouvelle information.</p>'
       : nouvelles.map(it => `
-          <div class="notif-item" role="button" tabindex="0" onclick="afficherSection('admin-contact', document.querySelector('.nav-item[onclick*=admin-contact]'))">
+          <div class="notif-item" role="button" tabindex="0" onclick="ouvrirNotificationAdmin('${encodeURIComponent(it.id)}')">
             <span class="notif-item-icone">${it.icone}</span>
             <div>
               <span class="notif-item-titre">${it.titre}</span>
@@ -365,19 +365,28 @@ function mettreAJourNotificationsAdmin() {
   }
 }
 
-function marquerNotificationsAdminLues() {
-  const ids = construireNotificationsAdmin().map(it => it.id);
-  localStorage.setItem('admin_notifs_vues', JSON.stringify(ids));
-  const badge = document.getElementById('admin-notif-badge');
-  if (badge) badge.style.display = 'none';
+// Marque UNE notification admin comme lue (seulement au clic).
+function marquerUneNotificationAdminLue(id) {
+  const vues = notificationsAdminVues();
+  if (!vues.includes(id)) vues.push(id);
+  localStorage.setItem('admin_notifs_vues', JSON.stringify(vues));
+}
+
+// Clic sur une notification → marquée lue PUIS ouverture de « Messages ».
+function ouvrirNotificationAdmin(idEncode) {
+  if (idEncode != null) marquerUneNotificationAdminLue(decodeURIComponent(idEncode));
+  document.getElementById('admin-notif-panneau')?.classList.remove('ouvert');
+  afficherSection('admin-contact', document.querySelector('.nav-item[onclick*=admin-contact]'));
+  mettreAJourNotificationsAdmin();
 }
 
 function basculerNotificationsAdmin(event) {
   if (event) event.stopPropagation();
   const panneau = document.getElementById('admin-notif-panneau');
   if (!panneau) return;
-  const ouvert = panneau.classList.toggle('ouvert');
-  if (ouvert) marquerNotificationsAdminLues();
+  // On n'efface plus le badge à l'ouverture : une notification ne disparaît que
+  // lorsque l'admin clique dessus (voir ouvrirNotificationAdmin).
+  panneau.classList.toggle('ouvert');
 }
 
 // =====================

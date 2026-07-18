@@ -774,6 +774,14 @@ function lireNotificationsVues() {
 // Section du dashboard vers laquelle mène chaque type de notification.
 const NOTIF_SECTION = { note: 'mes-notes', horaire: 'horaires', annonce: 'annonces', evenement: 'annonces', info: 'annonces', paiement: 'frais' };
 
+// Libellé précis d'un créneau pour la notification : « vendredi le 17/07/2026
+// à 07h30–09h30 · Salle 2 » (la date exacte, pas seulement le jour de semaine).
+function libelleCreneauNotif(h) {
+  const heure = t => (t || '').slice(0, 5).replace(':', 'h');
+  const quand = h.date_debut ? `${h.jour} le ${formaterDateAffichage(h.date_debut)}` : (h.jour || '');
+  return `${quand} à ${heure(h.heure_debut)}–${heure(h.heure_fin)} · ${h.salle || ''}`.trim();
+}
+
 function construireNotifications() {
   const items = [];
   // Depuis que /api/etudiant/:id/notes renvoie une ligne par cours SUIVI (et
@@ -793,7 +801,7 @@ function construireNotifications() {
   (horairesEtudiant || []).forEach(h => items.push({
     categorie: 'horaire', id: h.id, icone: '📅',
     titre: `Cours programmé : ${h.cours}`,
-    sousTitre: `${h.jour} ${h.heure_debut}–${h.heure_fin} · ${h.salle}`
+    sousTitre: libelleCreneauNotif(h)
   }));
   (annoncesEtudiant || []).forEach(a => {
     const cat = a.type === 'evenement' ? 'evenement' : 'annonce';
@@ -814,11 +822,23 @@ function construireNotifications() {
   return items;
 }
 
-// Clic sur une notification → on ouvre directement la page correspondante.
-function ouvrirNotification(section) {
+// Marque UNE notification comme lue (seulement quand l'utilisateur clique
+// dessus). Une notification non cliquée reste dans la cloche.
+function marquerUneNotificationLue(categorie, id) {
+  const vus = lireNotificationsVues();
+  if (!vus[categorie]) vus[categorie] = [];
+  if (!vus[categorie].includes(id)) vus[categorie].push(id);
+  const cle = cleNotifications();
+  if (cle) localStorage.setItem(cle, JSON.stringify(vus));
+}
+
+// Clic sur une notification → on la marque lue PUIS on ouvre la page concernée.
+function ouvrirNotification(section, categorie, idEncode) {
+  if (categorie && idEncode != null) marquerUneNotificationLue(categorie, decodeURIComponent(idEncode));
   document.getElementById('notif-panneau')?.classList.remove('ouvert');
   const lien = document.querySelector(`.nav-item[data-section="${section}"]`);
   afficherSectionDashboard(section, lien);
+  mettreAJourNotifications();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -841,7 +861,7 @@ function mettreAJourNotifications() {
     liste.innerHTML = nouvelles.length === 0
       ? '<p class="notif-vide">Aucune nouvelle information.</p>'
       : nouvelles.map(it => `
-          <div class="notif-item" role="button" tabindex="0" onclick="ouvrirNotification('${NOTIF_SECTION[it.categorie]}')">
+          <div class="notif-item" role="button" tabindex="0" onclick="ouvrirNotification('${NOTIF_SECTION[it.categorie]}','${it.categorie}','${encodeURIComponent(it.id)}')">
             <span class="notif-item-icone">${it.icone}</span>
             <div>
               <span class="notif-item-titre">${it.titre}</span>
@@ -851,23 +871,14 @@ function mettreAJourNotifications() {
   }
 }
 
-function marquerNotificationsLues() {
-  const vus = { note: [], horaire: [], annonce: [], evenement: [], info: [], paiement: [] };
-  construireNotifications().forEach(it => vus[it.categorie].push(it.id));
-  const cle = cleNotifications();
-  if (cle) localStorage.setItem(cle, JSON.stringify(vus));
-  const badge = document.getElementById('notif-badge');
-  if (badge) badge.style.display = 'none';
-}
-
 function basculerNotifications(event) {
   if (event) event.stopPropagation();
   const panneau = document.getElementById('notif-panneau');
   if (!panneau) return;
-  const ouvert = panneau.classList.toggle('ouvert');
-  // À l'ouverture, on marque tout comme lu (le badge disparaît) — la liste des
-  // nouvelles infos reste affichée pour cette consultation.
-  if (ouvert) marquerNotificationsLues();
+  // On n'efface PLUS le badge à l'ouverture : une notification ne disparaît que
+  // lorsque l'utilisateur clique dessus (voir ouvrirNotification). Ouvrir la
+  // cloche ne fait que consulter la liste.
+  panneau.classList.toggle('ouvert');
 }
 
 // =====================
