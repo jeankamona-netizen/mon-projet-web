@@ -1470,8 +1470,9 @@
       <!-- Programmation multi-facultés : on ajoute plusieurs couples faculté/filière ;
            le cours est créé (et les étudiants inscrits) pour chacun. -->
       <div id="prog-cibles-bloc" class="form-group-dash">
+         <label>A utiliser pour les cours d'ensembles</label>
         <button type="button" class="btn-ajouter" style="background:var(--vert)" onclick="ajouterCibleProgramme()">+ Programmer aussi pour cette faculté/filière</button>
-        <p class="info" style="margin:6px 0 0">Le cours sera programmé pour chaque faculté/filière listée ci-dessous, ainsi que pour la sélection ci-dessus. Utile pour un cours commun à plusieurs facultés.</p>
+        <p class="info" style="margin:6px 0 0">Utile pour un cours commun à plusieurs Filières.</p>
         <div id="prog-cibles-liste" class="prog-cibles" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
       </div>
 
@@ -1530,7 +1531,7 @@
           <label>TD <span class="info">(heures)</span></label>
           <input type="number" id="prog-td" min="0" placeholder="ex: 20">
         </div>
-        
+
         <div class="form-group-dash">
           <label>TP <span class="info">(heures)</span></label>
           <input type="number" id="prog-tp" min="0" placeholder="ex: 15">
