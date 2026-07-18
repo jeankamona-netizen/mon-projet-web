@@ -545,6 +545,7 @@ function remplirAnneesPaiement(anneePref) {
               : (courante && liste.includes(courante)) ? courante
               : (liste[0] || courante);
   if (cible) selAnnee.value = cible;
+  majNiveauPaiement();
 }
 
 // Recharge situation + versements après un ajout/suppression, en conservant
@@ -558,9 +559,25 @@ async function rafraichirModalPaiements() {
 }
 
 // Re-render lorsqu'on change l'année (régularisation d'une dette antérieure).
-// Le niveau du versement suit désormais la période de l'année choisie (plus
-// de sélecteur manuel) : rien d'autre à synchroniser ici.
-function changerAnneePaiement() { afficherPaiementsAnnee(); }
+function changerAnneePaiement() { majNiveauPaiement(); afficherPaiementsAnnee(); }
+
+// Affiche le sélecteur « Niveau » UNIQUEMENT pour une année hors cursus (aucune
+// période connue → le niveau réglé doit être saisi à la main). Pour une année
+// connue, le niveau est déduit de la période : le bloc reste masqué pour éviter
+// le doublon avec le libellé de l'année (« 2026-2027 · Pré-U »).
+function majNiveauPaiement() {
+  const bloc = document.getElementById('paiement-niveau-bloc');
+  const sel = document.getElementById('paiement-niveau-select');
+  if (!bloc || !sel) return;
+  const periode = periodeSelectionnee();
+  if (periode) {
+    bloc.style.display = 'none';
+  } else {
+    bloc.style.display = 'inline-flex';
+    const niv = (etudiantCourantCaisse || {}).niveau || '';
+    if (niv && [...sel.options].some(o => o.value === niv)) sel.value = niv;
+  }
+}
 
 // Période (barème/solde) correspondant à l'année sélectionnée.
 function periodeSelectionnee() {
@@ -639,10 +656,13 @@ async function ajouterPaiementCaisse() {
   // antérieure pour régulariser une dette d'un étudiant promu).
   const annee_academique = document.getElementById('paiement-annee')?.value || (etudiantCourantCaisse || {}).annee_academique || null;
   const periode = periodeSelectionnee();
-  // Niveau visé par le versement : celui de la période de l'année choisie (ex.
-  // L1 pour une dette de L1 réglée par un étudiant désormais en L2). Pour une
-  // année hors cursus (aucune période), on retombe sur le niveau courant.
-  const niveau = (periode && periode.niveau) || (etudiantCourantCaisse || {}).niveau || '';
+  // Niveau visé par le versement : pour une année connue, celui de sa période
+  // (ex. L1 pour une dette de L1 réglée par un étudiant désormais en L2). Pour
+  // une année hors cursus, le sélecteur « Niveau » (alors visible) fait foi ;
+  // à défaut, le niveau courant de l'étudiant.
+  const niveau = (periode && periode.niveau)
+    || document.getElementById('paiement-niveau-select')?.value
+    || (etudiantCourantCaisse || {}).niveau || '';
 
   if (isNaN(montantVal) || montantVal <= 0) { afficherToast('⚠️ Entrez un montant valide.', 'erreur'); return; }
   if (!date_paiement) { afficherToast('⚠️ La date est obligatoire.', 'erreur'); return; }
@@ -654,8 +674,8 @@ async function ajouterPaiementCaisse() {
     const d = await r.json();
     if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
     afficherToast('✅ Versement enregistré.');
-    // Reçu imprimé automatiquement — avec le niveau/année de la période visée.
-    const etuRecu = { ...etudiantCourantCaisse, annee_academique, niveau: (periode && periode.niveau) || (etudiantCourantCaisse || {}).niveau };
+    // Reçu imprimé automatiquement — avec le niveau/année réellement enregistrés.
+    const etuRecu = { ...etudiantCourantCaisse, annee_academique, niveau };
     imprimerRecu({ id: d.id, montant: montantVal, date_paiement, rubrique, reference, mode_paiement }, etuRecu, nomCaissier());
     document.getElementById('paiement-montant').value = '';
     document.getElementById('paiement-reference').value = '';
