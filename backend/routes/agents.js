@@ -5,6 +5,13 @@ const bcrypt = require('bcryptjs');
 const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
+const { envoyerEmailReinitialisationCompte } = require('../mailer');
+
+// Libellé d'espace + rôle de connexion selon la fonction de l'agent.
+const ESPACE_PAR_FONCTION = {
+  caissier: { espace: 'espace caisse', role: 'caissier' },
+  administrateur_budget: { espace: 'espace administrateur du budget', role: 'caissier' },
+};
 
 // La gestion des agents (personnel) est réservée à l'administration.
 router.use(requireAdmin);
@@ -107,15 +114,26 @@ router.delete('/:id', async (req, res) => {
 // automatique par email, l'admin le communique lui-meme a l'agent. =====
 router.post('/:id/reinitialiser-mot-de-passe', async (req, res) => {
   try {
-    const [agents] = await pool.query('SELECT id FROM agent WHERE id = ?', [req.params.id]);
+    const [agents] = await pool.query('SELECT id, noms, prenom, email, matricule, fonction FROM agent WHERE id = ?', [req.params.id]);
     if (agents.length === 0) return res.status(404).json({ erreur: 'Agent non trouvé.' });
+    const agent = agents[0];
 
     const motDePasseTemporaire = genererMotDePasseTemporaire();
     const hash = await bcrypt.hash(motDePasseTemporaire, 10);
     await pool.query('UPDATE agent SET mot_de_passe = ? WHERE id = ?', [hash, req.params.id]);
 
-    journaliser({ ...acteurDeReq(req), action: 'Réinit. mot de passe agent', details: `Agent #${req.params.id}`, ip: ipDeRequete(req) });
-    res.json({ motDePasseTemporaire });
+    // Envoi automatique par email si l'agent a une adresse au dossier.
+    const conf = ESPACE_PAR_FONCTION[agent.fonction] || { espace: 'compte', role: 'caissier' };
+    const emailEnvoye = agent.email
+      ? await envoyerEmailReinitialisationCompte({
+          email: agent.email, nom: `${agent.prenom || ''} ${agent.noms || ''}`.trim(),
+          identifiant: agent.matricule, motDePasse: motDePasseTemporaire,
+          espace: conf.espace, roleConnexion: conf.role,
+        }).then(() => true).catch(err => { console.error('⚠️ Email réinit. agent :', err.message); return false; })
+      : false;
+
+    journaliser({ ...acteurDeReq(req), action: 'Réinit. mot de passe agent', details: `${agent.prenom || ''} ${agent.noms || ''} (${agent.matricule})`.trim() + (emailEnvoye ? ' · email envoyé' : ''), ip: ipDeRequete(req) });
+    res.json({ motDePasseTemporaire, emailEnvoye });
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: erreur.message });

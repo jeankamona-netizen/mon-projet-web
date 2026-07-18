@@ -2963,7 +2963,8 @@ async function reinitialiserMotDePasseAgent(id) {
     const d = await r.json();
     if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
     await confirmerAction(
-      `Communiquez ce nouveau mot de passe temporaire à l'agent : ${d.motDePasseTemporaire}`,
+      `Nouveau mot de passe temporaire : ${d.motDePasseTemporaire}` +
+      (d.emailEnvoye ? ' (également envoyé par email à l\'agent).' : ' — ⚠️ email non envoyé (pas d\'adresse au dossier ?), communiquez-le vous-même.'),
       { titre: '✅ Mot de passe réinitialisé', texteConfirmer: 'Compris' }
     );
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
@@ -3307,7 +3308,8 @@ async function reinitialiserMotDePasseProfesseur(id) {
     const d = await r.json();
     if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
     await confirmerAction(
-      `Communiquez ce nouveau mot de passe temporaire au professeur : ${d.motDePasseTemporaire}`,
+      `Nouveau mot de passe temporaire : ${d.motDePasseTemporaire}` +
+      (d.emailEnvoye ? ' (également envoyé par email au professeur).' : ' — ⚠️ email non envoyé (pas d\'adresse au dossier ?), communiquez-le vous-même.'),
       { titre: '✅ Mot de passe réinitialisé', texteConfirmer: 'Compris' }
     );
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }

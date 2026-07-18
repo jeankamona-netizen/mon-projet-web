@@ -149,6 +149,53 @@ async function envoyerEmailReinitialisation(etudiant, motDePasse) {
   console.log(`📧 Email de réinitialisation envoyé à ${etudiant.email}`);
 }
 
+// Réinitialisation générique (professeur, caissier, administrateur du budget…).
+// espace = libellé de l'espace concerné (ex. « espace professeur »), identifiant
+// = matricule/email affiché, roleConnexion = paramètre ?role= du lien de login.
+async function envoyerEmailReinitialisationCompte({ email, nom, identifiant, motDePasse, espace, roleConnexion }) {
+  if (!email) return;
+  const lienConnexion = roleConnexion ? `${URL_CONNEXION}?role=${encodeURIComponent(roleConnexion)}` : URL_CONNEXION;
+  const options = {
+    to: email,
+    subject: '🔑 Réinitialisation de votre mot de passe — UML',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+        <div style="background:#1a3a6b;padding:20px;text-align:center">
+          <h2 style="color:#f0c020;margin:0">Université Méthodiste de Lubumbashi</h2>
+        </div>
+        <div style="padding:28px 24px;background:#f8f9fa">
+          <h3 style="color:#1a3a6b">Bonjour, ${nom || ''}</h3>
+          <p>Le mot de passe de votre ${espace || 'compte'} a été réinitialisé par l'administration.</p>
+
+          <div style="background:#ffffff;border:1px solid #ddd;border-radius:8px;padding:16px;margin:20px 0">
+            ${identifiant ? `<p style="margin:6px 0"><strong>Identifiant :</strong>
+               <code style="background:#eef;padding:2px 8px;border-radius:4px">${identifiant}</code></p>` : ''}
+            <p style="margin:6px 0"><strong>Nouveau mot de passe temporaire :</strong>
+               <code style="background:#eef;padding:2px 8px;border-radius:4px">${motDePasse}</code></p>
+          </div>
+
+          <p style="color:#cc2200;font-size:13px">
+            ⚠️ Veuillez changer votre mot de passe dès votre prochaine connexion.
+          </p>
+
+          <a href="${lienConnexion}"
+             style="display:inline-block;background:#1a3a6b;color:#fff;
+                    padding:12px 24px;border-radius:8px;text-decoration:none;margin-top:10px">
+            Se connecter
+          </a>
+
+          <p style="margin-top:24px;font-size:12px;color:#888">
+            Adresse : N°249, Croisement Av. Kasavubu & Likasi, Lubumbashi, RDC<br>
+            Email : info.uml.lubumbashi@gmail.com
+          </p>
+        </div>
+      </div>
+    `,
+  };
+  await envoyer(options);
+  console.log(`📧 Email de réinitialisation envoyé à ${email}`);
+}
+
 async function envoyerEmailRejet(etudiant) {
   if (!etudiant.email) return;
 
@@ -219,4 +266,4 @@ async function envoyerEmailReponseContact(destinataire, nomDestinataire, sujetOr
   console.log(`📧 Réponse envoyée à ${destinataire}`);
 }
 
-module.exports = { envoyerEmailAcceptation, envoyerEmailReinitialisation, envoyerEmailRejet, envoyerEmailReponseContact };
+module.exports = { envoyerEmailAcceptation, envoyerEmailReinitialisation, envoyerEmailReinitialisationCompte, envoyerEmailRejet, envoyerEmailReponseContact };
