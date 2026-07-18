@@ -6,32 +6,13 @@ const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
 const { inscrireAuxCoursDuNiveau } = require('../models/inscriptionAuto');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
+const { genererMatricule } = require('../models/matricule');
 
 // Toutes les routes de réinscription sont réservées à l'admin
 router.use(requireAdmin);
 
 function genererMotDePasseTemporaire() {
   return crypto.randomBytes(9).toString('base64').replace(/[+/=]/g, '').slice(0, 12);
-}
-
-// Génère un matricule "UML-AAAA-0000" unique pour l'année donnée (anti-collision).
-async function genererMatricule(anneeAcademique) {
-  const prefixe = `UML-${String(anneeAcademique).slice(0, 4)}-`;
-  const [rows] = await pool.query(
-    'SELECT id FROM etudiant WHERE id LIKE ? ORDER BY id DESC LIMIT 1',
-    [prefixe + '%']
-  );
-  let seq = 1;
-  if (rows.length) {
-    const dernier = parseInt(rows[0].id.split('-')[2], 10);
-    if (!isNaN(dernier)) seq = dernier + 1;
-  }
-  while (true) {
-    const matricule = prefixe + String(seq).padStart(4, '0');
-    const [[exist]] = await pool.query('SELECT 1 AS x FROM etudiant WHERE id = ?', [matricule]);
-    if (!exist) return matricule;
-    seq++;
-  }
 }
 
 // ===== POST /api/reinscriptions/promouvoir — faire monter un étudiant existant de promotion =====

@@ -8,6 +8,7 @@ const upload = require('../upload');
 const { requireAdmin } = require('../middleware/auth');
 const { inscrireAuxCoursDuNiveau } = require('../models/inscriptionAuto');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
+const { genererMatricule } = require('../models/matricule');
 
 // Mot de passe temporaire aléatoire (12 caractères, non prévisible) — l'étudiant
 // devra le changer, il est de toute façon hashé en bcrypt avant stockage.
@@ -174,9 +175,9 @@ router.put('/:id', requireAdmin, async (req, res) => {
 if (statut === 'accepte') {
 
   const annee = new Date().getFullYear();
-  const [[{ total }]] = await pool.query('SELECT COUNT(*) AS total FROM etudiant');
-  const numero = String(total + 1).padStart(4, '0');
-  const numeroEtudiant = `UML-${annee}-${numero}`;
+  // Matricule basé sur le plus grand numéro déjà attribué (jamais sur COUNT) :
+  // insensible aux suppressions → plus d'erreur « Duplicate entry … PRIMARY ».
+  const numeroEtudiant = await genererMatricule(annee);
 
   // Retrouver la filière (et sa faculté de rattachement) depuis la spécialité
   // choisie. Certaines facultés n'ont pas de filière au niveau Licence (ex.
