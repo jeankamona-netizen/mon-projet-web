@@ -206,18 +206,17 @@ let messagesContactListe = [];
 async function chargerMessagesContact() {
   const tbody = document.getElementById('admin-contact-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
   try {
     const r = await fetchAdmin(`${BASE_URL}/api/contact`);
     const messages = await r.json();
     messagesContactListe = messages;
     tbody.innerHTML = messages.length === 0
-      ? `<tr><td colspan="7" class="admin-vide">Aucun message reçu.</td></tr>`
+      ? `<tr><td colspan="6" class="admin-vide">Aucun message reçu.</td></tr>`
       : messages.map(m => `
         <tr style="${m.lu ? '' : 'font-weight:600'}">
           <td>${new Date(m.date_envoi).toLocaleDateString('fr-FR')}</td>
-          <td>${m.nom}</td>
-          <td>${m.email}</td>
+          <td>${m.nom}<br><span style="font-weight:400;font-size:12px;color:#667">${m.email}</span></td>
           <td>${m.sujet || '—'}</td>
           <td style="max-width:260px;white-space:normal">${m.message}</td>
           <td>${m.repondu ? '<span class="badge reussi">Répondu</span>' : (m.lu ? '<span class="badge attente">Lu</span>' : '<span class="badge reussi">Nouveau</span>')}</td>
@@ -227,7 +226,7 @@ async function chargerMessagesContact() {
             <button class="btn-icone danger" onclick="supprimerMessageContact(${m.id})" aria-label="Supprimer">${icone('corbeille')}</button>
           </td>
         </tr>`).join('');
-  } catch { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+  } catch { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
 async function marquerMessageLu(id) {
