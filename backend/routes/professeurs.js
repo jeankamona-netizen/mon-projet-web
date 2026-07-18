@@ -3,7 +3,8 @@ const router = express.Router();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const pool = require('../database');
-const { requireAdmin } = require('../middleware/auth');
+// Attributions des cours : ouvert à l'admin ET au décanat (doyen / vice-doyen).
+const { requireAdminOuDoyen: requireAdmin } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 const { envoyerEmailReinitialisationCompte } = require('../mailer');
 const { nomMajuscule } = require('../nom');

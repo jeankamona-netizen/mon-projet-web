@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../database');
-const { requireAdmin } = require('../middleware/auth');
+// Partager des informations (annonces, événements, communiqués) : ouvert à
+// l'admin ET au décanat (doyen / vice-doyen).
+const { requireAdminOuDoyen: requireAdmin } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 const upload = require('../upload');
 

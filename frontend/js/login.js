@@ -68,6 +68,8 @@ async function connecterUniverselle() {
         break;
       case 'admin':
         sessionStorage.setItem('admin_token', donnees.token);
+        sessionStorage.removeItem('espace_role');   // pas un doyen : accès admin complet
+        sessionStorage.removeItem('espace_agent');
         window.location.href = 'admin-dashboard.html';
         break;
       case 'caisse':
@@ -75,6 +77,16 @@ async function connecterUniverselle() {
         sessionStorage.setItem('caisse_token', donnees.token);
         sessionStorage.setItem('caisse_agent', JSON.stringify(donnees.agent));
         window.location.href = 'caisse-dashboard.html';
+        break;
+      case 'doyen':
+        // Doyen / vice-doyen : réutilisent le tableau de bord admin, restreint
+        // à leur périmètre. Le JWT est stocké sous 'admin_token' pour que
+        // fetchAdmin fonctionne, et 'espace_role'='doyen' déclenche le masquage
+        // des sections réservées à l'admin.
+        sessionStorage.setItem('admin_token', donnees.token);
+        sessionStorage.setItem('espace_role', 'doyen');
+        sessionStorage.setItem('espace_agent', JSON.stringify(donnees.agent));
+        window.location.href = 'admin-dashboard.html';
         break;
       default:
         if (erreurBox) { erreurBox.textContent = '❌ Type de compte non reconnu.'; erreurBox.style.display = 'block'; }

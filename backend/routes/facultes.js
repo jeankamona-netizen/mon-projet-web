@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../database');
-const { requireAdmin } = require('../middleware/auth');
+// Ajouter → Facultés (et gestion/liste) : ouvert à l'admin ET au décanat.
+const { requireAdminOuDoyen: requireAdmin } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // ===== GET /api/facultes — liste toutes les facultés avec leurs filières =====

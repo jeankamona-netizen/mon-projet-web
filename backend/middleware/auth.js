@@ -54,4 +54,11 @@ const requireCaissier = exigerRoles(['admin', 'caisse'], 'Accès réservé à la
 // la caisse (caissier) est en lecture seule.
 const requireBudget   = exigerRoles(['admin', 'budget'], 'Réservé à l\'administrateur du budget.');
 
-module.exports = { requireAdmin, requireFinance, requireCaissier, requireBudget };
+// Espace décanal (doyen / vice-doyen) : mêmes pouvoirs que l'admin sur le
+// périmètre pédagogique (vue d'ensemble, notes, horaires, programme,
+// attributions, années, facultés/filières, annonces) — mais AUCUN accès à la
+// gestion des inscrits, aux agents, aux messages/newsletter ni au journal
+// d'audit, qui restent protégés par requireAdmin strict.
+const requireAdminOuDoyen = exigerRoles(['admin', 'doyen'], 'Accès réservé à l\'administration et au décanat.');
+
+module.exports = { requireAdmin, requireFinance, requireCaissier, requireBudget, requireAdminOuDoyen };

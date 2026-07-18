@@ -6,7 +6,7 @@ const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan    = require('morgan');
 const pool      = require('./database');
-const { requireAdmin } = require('./middleware/auth');
+const { requireAdmin, requireAdminOuDoyen } = require('./middleware/auth');
 const { journaliserActionsAdmin } = require('./middleware/audit');
 const crypto      = require('crypto');
 const bcrypt      = require('bcryptjs');
@@ -136,7 +136,7 @@ app.use('/api/audit',          auditRoutes);
 // =====================
 // STATISTIQUES (vue d'ensemble admin)
 // =====================
-app.get('/api/stats', requireAdmin, async (req, res) => {
+app.get('/api/stats', requireAdminOuDoyen, async (req, res) => {
   try {
     const { annee } = req.query;
 
@@ -183,7 +183,7 @@ app.get('/api/stats', requireAdmin, async (req, res) => {
 // =====================
 // STATISTIQUES AVANCÉES (vue d'ensemble admin)
 // =====================
-app.get('/api/stats/avancees', requireAdmin, async (req, res) => {
+app.get('/api/stats/avancees', requireAdminOuDoyen, async (req, res) => {
   try {
     const [evolution] = await pool.query(`
       SELECT DATE_FORMAT(date_soumission, '%Y-%m') AS mois, COUNT(*) AS total

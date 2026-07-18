@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../database');
-const { requireAdmin } = require('../middleware/auth');
+// Gérer les notes : ouvert à l'admin ET au décanat (doyen / vice-doyen).
+const { requireAdminOuDoyen: requireAdmin } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // Le contrôle continu et l'examen peuvent arriver séparément (l'un avant

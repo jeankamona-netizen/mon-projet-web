@@ -31,6 +31,8 @@ async function connexionAdmin() {
 
     // Stocker le token de session
     sessionStorage.setItem('admin_token', donnees.token);
+    sessionStorage.removeItem('espace_role');   // connexion admin dédiée : accès complet
+    sessionStorage.removeItem('espace_agent');
     window.location.href = 'admin-dashboard.html';
 
   } catch (erreur) {
@@ -57,12 +59,60 @@ function verifierSessionAdmin() {
 
 function deconnecterAdmin() {
   sessionStorage.removeItem('admin_token');
+  sessionStorage.removeItem('espace_role');
+  sessionStorage.removeItem('espace_agent');
   window.location.href = 'login.html?role=admin';
 }
 
 function basculerMenuCompteAdmin(event) {
   if (event) event.stopPropagation();
   document.getElementById('admin-menu-compte')?.classList.toggle('ouvert');
+}
+
+// =====================
+// ESPACE DÉCANAL (doyen / vice-doyen) — le même tableau de bord que l'admin,
+// restreint à son périmètre. 'espace_role'='doyen' est posé au login (login.js).
+// =====================
+function estDoyen() { return sessionStorage.getItem('espace_role') === 'doyen'; }
+
+// Libellé d'affichage selon la fonction exacte de l'agent connecté.
+function libelleFonctionDoyen() {
+  try {
+    const a = JSON.parse(sessionStorage.getItem('espace_agent') || '{}');
+    return a.fonction === 'vice_doyen' ? 'Vice-Doyen' : 'Doyen';
+  } catch { return 'Doyen'; }
+}
+
+// Masque les éléments réservés à l'admin et personnalise l'identité affichée
+// lorsqu'un doyen/vice-doyen est connecté. Appelé au tout début du bootstrap.
+function preparerEspaceDoyen() {
+  if (!estDoyen()) return;
+  document.body.classList.add('espace-doyen');
+  // Masquer tout ce qui porte data-admin-seul (menus + cloche hors périmètre).
+  document.querySelectorAll('[data-admin-seul]').forEach(el => { el.style.display = 'none'; });
+
+  const fonction = libelleFonctionDoyen();
+  let agent = {};
+  try { agent = JSON.parse(sessionStorage.getItem('espace_agent') || '{}'); } catch {}
+  const nomComplet = `${agent.prenom || ''} ${agent.noms || ''}`.trim() || fonction;
+  const initiales = (nomComplet.split(/\s+/).map(m => m[0]).join('').slice(0, 2) || 'DY').toUpperCase();
+
+  // En-tête + carte profil de la barre latérale.
+  const badgeHeader = document.querySelector('.admin-badge-header');
+  if (badgeHeader) badgeHeader.textContent = `Décanat — ${fonction}`;
+  const avatar = document.querySelector('.admin-sidebar-profil .profil-avatar');
+  if (avatar) avatar.textContent = initiales;
+  const nom = document.querySelector('.admin-sidebar-profil .profil-nom');
+  if (nom) nom.textContent = nomComplet;
+  const promo = document.querySelector('.admin-sidebar-profil .profil-promo');
+  if (promo) promo.textContent = `UML — ${fonction}`;
+
+  // Menu du compte (déroulant en haut à droite).
+  const bonjour = document.querySelector('#admin-menu-compte .menu-compte-entete b');
+  if (bonjour) bonjour.textContent = nomComplet;
+  const fonctionItem = document.querySelector('#admin-menu-compte .menu-compte-item');
+  if (fonctionItem) fonctionItem.textContent = fonction;
+  document.title = `Décanat — Tableau de bord`;
 }
 
 // =====================
@@ -2892,7 +2942,7 @@ async function supprimerInscrit(id) {
 // AGENTS (PERSONNEL) — la fonction détermine l'accès aux interfaces
 // =====================
 let agentsAdmin = [];
-const LIBELLE_FONCTION = { caissier: 'Caissier', administrateur_budget: 'Administrateur du budget' };
+const LIBELLE_FONCTION = { caissier: 'Caissier', administrateur_budget: 'Administrateur du budget', doyen: 'Doyen', vice_doyen: 'Vice-Doyen' };
 
 async function chargerAgents() {
   const tbody = document.getElementById('admin-agents-body');
@@ -3502,6 +3552,7 @@ async function chargerAuditLog() {
 // =====================
 document.addEventListener('DOMContentLoaded', async () => {
   verifierSessionAdmin();
+  preparerEspaceDoyen(); // masque les sections admin + personnalise l'identité si doyen
 
   const champPass=document.getElementById('admin-pass');
   if (champPass) champPass.addEventListener('keypress',(e)=>{ if(e.key==='Enter') connexionAdmin(); });
@@ -3526,7 +3577,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   remplirCheckboxesFacultes('inscriptions-facultes-checkboxes');
 
   if (document.getElementById('cpt-etudiants')) chargerStats();
-  if (document.getElementById('admin-notif-badge')) chargerNotificationsAdmin();
+  // Cloche admin (messages, newsletter, préinscriptions) : hors périmètre du
+  // décanat → on ne la charge pas pour un doyen (routes réservées à l'admin).
+  if (document.getElementById('admin-notif-badge') && !estDoyen()) chargerNotificationsAdmin();
 
   // Fermer les panneaux déroulants (notifications, menu compte) au clic en dehors.
   document.addEventListener('click', e => {
@@ -3568,18 +3621,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const ft=document.getElementById('filtre-type-annonce'); if(ft) ft.addEventListener('change',chargerAnnonces);
   }
 
-  if (document.getElementById('admin-preinscriptions')) {
+  if (document.getElementById('admin-preinscriptions') && !estDoyen()) {
     chargerPreinscriptions();
     const rp=document.getElementById('recherche-preinscriptions'); if(rp) rp.addEventListener('input',appliquerFiltresPreinscriptions);
     const sp=document.getElementById('filtre-statut-preinscription'); if(sp) sp.addEventListener('change',appliquerFiltresPreinscriptions);
   }
 
-  if (document.getElementById('admin-inscrits')) {
+  if (document.getElementById('admin-inscrits') && !estDoyen()) {
     chargerInscrits();
     const ri=document.getElementById('recherche-inscrits'); if(ri) ri.addEventListener('input',chargerInscrits);
     ['filtre-inscrits-faculte','filtre-inscrits-niveau','filtre-inscrits-annee'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',chargerInscrits);});
   }
 
   if (document.getElementById('admin-attributions')) chargerAttributions();
-  if (document.getElementById('admin-audit')) chargerAuditLog();
+  if (document.getElementById('admin-audit') && !estDoyen()) chargerAuditLog();
 });

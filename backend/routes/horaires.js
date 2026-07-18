@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../database');
-const { requireAdmin } = require('../middleware/auth');
+// Toutes les routes horaires sont ouvertes à l'admin ET au décanat (doyen /
+// vice-doyen) : on importe requireAdminOuDoyen sous l'alias requireAdmin.
+const { requireAdminOuDoyen: requireAdmin } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // Toutes les routes horaires sont réservées à l'admin (gestion des cours/salles)

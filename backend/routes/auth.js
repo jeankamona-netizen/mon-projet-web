@@ -41,7 +41,17 @@ router.post('/admin', (req, res) => {
 const ROLE_PAR_FONCTION = {
   caissier: 'caisse',
   administrateur_budget: 'budget',
+  // Doyen et vice-doyen partagent le même rôle 'doyen' (accès identique) ; la
+  // `fonction` conservée dans le JWT ne sert qu'à l'affichage du titre.
+  doyen: 'doyen',
+  vice_doyen: 'doyen',
 };
+
+// Type d'espace (redirection frontend) déduit du rôle de l'agent.
+function typeEspaceDeRole(role) {
+  if (role === 'doyen') return 'doyen';
+  return 'caisse'; // caissier + administrateur du budget partagent l'espace caisse
+}
 
 router.post('/agent', async (req, res) => {
   const { matricule, mot_de_passe } = req.body;
@@ -109,7 +119,7 @@ router.post('/login', async (req, res) => {
         process.env.JWT_SECRET, { expiresIn: '8h' }
       );
       journaliser({ role, utilisateur: `${agent.prenom || ''} ${agent.noms}`.trim(), identifiant: agent.matricule, action: 'Connexion', details: `Connexion ${agent.fonction || ''}`.trim(), ip: ipDeRequete(req) });
-      return res.json({ type: 'caisse', token, agent: { id: agent.id, matricule: agent.matricule, noms: agent.noms, prenom: agent.prenom, fonction: agent.fonction, role } });
+      return res.json({ type: typeEspaceDeRole(role), token, agent: { id: agent.id, matricule: agent.matricule, noms: agent.noms, prenom: agent.prenom, fonction: agent.fonction, role } });
     }
 
     // 2) Administration — identifiant + mot de passe dans .env.

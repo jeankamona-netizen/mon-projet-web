@@ -26,7 +26,7 @@
       </div>
     </div>
     <div class="dash-header-right">
-      <div class="dash-notif-wrap">
+      <div class="dash-notif-wrap" data-admin-seul>
         <button class="dash-notif" id="admin-notif-bouton" onclick="basculerNotificationsAdmin(event)" aria-label="Notifications" aria-haspopup="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span class="notif-badge" id="admin-notif-badge" style="display:none">0</span>
@@ -81,7 +81,7 @@
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           Gérer les horaires
         </a>
-        <div class="nav-item-groupe">
+        <div class="nav-item-groupe" data-admin-seul>
           <a href="#" class="nav-item nav-item-toggle" id="nav-inscrits-groupe" onclick="toggleSousMenu(event, this)">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Gérer les inscrits
@@ -115,7 +115,7 @@
           </div>
         </div>
 
-        <a href="#" class="nav-item" onclick="afficherSection('admin-contact', this)">
+        <a href="#" class="nav-item" data-admin-seul onclick="afficherSection('admin-contact', this)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
           Messages &amp; Newsletter
         </a>
@@ -130,7 +130,7 @@
           Attributions des cours
         </a>
         
-        <a href="#" class="nav-item" onclick="afficherSection('admin-agents', this)">
+        <a href="#" class="nav-item" data-admin-seul onclick="afficherSection('admin-agents', this)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M5 18a4 4 0 0 1 8 0"/><line x1="15" y1="9" x2="19" y2="9"/><line x1="15" y1="13" x2="19" y2="13"/></svg>
           Agents (personnel)
         </a>
@@ -151,7 +151,7 @@
           </div>
         </div>
 
-        <a href="#" class="nav-item" onclick="afficherSection('admin-audit', this)">
+        <a href="#" class="nav-item" data-admin-seul onclick="afficherSection('admin-audit', this)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><polyline points="14 2 14 7 19 7"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
           Journal d'audit
         </a>
@@ -948,6 +948,8 @@
           <select id="agent-fonction">
             <option value="caissier">Caissier</option>
             <option value="administrateur_budget">Administrateur du budget</option>
+            <option value="doyen">Doyen</option>
+            <option value="vice_doyen">Vice-Doyen</option>
           </select>
         </div>
       </div>

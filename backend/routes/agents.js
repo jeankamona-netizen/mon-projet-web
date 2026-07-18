@@ -13,13 +13,15 @@ const { genererMatriculeAgent } = require('../models/matricule');
 const ESPACE_PAR_FONCTION = {
   caissier: { espace: 'espace caisse', role: 'caissier' },
   administrateur_budget: { espace: 'espace administrateur du budget', role: 'caissier' },
+  doyen: { espace: 'espace décanal', role: 'doyen' },
+  vice_doyen: { espace: 'espace décanal', role: 'vice-doyen' },
 };
 
 // La gestion des agents (personnel) est réservée à l'administration.
 router.use(requireAdmin);
 
 // Fonctions reconnues (déterminent l'accès aux interfaces).
-const FONCTIONS = ['caissier', 'administrateur_budget'];
+const FONCTIONS = ['caissier', 'administrateur_budget', 'doyen', 'vice_doyen'];
 
 function genererMotDePasseTemporaire() {
   return crypto.randomBytes(9).toString('base64').replace(/[+/=]/g, '').slice(0, 12);
