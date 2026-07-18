@@ -158,9 +158,16 @@ app.get('/api/stats', requireAdmin, async (req, res) => {
     // non affecté par le filtre d'année.
     const [[{ preinscriptions }]] = await pool.query('SELECT COUNT(*) AS preinscriptions FROM preinscription WHERE statut = "en_attente"');
 
+    // « Cours programmés » = nombre de cours DISTINCTS planifiés dans la semaine
+    // en cours (lundi → dimanche contenant aujourd'hui), pas le nombre de
+    // créneaux : un même cours aligné plusieurs fois dans la semaine ne compte
+    // qu'une fois. La semaine est bornée sur date_debut du créneau.
+    const borneSemaine = `date_debut BETWEEN
+        DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+        AND DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 6 DAY)`;
     const [[{ cours }]] = annee
-      ? await pool.query('SELECT COUNT(*) AS cours FROM horaire WHERE annee_academique = ?', [annee])
-      : await pool.query('SELECT COUNT(*) AS cours FROM horaire');
+      ? await pool.query(`SELECT COUNT(DISTINCT cours_id) AS cours FROM horaire WHERE annee_academique = ? AND ${borneSemaine}`, [annee])
+      : await pool.query(`SELECT COUNT(DISTINCT cours_id) AS cours FROM horaire WHERE ${borneSemaine}`);
 
     // Les annonces (site public) ne sont pas non plus rattachées à une année
     // académique : décompte global lui aussi.
