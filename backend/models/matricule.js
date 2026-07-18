@@ -1,27 +1,44 @@
 const pool = require('../database');
 
-// Génère un matricule « UML-AAAA-0000 » UNIQUE et MONOTONE pour l'année donnée.
-// Basé sur le PLUS GRAND numéro déjà attribué (jamais sur COUNT(*)) : insensible
-// aux suppressions. Un matricule effacé n'est jamais réattribué → plus aucune
-// erreur « Duplicate entry … for key etudiant.PRIMARY ». La boucle finale
-// garantit l'unicité même en cas de trou dans la numérotation.
-async function genererMatricule(anneeAcademique) {
-  const prefixe = `UML-${String(anneeAcademique).slice(0, 4)}-`;
-  const [rows] = await pool.query(
-    'SELECT id FROM etudiant WHERE id LIKE ? ORDER BY id DESC LIMIT 1',
-    [prefixe + '%']
-  );
-  let seq = 1;
-  if (rows.length) {
-    const dernier = parseInt(rows[0].id.split('-')[2], 10);
-    if (!isNaN(dernier)) seq = dernier + 1;
-  }
-  while (true) {
-    const matricule = prefixe + String(seq).padStart(4, '0');
-    const [[exist]] = await pool.query('SELECT 1 AS x FROM etudiant WHERE id = ?', [matricule]);
-    if (!exist) return matricule;
-    seq++;
-  }
+// « 2026-2027 » → « 2627 » (deux derniers chiffres de chaque année de l'année
+// académique). « 2026 » seul → « 2627 » (on déduit l'année suivante).
+function suffixeAnnees(anneeAcademique) {
+  const m = String(anneeAcademique || '').match(/\d{4}/g);
+  if (m && m.length >= 2) return m[0].slice(2) + m[1].slice(2);
+  if (m && m.length === 1) { const y = parseInt(m[0], 10); return String(y).slice(2) + String(y + 1).slice(2); }
+  return '0000';
 }
 
-module.exports = { genererMatricule };
+// Code court de la faculté : initiales de ses mots significatifs (2 lettres),
+// sans accent. « Sciences Informatiques » → « SI », « Faculté de Théologie » →
+// « FT ». Le tirage aléatoire garantit l'unicité même si deux facultés ont le
+// même code.
+function codeFaculte(nom) {
+  const petits = new Set(['de', 'la', 'le', 'les', 'du', 'des', 'et', 'en', 'l', 'd', 'a', 'à', '&']);
+  const mots = String(nom || '')
+    .replace(/['’‘&]/g, ' ')
+    .split(/[\s\-]+/)
+    .filter(m => m && !petits.has(m.toLowerCase()));
+  let ini = mots.map(m => m[0]).join('');
+  ini = ini.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+  return (ini.slice(0, 2) || 'XX').padEnd(2, 'X');
+}
+
+// Génère un matricule « UML{AABB}-{RRRR}{FF} » (ex. « UML2627-2340SI ») :
+// UML + terminaisons de l'année académique + 4 chiffres aléatoires + code
+// faculté. Le numéro est ALÉATOIRE et vérifié en base : insensible aux
+// suppressions (un matricule effacé n'est jamais réattribué) → plus jamais
+// d'erreur « Duplicate entry … for key etudiant.PRIMARY ».
+async function genererMatricule(anneeAcademique, faculteNom) {
+  const an = suffixeAnnees(anneeAcademique);
+  const fac = codeFaculte(faculteNom);
+  for (let i = 0; i < 100000; i++) {
+    const rnd = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    const matricule = `UML${an}-${rnd}${fac}`;
+    const [[exist]] = await pool.query('SELECT 1 AS x FROM etudiant WHERE id = ?', [matricule]);
+    if (!exist) return matricule;
+  }
+  throw new Error('Impossible de générer un matricule unique.');
+}
+
+module.exports = { genererMatricule, suffixeAnnees, codeFaculte };

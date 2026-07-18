@@ -69,7 +69,7 @@ router.post('/nouveau', async (req, res) => {
       if (f) filiere_id = f.id;
     }
 
-    const matricule = await genererMatricule(annee_academique);
+    const matricule = await genererMatricule(annee_academique, faculte);
     const motDePasse = genererMotDePasseTemporaire();
     const hash = await bcrypt.hash(motDePasse, 10);
 

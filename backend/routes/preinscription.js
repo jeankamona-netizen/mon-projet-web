@@ -175,9 +175,6 @@ router.put('/:id', requireAdmin, async (req, res) => {
 if (statut === 'accepte') {
 
   const annee = new Date().getFullYear();
-  // Matricule basé sur le plus grand numéro déjà attribué (jamais sur COUNT) :
-  // insensible aux suppressions → plus d'erreur « Duplicate entry … PRIMARY ».
-  const numeroEtudiant = await genererMatricule(annee);
 
   // Retrouver la filière (et sa faculté de rattachement) depuis la spécialité
   // choisie. Certaines facultés n'ont pas de filière au niveau Licence (ex.
@@ -229,6 +226,8 @@ if (statut === 'accepte') {
 
   if (dejaInscrit.length === 0) {
     const anneeAcademique = `${annee}-${annee + 1}`;
+    // Matricule « UML2627-XXXXFF » : année académique + aléatoire + faculté.
+    const numeroEtudiant = await genererMatricule(anneeAcademique, faculteNom);
     await pool.query(`
       INSERT INTO etudiant (
         id, nom, postnom, prenom, date_naissance, lieu_naissance,
