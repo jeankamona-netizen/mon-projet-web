@@ -549,15 +549,10 @@
 
       <!-- ==================== GERER LES INSCRITS ==================== -->
       <section id="admin-inscrits" class="dash-section">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <div>
-            <h2 style="margin-bottom:2px">Gérer les Inscrits</h2>
-            <p class="dash-sous-titre" style="margin:0">Consultez et modifiez les informations des étudiants inscrits</p>
-          </div>
-          <button class="btn-ajouter" style="background:#8e44ad" onclick="regenererMatricules()" title="Convertir tous les anciens matricules (UML-2026-0001) et agents au nouveau format">🔄 Régénérer les matricules</button>
-        </div>
+        <h2>Gérer les Inscrits</h2>
+        <p class="dash-sous-titre">Consultez et modifiez les informations des étudiants inscrits</p>
 
-        <div class="admin-toolbar" style="margin-top:14px">
+        <div class="admin-toolbar">
           <input type="text" class="admin-recherche" id="recherche-inscrits"
                  placeholder="🔎 Rechercher par nom...">
           <select class="admin-recherche" id="filtre-inscrits-faculte" style="flex:0 0 180px">
@@ -580,9 +575,6 @@
             <option value="2029-2030">2029-2030</option>
             <option value="2030-2031">2030-2031</option>
           </select>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#c0392b;white-space:nowrap;font-weight:600" title="N'afficher que les étudiants sans filière (dans une faculté qui en propose)">
-            <input type="checkbox" id="filtre-inscrits-sansfiliere"> ⚠ Sans filière
-          </label>
         </div>
 
         <div class="dash-card" style="overflow-x:auto">

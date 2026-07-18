@@ -2557,70 +2557,9 @@ function sansPrefixeNiveau(nom) {
   const nettoye = String(nom).replace(/^\s*(Pr[ée]-?U(niversitaire)?|Master|Doctorat|[LMD][123])\s+/i, '').trim();
   return nettoye || String(nom).trim();
 }
-// La faculté propose-t-elle des filières ? (un étudiant y est censé en avoir une)
-function faculteADesFilieres(nom) {
-  return ((filiereParFaculte[nom] || []).length) > 0;
-}
-// Un étudiant sans filière alors que sa faculté en propose : ses cours de
-// filière manquent (d'où un programme incomplet vs ses camarades).
-function etudiantSansFiliere(e) {
-  const nom = sansPrefixeNiveau(e.filiere || e.promotion);
-  return (!nom || nom === '-') && faculteADesFilieres(e.faculte);
-}
+// Filière affichée : nom nettoyé du préfixe de niveau (repli sur la promotion).
 function filiereAffichee(e) {
-  const nom = sansPrefixeNiveau(e.filiere || e.promotion);
-  if (nom && nom !== '-') return nom;
-  return etudiantSansFiliere(e)
-    ? '<span class="badge echec" style="font-size:10px" title="Aucune filière attribuée : les cours de filière manquent. Modifiez cet étudiant pour lui en attribuer une.">⚠ Sans filière</span>'
-    : '—';
-}
-
-// Régénère les matricules (étudiants + agents) vers le nouveau format et ouvre
-// un rapport imprimable ancien → nouveau (à communiquer aux intéressés).
-async function regenererMatricules() {
-  if (!await confirmerAction(
-    'Convertir TOUS les anciens matricules (étudiants « UML-2026-0001 » et agents) vers le nouveau format ?\n\n⚠️ Les identifiants de connexion changent. Un rapport ancien → nouveau s\'ouvrira pour que vous puissiez les communiquer. Action irréversible.',
-    { titre: 'Régénérer les matricules', texteConfirmer: 'Régénérer' })) return;
-  afficherToast('⏳ Régénération en cours...');
-  try {
-    const r = await fetchAdmin(`${BASE_URL}/api/admin/regenerer-matricules`, { method: 'POST' });
-    const d = await r.json();
-    if (!r.ok) { afficherToast('❌ ' + (d.erreur || 'Échec.'), 'erreur'); return; }
-    const nb = (d.etudiants?.length || 0) + (d.agents?.length || 0);
-    afficherToast(nb ? `✅ ${d.etudiants.length} étudiant(s) et ${d.agents.length} agent(s) régénérés.` : 'ℹ️ Aucun ancien matricule à convertir.');
-    if (nb) ouvrirRapportMatricules(d);
-    chargerInscrits();
-  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
-}
-
-function ouvrirRapportMatricules(d) {
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const ligne = (o) => `<tr><td>${esc(o.nom)}</td><td><code>${esc(o.ancien)}</code></td><td><b>${esc(o.nouveau)}</b></td></tr>`;
-  const bloc = (titre, arr) => arr && arr.length
-    ? `<h2>${titre} (${arr.length})</h2><table><thead><tr><th>Nom</th><th>Ancien matricule</th><th>Nouveau matricule</th></tr></thead><tbody>${arr.map(ligne).join('')}</tbody></table>`
-    : '';
-  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Correspondance des matricules — UML</title>
-<style>
-  body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;padding:24px;max-width:820px;margin:0 auto}
-  .barre{text-align:center;margin-bottom:16px}
-  .barre button{font-size:14px;padding:9px 20px;border:none;border-radius:6px;background:#1a3a6b;color:#fff;cursor:pointer}
-  h1{font-size:17px;color:#1a3a6b;border-bottom:3px solid #f0c020;padding-bottom:8px}
-  h2{font-size:14px;color:#1a3a6b;margin-top:22px}
-  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
-  th{background:#1a3a6b;color:#fff;text-align:left;padding:6px 8px}
-  td{padding:5px 8px;border-bottom:1px solid #eef1f5}
-  code{background:#eef;padding:1px 6px;border-radius:4px}
-  @media print{.barre{display:none}@page{margin:14mm}* { -webkit-print-color-adjust:exact;print-color-adjust:exact }}
-</style></head><body>
-  <div class="barre"><button onclick="window.print()">🖨️ Imprimer</button></div>
-  <h1>Correspondance des matricules — nouveau format</h1>
-  <p style="font-size:12px;color:#666">Édité le ${new Date().toLocaleString('fr-FR')}. Communiquez à chacun son nouveau matricule (identifiant de connexion).</p>
-  ${bloc('Étudiants', d.etudiants)}
-  ${bloc('Agents', d.agents)}
-</body></html>`;
-  const w = window.open('', '_blank', 'width=900,height=700');
-  if (!w) { afficherToast('⚠️ Autorisez les pop-ups pour voir le rapport.', 'erreur'); return; }
-  w.document.open(); w.document.write(html); w.document.close();
+  return sansPrefixeNiveau(e.filiere || e.promotion) || '—';
 }
 
 async function chargerInscrits() {
@@ -2639,11 +2578,8 @@ async function chargerInscrits() {
     if (faculte) params.append('faculte',faculte);
     const r=await fetchAdmin(`${BASE_URL}/api/etudiants?${params}`);
     inscritsAdmin=await r.json();
-    // Filtre « sans filière » (côté client : dépend de facultesDB pour savoir
-    // quelles facultés proposent des filières).
-    const sansFiliereSeul = document.getElementById('filtre-inscrits-sansfiliere')?.checked;
-    const liste = sansFiliereSeul ? inscritsAdmin.filter(etudiantSansFiliere) : inscritsAdmin;
-    if (!liste.length) { tbody.innerHTML=`<tr><td colspan="7" class="admin-vide">${sansFiliereSeul ? 'Aucun étudiant sans filière 🎉' : 'Aucun étudiant trouvé.'}</td></tr>`; return; }
+    const liste = inscritsAdmin;
+    if (!liste.length) { tbody.innerHTML=`<tr><td colspan="7" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
     tbody.innerHTML=liste.map(e=>`
       <tr>
         <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}${e.historique?' <span class="badge attente" style="font-size:10px" title="Étudiant promu depuis — ceci est son historique pour cette période">Historique</span>':''}<br><span style="font-size:11px;color:#999">${e.id}</span></td>
@@ -3614,7 +3550,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (document.getElementById('admin-inscrits')) {
     chargerInscrits();
     const ri=document.getElementById('recherche-inscrits'); if(ri) ri.addEventListener('input',chargerInscrits);
-    ['filtre-inscrits-faculte','filtre-inscrits-niveau','filtre-inscrits-annee','filtre-inscrits-sansfiliere'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',chargerInscrits);});
+    ['filtre-inscrits-faculte','filtre-inscrits-niveau','filtre-inscrits-annee'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',chargerInscrits);});
   }
 
   if (document.getElementById('admin-attributions')) chargerAttributions();
