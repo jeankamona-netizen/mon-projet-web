@@ -14,6 +14,7 @@ const { genererBulletinPDF } = require('./bulletin');
 const { envoyerEmailReinitialisation } = require('./mailer');
 const { inscrireAuxCoursDuNiveau } = require('./models/inscriptionAuto');
 const { journaliser, ipDeRequete, acteurDeReq } = require('./models/audit');
+const { genererMatricule, genererMatriculeAgent } = require('./models/matricule');
 const upload    = require('./upload');
 const app       = express();
 
@@ -370,6 +371,58 @@ app.delete('/api/etudiants/:id', requireAdmin, async (req, res) => {
     journaliser({ ...acteurDeReq(req), action: 'Suppression étudiant', details: `${libelle} (${req.params.id})`.trim(), ip: ipDeRequete(req) });
     res.json({ message: 'Étudiant supprimé.' });
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+// =====================
+// RÉGÉNÉRATION DES MATRICULES vers le nouveau format (action admin, une fois).
+// Étudiants : l'id est la clé primaire → on la change ET on répercute sur les
+// tables liées (inscription_cours, note, paiement, presence), FK désactivées le
+// temps de l'opération, une transaction par étudiant. Agents : simple champ
+// matricule. Renvoie la correspondance ancien → nouveau (à communiquer).
+// =====================
+app.post('/api/admin/regenerer-matricules', requireAdmin, async (req, res) => {
+  try {
+    const rapport = { etudiants: [], agents: [] };
+
+    const [etus] = await pool.query(
+      "SELECT id, nom, postnom, prenom, annee_academique, faculte FROM etudiant WHERE id REGEXP '^UML-[0-9]{4}-[0-9]{4}$'"
+    );
+    for (const e of etus) {
+      const nouveau = await genererMatricule(e.annee_academique || '', e.faculte || '');
+      const conn = await pool.getConnection();
+      try {
+        await conn.query('SET FOREIGN_KEY_CHECKS=0');
+        await conn.beginTransaction();
+        await conn.query('UPDATE etudiant SET id = ? WHERE id = ?', [nouveau, e.id]);
+        for (const t of ['inscription_cours', 'note', 'paiement', 'presence']) {
+          await conn.query(`UPDATE ${t} SET etudiant_id = ? WHERE etudiant_id = ?`, [nouveau, e.id]);
+        }
+        await conn.commit();
+        rapport.etudiants.push({ ancien: e.id, nouveau, nom: `${e.nom} ${e.postnom || ''} ${e.prenom}`.replace(/\s+/g, ' ').trim() });
+      } catch (err) {
+        try { await conn.rollback(); } catch { /* ignore */ }
+        console.error('⚠️ Régénération matricule étudiant', e.id, ':', err.message);
+      } finally {
+        try { await conn.query('SET FOREIGN_KEY_CHECKS=1'); } catch { /* ignore */ }
+        conn.release();
+      }
+    }
+
+    const rx = /^[A-Z]\d{3}-[A-Z]{3}\d{2}$/;
+    const [ags] = await pool.query('SELECT id, matricule, noms, prenom, fonction FROM agent');
+    for (const a of ags) {
+      if (rx.test(a.matricule || '')) continue; // déjà au nouveau format
+      const nouveau = await genererMatriculeAgent(a.fonction, a.noms, new Date().getFullYear());
+      await pool.query('UPDATE agent SET matricule = ? WHERE id = ?', [nouveau, a.id]);
+      rapport.agents.push({ ancien: a.matricule, nouveau, nom: `${a.prenom || ''} ${a.noms}`.trim() });
+    }
+
+    journaliser({ ...acteurDeReq(req), action: 'Régénération matricules', details: `${rapport.etudiants.length} étudiant(s), ${rapport.agents.length} agent(s)`, ip: ipDeRequete(req) });
+    res.json(rapport);
+  } catch (erreur) {
+    console.error('Erreur régénération matricules:', erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
 });
 
 // Réinitialise le mot de passe d'un étudiant : génère un nouveau mot de passe

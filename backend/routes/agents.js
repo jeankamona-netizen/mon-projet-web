@@ -6,6 +6,7 @@ const pool = require('../database');
 const { requireAdmin } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 const { envoyerEmailReinitialisationCompte } = require('../mailer');
+const { genererMatriculeAgent } = require('../models/matricule');
 
 // Libellé d'espace + rôle de connexion selon la fonction de l'agent.
 const ESPACE_PAR_FONCTION = {
@@ -38,9 +39,9 @@ router.get('/', async (req, res) => {
 
 // ===== POST /api/agents — créer un agent =====
 router.post('/', async (req, res) => {
-  const { matricule, noms, prenom, email, telephone, fonction, mot_de_passe } = req.body;
-  if (!matricule || !noms || !fonction || !mot_de_passe) {
-    return res.status(400).json({ erreur: 'Matricule, noms, fonction et mot de passe sont obligatoires.' });
+  const { noms, prenom, email, telephone, fonction, mot_de_passe } = req.body;
+  if (!noms || !fonction || !mot_de_passe) {
+    return res.status(400).json({ erreur: 'Noms, fonction et mot de passe sont obligatoires.' });
   }
   if (!FONCTIONS.includes(fonction)) {
     return res.status(400).json({ erreur: 'Fonction invalide.' });
@@ -49,13 +50,15 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ erreur: 'Le mot de passe doit contenir au moins 6 caractères.' });
   }
   try {
+    // Matricule généré automatiquement au format « {Initiale}{RRR}-{FONC}{YY} ».
+    const matricule = await genererMatriculeAgent(fonction, noms, new Date().getFullYear());
     const hash = await bcrypt.hash(mot_de_passe, 10);
     const [r] = await pool.query(
       'INSERT INTO agent (matricule, noms, prenom, email, telephone, fonction, mot_de_passe) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [matricule, noms, prenom || null, email || null, telephone || null, fonction, hash]
     );
     journaliser({ ...acteurDeReq(req), action: 'Création agent', details: `${prenom || ''} ${noms} (${matricule}) · ${fonction}`.trim(), ip: ipDeRequete(req) });
-    res.status(201).json({ message: 'Agent créé.', id: r.insertId });
+    res.status(201).json({ message: 'Agent créé.', id: r.insertId, matricule });
   } catch (erreur) {
     if (erreur.code === 'ER_DUP_ENTRY') return res.status(409).json({ erreur: 'Ce matricule existe déjà.' });
     console.error(erreur);
@@ -64,10 +67,12 @@ router.post('/', async (req, res) => {
 });
 
 // ===== PUT /api/agents/:id — modifier un agent (mot de passe optionnel) =====
+// Le matricule n'est PLUS modifiable ici : il est attribué automatiquement à la
+// création (format « {Initiale}{RRR}-{FONC}{YY} ») et reste stable.
 router.put('/:id', async (req, res) => {
-  const { matricule, noms, prenom, email, telephone, fonction, mot_de_passe } = req.body;
-  if (!matricule || !noms || !fonction) {
-    return res.status(400).json({ erreur: 'Matricule, noms et fonction sont obligatoires.' });
+  const { noms, prenom, email, telephone, fonction, mot_de_passe } = req.body;
+  if (!noms || !fonction) {
+    return res.status(400).json({ erreur: 'Noms et fonction sont obligatoires.' });
   }
   if (!FONCTIONS.includes(fonction)) {
     return res.status(400).json({ erreur: 'Fonction invalide.' });
@@ -78,16 +83,16 @@ router.put('/:id', async (req, res) => {
       if (mot_de_passe.length < 6) return res.status(400).json({ erreur: 'Le mot de passe doit contenir au moins 6 caractères.' });
       const hash = await bcrypt.hash(mot_de_passe, 10);
       await pool.query(
-        'UPDATE agent SET matricule=?, noms=?, prenom=?, email=?, telephone=?, fonction=?, mot_de_passe=? WHERE id=?',
-        [matricule, noms, prenom || null, email || null, telephone || null, fonction, hash, req.params.id]
+        'UPDATE agent SET noms=?, prenom=?, email=?, telephone=?, fonction=?, mot_de_passe=? WHERE id=?',
+        [noms, prenom || null, email || null, telephone || null, fonction, hash, req.params.id]
       );
     } else {
       await pool.query(
-        'UPDATE agent SET matricule=?, noms=?, prenom=?, email=?, telephone=?, fonction=? WHERE id=?',
-        [matricule, noms, prenom || null, email || null, telephone || null, fonction, req.params.id]
+        'UPDATE agent SET noms=?, prenom=?, email=?, telephone=?, fonction=? WHERE id=?',
+        [noms, prenom || null, email || null, telephone || null, fonction, req.params.id]
       );
     }
-    journaliser({ ...acteurDeReq(req), action: 'Modification agent', details: `${prenom || ''} ${noms} (${matricule})`.trim(), ip: ipDeRequete(req) });
+    journaliser({ ...acteurDeReq(req), action: 'Modification agent', details: `${prenom || ''} ${noms}`.trim(), ip: ipDeRequete(req) });
     res.json({ message: 'Agent mis à jour.' });
   } catch (erreur) {
     if (erreur.code === 'ER_DUP_ENTRY') return res.status(409).json({ erreur: 'Ce matricule existe déjà.' });

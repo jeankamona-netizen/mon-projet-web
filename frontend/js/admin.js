@@ -2575,6 +2575,54 @@ function filiereAffichee(e) {
     : '—';
 }
 
+// Régénère les matricules (étudiants + agents) vers le nouveau format et ouvre
+// un rapport imprimable ancien → nouveau (à communiquer aux intéressés).
+async function regenererMatricules() {
+  if (!await confirmerAction(
+    'Convertir TOUS les anciens matricules (étudiants « UML-2026-0001 » et agents) vers le nouveau format ?\n\n⚠️ Les identifiants de connexion changent. Un rapport ancien → nouveau s\'ouvrira pour que vous puissiez les communiquer. Action irréversible.',
+    { titre: 'Régénérer les matricules', texteConfirmer: 'Régénérer' })) return;
+  afficherToast('⏳ Régénération en cours...');
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/admin/regenerer-matricules`, { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + (d.erreur || 'Échec.'), 'erreur'); return; }
+    const nb = (d.etudiants?.length || 0) + (d.agents?.length || 0);
+    afficherToast(nb ? `✅ ${d.etudiants.length} étudiant(s) et ${d.agents.length} agent(s) régénérés.` : 'ℹ️ Aucun ancien matricule à convertir.');
+    if (nb) ouvrirRapportMatricules(d);
+    chargerInscrits();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+function ouvrirRapportMatricules(d) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const ligne = (o) => `<tr><td>${esc(o.nom)}</td><td><code>${esc(o.ancien)}</code></td><td><b>${esc(o.nouveau)}</b></td></tr>`;
+  const bloc = (titre, arr) => arr && arr.length
+    ? `<h2>${titre} (${arr.length})</h2><table><thead><tr><th>Nom</th><th>Ancien matricule</th><th>Nouveau matricule</th></tr></thead><tbody>${arr.map(ligne).join('')}</tbody></table>`
+    : '';
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Correspondance des matricules — UML</title>
+<style>
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;padding:24px;max-width:820px;margin:0 auto}
+  .barre{text-align:center;margin-bottom:16px}
+  .barre button{font-size:14px;padding:9px 20px;border:none;border-radius:6px;background:#1a3a6b;color:#fff;cursor:pointer}
+  h1{font-size:17px;color:#1a3a6b;border-bottom:3px solid #f0c020;padding-bottom:8px}
+  h2{font-size:14px;color:#1a3a6b;margin-top:22px}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+  th{background:#1a3a6b;color:#fff;text-align:left;padding:6px 8px}
+  td{padding:5px 8px;border-bottom:1px solid #eef1f5}
+  code{background:#eef;padding:1px 6px;border-radius:4px}
+  @media print{.barre{display:none}@page{margin:14mm}* { -webkit-print-color-adjust:exact;print-color-adjust:exact }}
+</style></head><body>
+  <div class="barre"><button onclick="window.print()">🖨️ Imprimer</button></div>
+  <h1>Correspondance des matricules — nouveau format</h1>
+  <p style="font-size:12px;color:#666">Édité le ${new Date().toLocaleString('fr-FR')}. Communiquez à chacun son nouveau matricule (identifiant de connexion).</p>
+  ${bloc('Étudiants', d.etudiants)}
+  ${bloc('Agents', d.agents)}
+</body></html>`;
+  const w = window.open('', '_blank', 'width=900,height=700');
+  if (!w) { afficherToast('⚠️ Autorisez les pop-ups pour voir le rapport.', 'erreur'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
 async function chargerInscrits() {
   const tbody=document.getElementById('admin-inscrits-body');
   if (!tbody) return;
@@ -2938,8 +2986,8 @@ function fermerModalAgent() { document.getElementById('modal-agent')?.classList.
 
 async function sauvegarderAgent() {
   const idEdit = document.getElementById('agent-id-edit').value;
+  // Le matricule n'est plus saisi : il est généré automatiquement côté serveur.
   const corps = {
-    matricule: document.getElementById('agent-matricule').value.trim(),
     noms: document.getElementById('agent-noms').value.trim(),
     prenom: document.getElementById('agent-prenom').value.trim(),
     email: document.getElementById('agent-email').value.trim(),
@@ -2947,14 +2995,16 @@ async function sauvegarderAgent() {
     fonction: document.getElementById('agent-fonction').value,
     mot_de_passe: document.getElementById('agent-mot-de-passe').value,
   };
-  if (!corps.matricule || !corps.noms) { afficherToast('⚠️ Matricule et noms obligatoires.', 'erreur'); return; }
+  if (!corps.noms) { afficherToast('⚠️ Le nom est obligatoire.', 'erreur'); return; }
   if (!idEdit && !corps.mot_de_passe) { afficherToast('⚠️ Le mot de passe est obligatoire.', 'erreur'); return; }
   try {
     const r = await fetchAdmin(idEdit ? `${BASE_URL}/api/agents/${idEdit}` : `${BASE_URL}/api/agents`,
       { method: idEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
     const d = await r.json();
     if (!r.ok) { afficherToast('⚠️ ' + d.erreur, 'erreur'); return; }
-    afficherToast(idEdit ? '✅ Agent modifié !' : '✅ Agent créé !');
+    if (!idEdit && d.matricule) {
+      await confirmerAction(`Matricule attribué : ${d.matricule}\nMot de passe : ${corps.mot_de_passe}\n\nCommuniquez-les à l'agent.`, { titre: '✅ Agent créé', texteConfirmer: 'Compris' });
+    } else { afficherToast('✅ Agent modifié !'); }
     fermerModalAgent(); chargerAgents();
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }

@@ -57,4 +57,37 @@ async function genererMatricule(anneeAcademique, faculteNom) {
   throw new Error('Impossible de générer un matricule unique.');
 }
 
-module.exports = { genererMatricule, suffixeAnnees, codeFaculte };
+// ===================== MATRICULE AGENT =====================
+// Codes de fonction fixes (choisis par l'université). Ajoute une entrée pour
+// toute nouvelle fonction (doyen, vice-doyen…) à code imposé.
+const CODES_FONCTION_FIXES = {
+  caissier: 'CAI',
+  administrateur_budget: 'ADB',
+  doyen: 'DYF',
+  vice_doyen: 'VDY',
+};
+function codeFonction(fonction) {
+  const cle = String(fonction || '').trim().toLowerCase();
+  if (CODES_FONCTION_FIXES[cle]) return CODES_FONCTION_FIXES[cle];
+  // Repli : 3 premières lettres significatives, sans accent, en majuscules.
+  const s = String(fonction || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+  return (s.slice(0, 3) || 'AGT').padEnd(3, 'X');
+}
+
+// Génère un matricule agent « {Initiale}{RRR}-{FONC}{YY} » (ex. « K213-CAI26 ») :
+// 1re lettre du nom + 3 chiffres aléatoires + code fonction + terminaison de
+// l'année d'enregistrement. Unicité vérifiée en base.
+async function genererMatriculeAgent(fonction, noms, annee) {
+  const yy = String(annee || new Date().getFullYear()).slice(-2);
+  const code = codeFonction(fonction);
+  const init = (String(noms || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z]/g, '')[0]) || 'X';
+  for (let i = 0; i < 100000; i++) {
+    const rnd = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+    const matricule = `${init}${rnd}-${code}${yy}`;
+    const [[exist]] = await pool.query('SELECT 1 AS x FROM agent WHERE matricule = ?', [matricule]);
+    if (!exist) return matricule;
+  }
+  throw new Error('Impossible de générer un matricule agent unique.');
+}
+
+module.exports = { genererMatricule, genererMatriculeAgent, suffixeAnnees, codeFaculte, codeFonction };
