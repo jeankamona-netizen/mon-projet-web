@@ -31,7 +31,7 @@ function genererMotDePasseTemporaire() {
 router.get('/', async (req, res) => {
   try {
     const [agents] = await pool.query(
-      'SELECT id, matricule, noms, prenom, email, telephone, fonction FROM agent ORDER BY noms, prenom'
+      'SELECT id, matricule, noms, prenom, email, telephone, fonction, faculte FROM agent ORDER BY noms, prenom'
     );
     res.json(agents);
   } catch (erreur) {
@@ -40,37 +40,48 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Doyen / vice-doyen : rattachés à une faculté (leur périmètre). La faculté est
+// obligatoire pour ces fonctions, ignorée (nulle) pour les autres.
+const FONCTIONS_DECANAT = ['doyen', 'vice_doyen'];
+function faculteRattachement(fonction, faculte) {
+  return FONCTIONS_DECANAT.includes(fonction) ? (faculte || null) : null;
+}
+
 // ===== POST /api/agents — créer un agent =====
+// Matricule ET mot de passe sont générés automatiquement (plus de saisie).
 router.post('/', async (req, res) => {
-  const { noms, prenom, email, telephone, fonction, mot_de_passe } = req.body;
-  if (!noms || !fonction || !mot_de_passe) {
-    return res.status(400).json({ erreur: 'Noms, fonction et mot de passe sont obligatoires.' });
+  const { noms, prenom, email, telephone, fonction, faculte } = req.body;
+  if (!noms || !fonction) {
+    return res.status(400).json({ erreur: 'Noms et fonction sont obligatoires.' });
   }
   if (!FONCTIONS.includes(fonction)) {
     return res.status(400).json({ erreur: 'Fonction invalide.' });
   }
-  if (mot_de_passe.length < 6) {
-    return res.status(400).json({ erreur: 'Le mot de passe doit contenir au moins 6 caractères.' });
+  if (FONCTIONS_DECANAT.includes(fonction) && !faculte) {
+    return res.status(400).json({ erreur: 'La faculté est obligatoire pour un doyen ou un vice-doyen.' });
   }
   try {
-    // Matricule généré automatiquement au format « {Initiale}{RRR}-{FONC}{YY} ».
+    // Matricule généré automatiquement au format « {Initiale}{RRR}-{FONC}{YY} »,
+    // mot de passe temporaire aléatoire (communiqué à l'agent / envoyé par email).
     const matricule = await genererMatriculeAgent(fonction, noms, new Date().getFullYear());
-    const hash = await bcrypt.hash(mot_de_passe, 10);
+    const motDePasse = genererMotDePasseTemporaire();
+    const hash = await bcrypt.hash(motDePasse, 10);
+    const faculteFinale = faculteRattachement(fonction, faculte);
     const [r] = await pool.query(
-      'INSERT INTO agent (matricule, noms, prenom, email, telephone, fonction, mot_de_passe) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [matricule, nomMajuscule(noms), prenom || null, email || null, telephone || null, fonction, hash]
+      'INSERT INTO agent (matricule, noms, prenom, email, telephone, fonction, faculte, mot_de_passe) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [matricule, nomMajuscule(noms), prenom || null, email || null, telephone || null, fonction, faculteFinale, hash]
     );
     // Email de bienvenue avec les identifiants (si une adresse est fournie).
     const conf = ESPACE_PAR_FONCTION[fonction] || { espace: 'compte', role: 'caissier' };
     const emailEnvoye = email
       ? await envoyerEmailIdentifiantsAgent({
-          email, nom: `${prenom || ''} ${noms}`.trim(), matricule, motDePasse: mot_de_passe,
+          email, nom: `${prenom || ''} ${noms}`.trim(), matricule, motDePasse,
           espace: conf.espace, roleConnexion: conf.role,
         }).then(() => true).catch(err => { console.error('⚠️ Email identifiants agent :', err.message); return false; })
       : false;
 
-    journaliser({ ...acteurDeReq(req), action: 'Création agent', details: `${prenom || ''} ${noms} (${matricule}) · ${fonction}`.trim() + (emailEnvoye ? ' · email envoyé' : ''), ip: ipDeRequete(req) });
-    res.status(201).json({ message: 'Agent créé.', id: r.insertId, matricule, emailEnvoye });
+    journaliser({ ...acteurDeReq(req), action: 'Création agent', details: `${prenom || ''} ${noms} (${matricule}) · ${fonction}${faculteFinale ? ' · ' + faculteFinale : ''}`.trim() + (emailEnvoye ? ' · email envoyé' : ''), ip: ipDeRequete(req) });
+    res.status(201).json({ message: 'Agent créé.', id: r.insertId, matricule, motDePasse, emailEnvoye });
   } catch (erreur) {
     if (erreur.code === 'ER_DUP_ENTRY') return res.status(409).json({ erreur: 'Ce matricule existe déjà.' });
     console.error(erreur);
@@ -82,28 +93,24 @@ router.post('/', async (req, res) => {
 // Le matricule n'est PLUS modifiable ici : il est attribué automatiquement à la
 // création (format « {Initiale}{RRR}-{FONC}{YY} ») et reste stable.
 router.put('/:id', async (req, res) => {
-  const { noms, prenom, email, telephone, fonction, mot_de_passe } = req.body;
+  const { noms, prenom, email, telephone, fonction, faculte } = req.body;
   if (!noms || !fonction) {
     return res.status(400).json({ erreur: 'Noms et fonction sont obligatoires.' });
   }
   if (!FONCTIONS.includes(fonction)) {
     return res.status(400).json({ erreur: 'Fonction invalide.' });
   }
+  if (FONCTIONS_DECANAT.includes(fonction) && !faculte) {
+    return res.status(400).json({ erreur: 'La faculté est obligatoire pour un doyen ou un vice-doyen.' });
+  }
   try {
-    // Le mot de passe n'est réécrit que s'il est fourni (sinon on garde l'ancien).
-    if (mot_de_passe) {
-      if (mot_de_passe.length < 6) return res.status(400).json({ erreur: 'Le mot de passe doit contenir au moins 6 caractères.' });
-      const hash = await bcrypt.hash(mot_de_passe, 10);
-      await pool.query(
-        'UPDATE agent SET noms=?, prenom=?, email=?, telephone=?, fonction=?, mot_de_passe=? WHERE id=?',
-        [nomMajuscule(noms), prenom || null, email || null, telephone || null, fonction, hash, req.params.id]
-      );
-    } else {
-      await pool.query(
-        'UPDATE agent SET noms=?, prenom=?, email=?, telephone=?, fonction=? WHERE id=?',
-        [nomMajuscule(noms), prenom || null, email || null, telephone || null, fonction, req.params.id]
-      );
-    }
+    // Le mot de passe n'est PLUS modifié ici : il se change via le bouton
+    // « réinitialiser le mot de passe » (génération automatique).
+    const faculteFinale = faculteRattachement(fonction, faculte);
+    await pool.query(
+      'UPDATE agent SET noms=?, prenom=?, email=?, telephone=?, fonction=?, faculte=? WHERE id=?',
+      [nomMajuscule(noms), prenom || null, email || null, telephone || null, fonction, faculteFinale, req.params.id]
+    );
     journaliser({ ...acteurDeReq(req), action: 'Modification agent', details: `${prenom || ''} ${noms}`.trim(), ip: ipDeRequete(req) });
     res.json({ message: 'Agent mis à jour.' });
   } catch (erreur) {

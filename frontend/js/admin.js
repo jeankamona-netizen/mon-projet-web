@@ -75,6 +75,22 @@ function basculerMenuCompteAdmin(event) {
 // =====================
 function estDoyen() { return sessionStorage.getItem('espace_role') === 'doyen'; }
 
+// Faculté de rattachement du doyen connecté (nom), ou '' pour l'admin.
+function faculteDoyenCourant() {
+  if (!estDoyen()) return '';
+  try { return (JSON.parse(sessionStorage.getItem('espace_agent') || '{}').faculte) || ''; }
+  catch { return ''; }
+}
+
+// Restreint facultesDB à la seule faculté du doyen : tous les sélecteurs de
+// faculté, la dérivation des filières et les graphiques s'en trouvent
+// automatiquement limités à son périmètre. Sans effet pour l'admin.
+function restreindreFacultesAuDoyen() {
+  const fac = faculteDoyenCourant();
+  if (!fac) return;
+  facultesDB = (facultesDB || []).filter(f => f.nom === fac);
+}
+
 // Libellé d'affichage selon la fonction exacte de l'agent connecté.
 function libelleFonctionDoyen() {
   try {
@@ -164,6 +180,7 @@ const SELECTS_ANNEES = [
   { id: 'inscrit-annee',       all: '' },
   { id: 'reins-annee-promo',   all: '' },
   { id: 'reins-annee-nouveau', all: '' },
+  { id: 'delib-annee',         all: '' }, // onglet Délibérer : défaut = année courante
   { id: 'filtre-inscrits-annee', all: 'Toutes les années', defautCourante: true },
 ];
 
@@ -2956,7 +2973,7 @@ async function chargerAgents() {
       <tr>
         <td><code style="font-size:11px">${a.matricule}</code></td>
         <td><strong>${a.noms}</strong> ${a.prenom || ''}</td>
-        <td><span class="annee-badge">${LIBELLE_FONCTION[a.fonction] || a.fonction}</span></td>
+        <td><span class="annee-badge">${LIBELLE_FONCTION[a.fonction] || a.fonction}</span>${a.faculte ? `<br><span style="font-size:11px;color:#667">${a.faculte}</span>` : ''}</td>
         <td>${a.email || '—'}</td>
         <td>${a.telephone || '—'}</td>
         <td class="admin-actions-cell">
@@ -2968,12 +2985,31 @@ async function chargerAgents() {
   } catch { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
+// Remplit le sélecteur de faculté du modal agent depuis la base (facultesDB).
+function remplirFacultesAgent(valeur) {
+  const sel = document.getElementById('agent-faculte');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Choisir une faculté —</option>' +
+    (facultesDB || []).map(f => `<option value="${f.nom}">${f.nom}</option>`).join('');
+  if (valeur) sel.value = valeur;
+}
+
+// Affiche la faculté rattachée UNIQUEMENT pour un doyen / vice-doyen ; la masque
+// (et la vide) pour les autres fonctions, qui ne sont liées à aucune faculté.
+function majFaculteAgentVisible() {
+  const fonction = document.getElementById('agent-fonction')?.value;
+  const groupe = document.getElementById('agent-faculte-groupe');
+  const estDecanat = fonction === 'doyen' || fonction === 'vice_doyen';
+  if (groupe) groupe.style.display = estDecanat ? '' : 'none';
+  if (!estDecanat) { const sel = document.getElementById('agent-faculte'); if (sel) sel.value = ''; }
+}
+
 function ouvrirModalAgent() {
   document.getElementById('modal-agent-titre').textContent = 'Nouvel agent';
-  ['agent-id-edit','agent-matricule','agent-noms','agent-prenom','agent-email','agent-telephone','agent-mot-de-passe'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['agent-id-edit','agent-noms','agent-prenom','agent-email','agent-telephone'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('agent-fonction').value = 'caissier';
-  document.getElementById('agent-mdp-aide').style.display = 'none';
-  document.getElementById('agent-mdp-label').innerHTML = 'Mot de passe <span style="color:var(--rouge)">*</span>';
+  remplirFacultesAgent('');
+  majFaculteAgentVisible();
   document.getElementById('modal-agent')?.classList.add('active');
 }
 
@@ -2982,15 +3018,13 @@ function modifierAgent(id) {
   if (!a) return;
   document.getElementById('modal-agent-titre').textContent = 'Modifier l\'agent';
   document.getElementById('agent-id-edit').value = a.id;
-  document.getElementById('agent-matricule').value = a.matricule;
   document.getElementById('agent-noms').value = a.noms;
   document.getElementById('agent-prenom').value = a.prenom || '';
   document.getElementById('agent-email').value = a.email || '';
   document.getElementById('agent-telephone').value = a.telephone || '';
   document.getElementById('agent-fonction').value = a.fonction;
-  document.getElementById('agent-mot-de-passe').value = '';
-  document.getElementById('agent-mdp-aide').style.display = '';
-  document.getElementById('agent-mdp-label').innerHTML = 'Nouveau mot de passe';
+  remplirFacultesAgent(a.faculte || '');
+  majFaculteAgentVisible();
   document.getElementById('modal-agent')?.classList.add('active');
 }
 
@@ -2998,17 +3032,19 @@ function fermerModalAgent() { document.getElementById('modal-agent')?.classList.
 
 async function sauvegarderAgent() {
   const idEdit = document.getElementById('agent-id-edit').value;
-  // Le matricule n'est plus saisi : il est généré automatiquement côté serveur.
+  // Matricule ET mot de passe sont générés côté serveur : plus aucune saisie.
+  const fonction = document.getElementById('agent-fonction').value;
+  const estDecanat = fonction === 'doyen' || fonction === 'vice_doyen';
   const corps = {
     noms: document.getElementById('agent-noms').value.trim(),
     prenom: document.getElementById('agent-prenom').value.trim(),
     email: document.getElementById('agent-email').value.trim(),
     telephone: document.getElementById('agent-telephone').value.trim(),
-    fonction: document.getElementById('agent-fonction').value,
-    mot_de_passe: document.getElementById('agent-mot-de-passe').value,
+    fonction,
+    faculte: estDecanat ? (document.getElementById('agent-faculte').value || '') : '',
   };
   if (!corps.noms) { afficherToast('⚠️ Le nom est obligatoire.', 'erreur'); return; }
-  if (!idEdit && !corps.mot_de_passe) { afficherToast('⚠️ Le mot de passe est obligatoire.', 'erreur'); return; }
+  if (estDecanat && !corps.faculte) { afficherToast('⚠️ Choisissez la faculté du doyen / vice-doyen.', 'erreur'); return; }
   try {
     const r = await fetchAdmin(idEdit ? `${BASE_URL}/api/agents/${idEdit}` : `${BASE_URL}/api/agents`,
       { method: idEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
@@ -3018,7 +3054,7 @@ async function sauvegarderAgent() {
       const suffixe = d.emailEnvoye
         ? '\n\n📧 Ces identifiants ont aussi été envoyés par email à l\'agent.'
         : '\n\n⚠️ Email non envoyé (pas d\'adresse ?), communiquez-les vous-même.';
-      await confirmerAction(`Matricule attribué : ${d.matricule}\nMot de passe : ${corps.mot_de_passe}${suffixe}`, { titre: '✅ Agent créé', texteConfirmer: 'Compris' });
+      await confirmerAction(`Matricule attribué : ${d.matricule}\nMot de passe : ${d.motDePasse}${suffixe}`, { titre: '✅ Agent créé', texteConfirmer: 'Compris' });
     } else { afficherToast('✅ Agent modifié !'); }
     fermerModalAgent(); chargerAgents();
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
@@ -3103,6 +3139,67 @@ async function promouvoirEtudiant() {
     afficherToast(`✅ ${d.message} (${d.coursInscrits} cours inscrit(s))`);
     document.getElementById('reins-selection').style.display = 'none';
     document.getElementById('reins-etudiant-id').value = '';
+    chargerStats();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+// =====================
+// DÉLIBÉRER (onglet de « Gérer les notes ») — promotion d'un étudiant après
+// délibération. Même mécanique que « Promouvoir un étudiant », avec ses propres
+// éléments (delib-*). Pour un doyen, la recherche et la promotion sont
+// automatiquement limitées à sa faculté (côté serveur).
+// =====================
+// Le sélecteur d'année (delib-annee) est alimenté par chargerAnnees via
+// SELECTS_ANNEES (défaut = année courante) : rien à initialiser ici.
+let debounceDelib;
+function rechercherEtudiantDelib() {
+  clearTimeout(debounceDelib);
+  debounceDelib = setTimeout(async () => {
+    const nom = document.getElementById('delib-recherche').value.trim();
+    const zone = document.getElementById('delib-resultats');
+    if (!nom) { zone.innerHTML = ''; return; }
+    try {
+      const r = await fetchAdmin(`${BASE_URL}/api/etudiants?${new URLSearchParams({ nom })}`);
+      const etudiants = await r.json();
+      zone.innerHTML = etudiants.length === 0
+        ? '<p style="color:#999;font-size:12px;padding:6px 0">Aucun étudiant trouvé.</p>'
+        : etudiants.slice(0, 8).map(e => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 4px;border-bottom:1px solid #f0f0f0;font-size:13px">
+              <span>${e.nom} ${e.postnom||''} ${e.prenom} <span style="color:#999;font-size:11px">(${e.id} · ${e.niveau||'—'} ${e.promotion||''})</span></span>
+              <button class="btn-icone" onclick="selectionnerEtudiantDelib('${e.id}','${(e.nom+' '+(e.postnom||'')+' '+e.prenom).replace(/'/g,"\\'")}','${e.niveau||''}','${(e.promotion||'').replace(/'/g,"\\'")}','${e.faculte||''}','${e.annee_academique||''}')" aria-label="Sélectionner">${icone('coche')}</button>
+            </div>`).join('');
+    } catch { zone.innerHTML = ''; }
+  }, 300);
+}
+
+function selectionnerEtudiantDelib(id, nomComplet, niveau, promotion, faculte, annee) {
+  document.getElementById('delib-etudiant-id').value = id;
+  document.getElementById('delib-etudiant-info').innerHTML =
+    `<b>${nomComplet}</b><br><span style="color:#666">${id} · ${faculte||'—'} · ${promotion||'—'} · Niveau actuel : <b>${niveau||'—'}</b> · ${annee||'—'}</span>`;
+  document.getElementById('delib-resultats').innerHTML = '';
+  document.getElementById('delib-recherche').value = '';
+  document.getElementById('delib-selection').style.display = 'block';
+  const suite = { L1:'L2', L2:'L3', L3:'M1', M1:'M2', M2:'D1', D1:'D2' };
+  if (suite[niveau]) document.getElementById('delib-nouveau-niveau').value = suite[niveau];
+}
+
+async function deliberEtudiant() {
+  const etudiant_id = document.getElementById('delib-etudiant-id').value;
+  const nouveau_niveau = document.getElementById('delib-nouveau-niveau').value;
+  const annee_academique = document.getElementById('delib-annee').value;
+  if (!etudiant_id) { afficherToast('⚠️ Sélectionnez d\'abord un étudiant.', 'erreur'); return; }
+  if (!annee_academique) { afficherToast('⚠️ Choisissez l\'année académique.', 'erreur'); return; }
+  if (!await confirmerAction(`Promouvoir cet étudiant en ${nouveau_niveau} pour ${annee_academique} ?`, { titre: 'Délibération — promotion', texteConfirmer: 'Promouvoir' })) return;
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/reinscriptions/promouvoir`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ etudiant_id, nouveau_niveau, annee_academique })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
+    afficherToast(`✅ ${d.message} (${d.coursInscrits} cours inscrit(s))`);
+    document.getElementById('delib-selection').style.display = 'none';
+    document.getElementById('delib-etudiant-id').value = '';
     chargerStats();
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
@@ -3304,7 +3401,9 @@ async function chargerCoursSansProf() {
   const annee=document.getElementById('filtre-attr-annee')?.value||'';
   const promotionSel=document.getElementById('filtre-attr-promotion');
   try {
-    const r=await fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`);
+    // Un doyen ne voit que les cours à pourvoir de SA faculté.
+    const facDoyen=faculteDoyenCourant();
+    const r=await fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`+(facDoyen?`&faculte=${encodeURIComponent(facDoyen)}`:''));
     const programme=await r.json();
     const sans=programme.filter(c=>!c.professeur_id);
 
@@ -3566,6 +3665,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     "Sciences de l'Éducation & Psychologie": 'Éducation & Psycho',
   }[nom]);
   await Promise.all([chargerAnnees(), chargerFacultesDB()]);
+  restreindreFacultesAuDoyen(); // doyen : ne garder que sa faculté avant de peupler les menus
   chargerFiliereParFaculte();
   [
     'notes-filtre-faculte', 'filtre-faculte', 'filtre-faculte-prog',

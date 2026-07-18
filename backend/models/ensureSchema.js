@@ -117,6 +117,23 @@ async function assurerSchemaPaiement(pool) {
   }
 }
 
+// Rattachement d'un agent à une faculté : indispensable pour le décanat (doyen /
+// vice-doyen), dont tout l'accès est limité à SA faculté. Stocké par NOM de
+// faculté (comme cours.faculte et etudiant.faculte), pas par id, pour rester
+// cohérent avec le reste du code qui filtre sur ces noms. Nullable : les autres
+// fonctions (caissier, administrateur du budget) ne sont pas rattachées.
+async function assurerSchemaAgentFaculte(pool) {
+  const [cols] = await pool.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'agent'`
+  );
+  if (!cols.length) return;
+  const noms = cols.map(c => c.COLUMN_NAME.toLowerCase());
+  if (!noms.includes('faculte')) {
+    await pool.query('ALTER TABLE agent ADD COLUMN faculte VARCHAR(150) NULL');
+  }
+}
+
 // Nettoyage des NOMS de filières : retire les préfixes de niveau parasites
 // (« L1 Systèmes Informatiques » → « Systèmes Informatiques ») qui font doublon
 // avec la colonne Niveau. Les préfixes de CYCLE « Master »/« Doctorat » sont
@@ -231,10 +248,11 @@ async function assurerSchema(pool) {
   await assurerSchemaFraisScolarite(pool);
   await assurerSchemaJournalAudit(pool);
   await assurerSchemaPaiement(pool);
+  await assurerSchemaAgentFaculte(pool);
   await nettoyerPrefixesNiveauFilieres(pool);
   await nettoyerCoursCommunEtFiliere(pool);
   await majNomsMajuscules(pool);
-  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement, filières, cours, noms).');
+  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement, agent.faculte, filières, cours, noms).');
 }
 
 module.exports = { assurerSchema };

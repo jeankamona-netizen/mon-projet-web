@@ -3,14 +3,15 @@ const router = express.Router();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const pool = require('../database');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, requireAdminOuDoyen, faculteDuDoyen } = require('../middleware/auth');
 const { inscrireAuxCoursDuNiveau } = require('../models/inscriptionAuto');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 const { genererMatricule } = require('../models/matricule');
 const { nomMajuscule } = require('../nom');
 
-// Toutes les routes de réinscription sont réservées à l'admin
-router.use(requireAdmin);
+// La délibération (promotion d'un étudiant existant) est ouverte au décanat,
+// restreinte à sa faculté ; l'inscription d'un nouvel étudiant reste réservée à
+// l'admin. Les middlewares sont donc appliqués par route (pas de router.use).
 
 function genererMotDePasseTemporaire() {
   return crypto.randomBytes(9).toString('base64').replace(/[+/=]/g, '').slice(0, 12);
@@ -20,7 +21,7 @@ function genererMotDePasseTemporaire() {
 // L'étudiant conserve son matricule, son compte, ses anciennes notes et cours
 // (historique) ; on met à jour son niveau + année, puis on l'inscrit aux cours
 // du nouveau niveau.
-router.post('/promouvoir', async (req, res) => {
+router.post('/promouvoir', requireAdminOuDoyen, async (req, res) => {
   const { etudiant_id, nouveau_niveau, annee_academique } = req.body;
   if (!etudiant_id || !nouveau_niveau || !annee_academique) {
     return res.status(400).json({ erreur: 'Étudiant, nouveau niveau et année académique sont obligatoires.' });
@@ -31,6 +32,11 @@ router.post('/promouvoir', async (req, res) => {
       [etudiant_id]
     );
     if (!etu) return res.status(404).json({ erreur: 'Étudiant introuvable.' });
+    // Un doyen ne peut délibérer que sur les étudiants de SA faculté.
+    const facDoyen = faculteDuDoyen(req);
+    if (facDoyen && etu.faculte !== facDoyen) {
+      return res.status(403).json({ erreur: "Cet étudiant n'appartient pas à votre faculté." });
+    }
     if (etu.niveau === nouveau_niveau && etu.annee_academique === annee_academique) {
       return res.status(400).json({ erreur: 'L\'étudiant est déjà dans ce niveau pour cette année.' });
     }
@@ -54,7 +60,7 @@ router.post('/promouvoir', async (req, res) => {
 });
 
 // ===== POST /api/reinscriptions/nouveau — inscrire un nouvel étudiant directement à un niveau donné (L2, L3…) =====
-router.post('/nouveau', async (req, res) => {
+router.post('/nouveau', requireAdmin, async (req, res) => {
   const { nom, postnom, prenom, sexe, date_naissance, email, telephone, faculte, filiere, niveau, annee_academique } = req.body;
   if (!nom || !prenom || !faculte || !niveau || !annee_academique) {
     return res.status(400).json({ erreur: 'Nom, prénom, faculté, niveau et année académique sont obligatoires.' });

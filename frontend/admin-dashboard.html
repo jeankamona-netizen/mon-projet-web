@@ -142,7 +142,7 @@
             <svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
           </a>
           <div class="nav-sous-menu">
-            <a href="#" class="nav-sous-item" data-cible="admin-annees" onclick="afficherOngletCreer('admin-annees')">
+            <a href="#" class="nav-sous-item" data-admin-seul data-cible="admin-annees" onclick="afficherOngletCreer('admin-annees')">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Années académiques
             </a>
             <a href="#" class="nav-sous-item" data-cible="admin-facultes" onclick="afficherOngletCreer('admin-facultes')">
@@ -229,6 +229,7 @@
 
         <div class="notes-sous-onglets">
           <button class="notes-onglet-btn active" onclick="basculerOngletNotes('notes-onglet-gestion', this)">Notes</button>
+          <button class="notes-onglet-btn" onclick="basculerOngletNotes('notes-onglet-deliberation', this)">Délibérer</button>
           <button class="notes-onglet-btn" onclick="basculerOngletNotes('notes-onglet-bulletins', this)">Bulletins</button>
         </div>
 
@@ -270,6 +271,49 @@
               </thead>
               <tbody id="admin-notes-body"></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- ONGLET : DÉLIBÉRER — promotion d'un étudiant (comme « Promouvoir un
+             étudiant » de Gérer les inscrits), avec recherche + année académique. -->
+        <div class="notes-onglet-contenu" id="notes-onglet-deliberation">
+          <div class="dash-card">
+            <h3>Délibérer — promouvoir un étudiant</h3>
+            <p style="font-size:12px;color:#888;margin-bottom:12px">Après délibération, faites monter l'étudiant de promotion. Il garde son matricule, son compte et ses anciennes notes ; il est inscrit aux cours de son nouveau niveau.</p>
+
+            <div class="form-row-admin">
+              <div class="form-group-dash">
+                <label>Rechercher l'étudiant (nom, post-nom, prénom ou matricule)</label>
+                <input type="text" id="delib-recherche" placeholder="Tapez un nom ou un matricule..." oninput="rechercherEtudiantDelib()">
+              </div>
+              <div class="form-group-dash">
+                <label>Année académique <span class="required">*</span></label>
+                <select id="delib-annee"></select>
+              </div>
+            </div>
+            <div id="delib-resultats" style="max-height:180px;overflow-y:auto;margin-bottom:14px"></div>
+
+            <div id="delib-selection" style="display:none">
+              <p class="form-sous-section">Étudiant sélectionné</p>
+              <div class="dash-card" style="background:#f5f7fb;padding:12px 14px;margin-bottom:14px">
+                <div id="delib-etudiant-info" style="font-size:13px"></div>
+                <input type="hidden" id="delib-etudiant-id">
+              </div>
+              <div class="form-group-dash">
+                <label>Nouveau niveau <span class="required">*</span></label>
+                <select id="delib-nouveau-niveau">
+                  <option value="Pré-U">Pré-Universitaire</option>
+                  <option value="L1">Licence 1</option>
+                  <option value="L2">Licence 2</option>
+                  <option value="L3">Licence 3</option>
+                  <option value="M1">Master 1</option>
+                  <option value="M2">Master 2</option>
+                  <option value="D1">Doctorat 1</option>
+                  <option value="D2">Doctorat 2</option>
+                </select>
+              </div>
+              <button class="btn-sauvegarder" style="width:100%;margin-top:6px" onclick="deliberEtudiant()">⬆️ Promouvoir l'étudiant</button>
+            </div>
           </div>
         </div>
 
@@ -431,7 +475,7 @@
         <p class="dash-sous-titre">Liste des cours par promotion et par semestre</p>
 
         <div class="admin-toolbar" style="justify-content:flex-start">
-          <button class="btn-ajouter" id="btn-vue-groupee" style="background:var(--bleu)" onclick="basculerVueGroupeeProgramme()">🏛️ Toutes les facultés</button>
+          <button class="btn-ajouter" id="btn-vue-groupee" data-admin-seul style="background:var(--bleu)" onclick="basculerVueGroupeeProgramme()">🏛️ Toutes les facultés</button>
           <button class="btn-ajouter" onclick="ouvrirModalProgramme()">+ Ajouter un cours</button>
         </div>
 
@@ -939,17 +983,19 @@
 
       <div class="form-row-admin">
         <div class="form-group-dash">
-          <label>Matricule</label>
-          <input type="text" id="agent-matricule" placeholder="généré automatiquement" disabled>
-          <p class="form-aide" style="font-size:.8rem;color:#888;margin:.3rem 0 0">Attribué automatiquement (ex : K213-CAI26).</p>
-        </div>
-        <div class="form-group-dash">
           <label>Fonction <span style="color:var(--rouge)">*</span></label>
-          <select id="agent-fonction">
+          <select id="agent-fonction" onchange="majFaculteAgentVisible()">
             <option value="caissier">Caissier</option>
             <option value="administrateur_budget">Administrateur du budget</option>
             <option value="doyen">Doyen</option>
             <option value="vice_doyen">Vice-Doyen</option>
+          </select>
+        </div>
+        <!-- Faculté rattachée : n'apparaît que pour un doyen / vice-doyen -->
+        <div class="form-group-dash" id="agent-faculte-groupe" style="display:none">
+          <label>Faculté <span style="color:var(--rouge)">*</span></label>
+          <select id="agent-faculte">
+            <option value="">— Choisir une faculté —</option>
           </select>
         </div>
       </div>
@@ -976,11 +1022,10 @@
         </div>
       </div>
 
-      <div class="form-group-dash">
-        <label id="agent-mdp-label">Mot de passe <span style="color:var(--rouge)">*</span></label>
-        <input type="password" id="agent-mot-de-passe" placeholder="Min. 6 caractères">
-        <p class="form-aide" id="agent-mdp-aide" style="font-size:.8rem;color:#888;margin:.3rem 0 0;display:none">Laissez vide pour conserver le mot de passe actuel.</p>
-      </div>
+      <p class="form-aide" style="font-size:.8rem;color:#888;margin:.2rem 0 0">
+        Le <b>matricule</b> et le <b>mot de passe</b> sont générés automatiquement à la création
+        (ex : K213-CAI26). Le mot de passe s'affiche ici et, si un email est fourni, est envoyé à l'agent.
+      </p>
 
       <div class="admin-modal-actions">
         <button class="btn-annuler" onclick="fermerModalAgent()">Annuler</button>

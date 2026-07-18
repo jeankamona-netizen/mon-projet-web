@@ -2,9 +2,17 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 // Programme annuel : ouvert à l'admin ET au décanat (doyen / vice-doyen).
-const { requireAdminOuDoyen: requireAdmin } = require('../middleware/auth');
+const { requireAdminOuDoyen: requireAdmin, faculteDuDoyen } = require('../middleware/auth');
 const { inscrireEtudiantsAuCours } = require('../models/inscriptionAuto');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
+
+// Un doyen ne peut créer/modifier/supprimer que des cours de SA faculté. Vérifie
+// qu'un cours existant est dans son périmètre (cours commun = faculte NULL toléré).
+async function coursModifiableParDoyen(coursId, facDoyen) {
+  if (!facDoyen) return true;
+  const [[c]] = await pool.query('SELECT faculte FROM cours WHERE id = ?', [coursId]);
+  return !!c && (c.faculte === null || c.faculte === facDoyen);
+}
 
 // Abréviations affichées sur le libellé "promotion" d'un cours commun, dans
 // cet ordre d'affichage fixe.
@@ -154,6 +162,13 @@ router.post('/', requireAdmin, async (req, res) => {
       return res.status(400).json({ erreur: "Aucune faculté cible sélectionnée." });
     }
 
+    // Un doyen ne peut cibler que SA faculté (aucune autre, aucun cours commun
+    // multi-facultés qui déborderait de son périmètre).
+    const facDoyen = faculteDuDoyen(req);
+    if (facDoyen && listeCibles.some(c => c.faculte !== facDoyen)) {
+      return res.status(403).json({ erreur: "Vous ne pouvez programmer que pour votre faculté." });
+    }
+
     const champs = { code, nom, niveau, annee_academique, semestre, credits, cmi: cmi || null, td: td || null, tp: tp || null };
 
     if (listeCibles.length === 1) {
@@ -195,6 +210,10 @@ router.post('/', requireAdmin, async (req, res) => {
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const { code, nom, faculte, filiere, niveau, annee_academique, semestre, credits, cmi, td, tp } = req.body;
+    const facDoyen = faculteDuDoyen(req);
+    if (facDoyen && (!await coursModifiableParDoyen(req.params.id, facDoyen) || faculte !== facDoyen)) {
+      return res.status(403).json({ erreur: "Ce cours n'appartient pas à votre faculté." });
+    }
     const { filiere_id, promotion } = await resoudreFiliereEtPromotion(niveau, faculte, filiere || null);
 
     await pool.query(
@@ -218,6 +237,9 @@ router.put('/:id', requireAdmin, async (req, res) => {
 router.patch('/:id', requireAdmin, async (req, res) => {
   const { professeur_id } = req.body;
   try {
+    if (!await coursModifiableParDoyen(req.params.id, faculteDuDoyen(req))) {
+      return res.status(403).json({ erreur: "Ce cours n'appartient pas à votre faculté." });
+    }
     await pool.query(
       'UPDATE cours SET professeur_id = ? WHERE id = ?',
       [professeur_id || null, req.params.id]
@@ -233,6 +255,9 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 // ===== DELETE /api/programme/:id =====
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
+    if (!await coursModifiableParDoyen(req.params.id, faculteDuDoyen(req))) {
+      return res.status(403).json({ erreur: "Ce cours n'appartient pas à votre faculté." });
+    }
     const [[c]] = await pool.query('SELECT code, nom FROM cours WHERE id = ?', [req.params.id]);
     await pool.query('DELETE FROM cours WHERE id = ?', [req.params.id]);
     journaliser({ ...acteurDeReq(req), action: 'Suppression cours', details: c ? `${c.code} ${c.nom}` : `Cours #${req.params.id}`, ip: ipDeRequete(req) });

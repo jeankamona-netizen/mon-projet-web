@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../database');
-// Ajouter → Facultés (et gestion/liste) : ouvert à l'admin ET au décanat.
-const { requireAdminOuDoyen: requireAdmin } = require('../middleware/auth');
+// gestion/liste est ouverte au décanat (le doyen y gère les filières de SA
+// faculté), mais créer / renommer / supprimer une faculté reste réservé à
+// l'admin (requireAdmin strict) : renommer casserait le rattachement agent↔faculté.
+const { requireAdminOuDoyen: requireDecanat, requireAdmin, faculteDuDoyen } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
 // ===== GET /api/facultes — liste toutes les facultés avec leurs filières =====
@@ -30,9 +32,13 @@ router.get('/', async (req, res) => {
 // ===== GET /api/facultes/gestion/liste — facultés + filières AVEC leurs id =====
 // (réservé admin : la gestion a besoin des id de filière pour modifier/supprimer,
 // contrairement à la route publique qui ne renvoie que les noms).
-router.get('/gestion/liste', requireAdmin, async (req, res) => {
+router.get('/gestion/liste', requireDecanat, async (req, res) => {
   try {
-    const [facultes] = await pool.query('SELECT * FROM faculte ORDER BY nom');
+    // Un doyen ne voit et ne gère QUE sa faculté.
+    const facDoyen = faculteDuDoyen(req);
+    const [facultes] = facDoyen
+      ? await pool.query('SELECT * FROM faculte WHERE nom = ? ORDER BY nom', [facDoyen])
+      : await pool.query('SELECT * FROM faculte ORDER BY nom');
     for (const faculte of facultes) {
       const [filieres] = await pool.query('SELECT id, nom FROM filiere WHERE faculte_id = ? ORDER BY nom', [faculte.id]);
       faculte.filieres = filieres;

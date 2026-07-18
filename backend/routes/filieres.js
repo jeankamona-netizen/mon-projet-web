@@ -2,11 +2,26 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 // Ajouter → Filières (rattachées aux facultés) : ouvert à l'admin ET au décanat.
-const { requireAdminOuDoyen: requireAdmin } = require('../middleware/auth');
+const { requireAdminOuDoyen: requireAdmin, faculteDuDoyen } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 
-// Gestion des filières (= promotions) rattachées à une faculté. Réservé à
-// l'administrateur.
+// Gestion des filières (= promotions) rattachées à une faculté. Admin : toutes ;
+// doyen : uniquement celles de SA faculté.
+
+// La faculté (par id) est-elle celle du doyen ? (true pour l'admin, non restreint.)
+async function faculteAutorisee(faculteId, facDoyen) {
+  if (!facDoyen) return true;
+  const [[f]] = await pool.query('SELECT nom FROM faculte WHERE id = ?', [faculteId]);
+  return !!f && f.nom === facDoyen;
+}
+// La filière (par id) appartient-elle à la faculté du doyen ?
+async function filiereAutorisee(filiereId, facDoyen) {
+  if (!facDoyen) return true;
+  const [[f]] = await pool.query(
+    'SELECT fa.nom FROM filiere fi JOIN faculte fa ON fa.id = fi.faculte_id WHERE fi.id = ?', [filiereId]
+  );
+  return !!f && f.nom === facDoyen;
+}
 
 // ===== POST /api/filieres — créer une filière dans une faculté =====
 router.post('/', requireAdmin, async (req, res) => {
@@ -14,6 +29,9 @@ router.post('/', requireAdmin, async (req, res) => {
   const faculteId = req.body.faculte_id;
   if (!faculteId || !nom) return res.status(400).json({ erreur: "La faculté et le nom de la filière sont obligatoires." });
   try {
+    if (!await faculteAutorisee(faculteId, faculteDuDoyen(req))) {
+      return res.status(403).json({ erreur: "Vous ne pouvez ajouter une filière qu'à votre faculté." });
+    }
     const [fac] = await pool.query('SELECT id FROM faculte WHERE id = ?', [faculteId]);
     if (fac.length === 0) return res.status(404).json({ erreur: "Faculté introuvable." });
     const [r] = await pool.query('INSERT INTO filiere (nom, faculte_id) VALUES (?, ?)', [nom, faculteId]);
@@ -30,6 +48,9 @@ router.put('/:id', requireAdmin, async (req, res) => {
   const nom = (req.body.nom || '').trim();
   if (!nom) return res.status(400).json({ erreur: "Le nom de la filière est obligatoire." });
   try {
+    if (!await filiereAutorisee(req.params.id, faculteDuDoyen(req))) {
+      return res.status(403).json({ erreur: "Cette filière n'appartient pas à votre faculté." });
+    }
     await pool.query('UPDATE filiere SET nom = ? WHERE id = ?', [nom, req.params.id]);
     journaliser({ ...acteurDeReq(req), action: 'Modification filière', details: nom, ip: ipDeRequete(req) });
     res.json({ message: "Filière mise à jour." });
@@ -42,6 +63,9 @@ router.put('/:id', requireAdmin, async (req, res) => {
 // ===== DELETE /api/filieres/:id — supprimer une filière =====
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
+    if (!await filiereAutorisee(req.params.id, faculteDuDoyen(req))) {
+      return res.status(403).json({ erreur: "Cette filière n'appartient pas à votre faculté." });
+    }
     await pool.query('DELETE FROM filiere WHERE id = ?', [req.params.id]);
     journaliser({ ...acteurDeReq(req), action: 'Suppression filière', details: `Filière #${req.params.id}`, ip: ipDeRequete(req) });
     res.json({ message: "Filière supprimée." });

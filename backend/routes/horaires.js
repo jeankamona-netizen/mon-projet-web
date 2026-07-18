@@ -3,8 +3,16 @@ const router = express.Router();
 const pool = require('../database');
 // Toutes les routes horaires sont ouvertes à l'admin ET au décanat (doyen /
 // vice-doyen) : on importe requireAdminOuDoyen sous l'alias requireAdmin.
-const { requireAdminOuDoyen: requireAdmin } = require('../middleware/auth');
+const { requireAdminOuDoyen: requireAdmin, faculteDuDoyen } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
+
+// Vérifie qu'un cours appartient à la faculté du doyen (ou est un cours commun,
+// faculte NULL) avant toute écriture d'horaire. Renvoie true si autorisé.
+async function coursDansPerimetre(coursId, facDoyen) {
+  if (!facDoyen) return true; // admin : aucun périmètre
+  const [[c]] = await pool.query('SELECT faculte FROM cours WHERE id = ?', [coursId]);
+  return !!c && (c.faculte === null || c.faculte === facDoyen);
+}
 
 // Toutes les routes horaires sont réservées à l'admin (gestion des cours/salles)
 router.use(requireAdmin);
@@ -41,9 +49,11 @@ router.get('/', async (req, res) => {
     // Informatique") : pas de colonne niveau dédiée sur horaire, d'où le préfixe.
     if (niveau) { sql += ' AND h.promotion LIKE ?'; params.push(niveau + ' %'); }
     if (jour)   { sql += ' AND h.jour = ?'; params.push(jour); }
-    // Un cours commun (c.faculte NULL, partagé par plusieurs facultés) doit
-    // rester visible quelle que soit la faculté choisie dans le filtre.
-    if (faculte){ sql += ' AND (c.faculte = ? OR c.faculte IS NULL)'; params.push(faculte); }
+    // Un doyen est verrouillé sur SA faculté (il ne peut pas élargir via le
+    // paramètre) ; l'admin utilise le filtre facultatif du client. Les cours
+    // communs (c.faculte NULL) restent visibles dans les deux cas.
+    const faculteEffective = faculteDuDoyen(req) || faculte;
+    if (faculteEffective){ sql += ' AND (c.faculte = ? OR c.faculte IS NULL)'; params.push(faculteEffective); }
 
     sql += ' ORDER BY h.annee_academique DESC, h.promotion, FIELD(h.jour, "Lundi","Mardi","Mercredi","Jeudi","Vendredi"), h.heure_debut';
 
@@ -158,6 +168,10 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ erreur: "Champs obligatoires manquants." });
     }
 
+    if (!await coursDansPerimetre(cours_id, faculteDuDoyen(req))) {
+      return res.status(403).json({ erreur: "Ce cours n'appartient pas à votre faculté." });
+    }
+
     const conflits = await trouverConflits({ date_debut, heure_debut, heure_fin, promotion, salle, professeur_id, cours_id });
     const premierConflit = conflits.salle || conflits.professeur || conflits.promotion || conflits.etudiant;
     if (premierConflit) {
@@ -186,6 +200,10 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ erreur: "Champs obligatoires manquants." });
     }
 
+    if (!await coursDansPerimetre(cours_id, faculteDuDoyen(req))) {
+      return res.status(403).json({ erreur: "Ce cours n'appartient pas à votre faculté." });
+    }
+
     const conflits = await trouverConflits({ date_debut, heure_debut, heure_fin, promotion, salle, professeur_id, cours_id, excluId: req.params.id });
     const premierConflit = conflits.salle || conflits.professeur || conflits.promotion || conflits.etudiant;
     if (premierConflit) {
@@ -208,6 +226,15 @@ router.put('/:id', async (req, res) => {
 // ===== DELETE /api/horaires/:id =====
 router.delete('/:id', async (req, res) => {
   try {
+    const facDoyen = faculteDuDoyen(req);
+    if (facDoyen) {
+      const [[h]] = await pool.query(
+        'SELECT c.faculte FROM horaire h JOIN cours c ON c.id = h.cours_id WHERE h.id = ?', [req.params.id]
+      );
+      if (h && h.faculte !== null && h.faculte !== facDoyen) {
+        return res.status(403).json({ erreur: "Ce créneau n'appartient pas à votre faculté." });
+      }
+    }
     await pool.query('DELETE FROM horaire WHERE id = ?', [req.params.id]);
     journaliser({ ...acteurDeReq(req), action: 'Suppression horaire', details: `Créneau #${req.params.id}`, ip: ipDeRequete(req) });
     res.json({ message: "Cours supprimé de l'horaire." });

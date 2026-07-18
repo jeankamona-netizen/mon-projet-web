@@ -61,4 +61,14 @@ const requireBudget   = exigerRoles(['admin', 'budget'], 'Réservé à l\'admini
 // d'audit, qui restent protégés par requireAdmin strict.
 const requireAdminOuDoyen = exigerRoles(['admin', 'doyen'], 'Accès réservé à l\'administration et au décanat.');
 
-module.exports = { requireAdmin, requireFinance, requireCaissier, requireBudget, requireAdminOuDoyen };
+// Faculté de rattachement du demandeur SI c'est un doyen/vice-doyen (rôle
+// 'doyen'), sinon null. Les handlers ouverts au décanat s'en servent pour
+// restreindre lecture ET écriture à la seule faculté du doyen. L'admin (rôle
+// 'admin') n'est jamais restreint → retourne null. Le middleware pose la charge
+// JWT sur req.utilisateur (exigerRoles) ; requireAdmin la pose sur req.admin.
+function faculteDuDoyen(req) {
+  const u = req.utilisateur || req.admin;
+  return u && u.role === 'doyen' ? (u.faculte || null) : null;
+}
+
+module.exports = { requireAdmin, requireFinance, requireCaissier, requireBudget, requireAdminOuDoyen, faculteDuDoyen };

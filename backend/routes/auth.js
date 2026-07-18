@@ -75,14 +75,14 @@ router.post('/agent', async (req, res) => {
       return res.status(403).json({ erreur: "Votre fonction ne donne accès à aucune interface." });
 
     const token = jwt.sign(
-      { role, fonction: agent.fonction, agent_id: agent.id, matricule: agent.matricule,
+      { role, fonction: agent.fonction, faculte: agent.faculte || null, agent_id: agent.id, matricule: agent.matricule,
         nom: `${agent.prenom || ''} ${agent.noms}`.trim() },
       process.env.JWT_SECRET, { expiresIn: '8h' }
     );
     journaliser({ role, utilisateur: `${agent.prenom || ''} ${agent.noms}`.trim(), identifiant: agent.matricule, action: 'Connexion', details: `Connexion ${agent.fonction || ''}`.trim(), ip: ipDeRequete(req) });
     res.json({
       message: 'Connexion réussie.', token,
-      agent: { id: agent.id, matricule: agent.matricule, noms: agent.noms, prenom: agent.prenom, fonction: agent.fonction, role }
+      agent: { id: agent.id, matricule: agent.matricule, noms: agent.noms, prenom: agent.prenom, fonction: agent.fonction, faculte: agent.faculte || null, role }
     });
   } catch (erreur) {
     console.error('Erreur auth agent:', erreur);
@@ -115,11 +115,11 @@ router.post('/login', async (req, res) => {
       const role = ROLE_PAR_FONCTION[agent.fonction];
       if (!role) return res.status(403).json({ erreur: "Votre fonction ne donne accès à aucune interface." });
       const token = jwt.sign(
-        { role, fonction: agent.fonction, agent_id: agent.id, matricule: agent.matricule, nom: `${agent.prenom || ''} ${agent.noms}`.trim() },
+        { role, fonction: agent.fonction, faculte: agent.faculte || null, agent_id: agent.id, matricule: agent.matricule, nom: `${agent.prenom || ''} ${agent.noms}`.trim() },
         process.env.JWT_SECRET, { expiresIn: '8h' }
       );
       journaliser({ role, utilisateur: `${agent.prenom || ''} ${agent.noms}`.trim(), identifiant: agent.matricule, action: 'Connexion', details: `Connexion ${agent.fonction || ''}`.trim(), ip: ipDeRequete(req) });
-      return res.json({ type: typeEspaceDeRole(role), token, agent: { id: agent.id, matricule: agent.matricule, noms: agent.noms, prenom: agent.prenom, fonction: agent.fonction, role } });
+      return res.json({ type: typeEspaceDeRole(role), token, agent: { id: agent.id, matricule: agent.matricule, noms: agent.noms, prenom: agent.prenom, fonction: agent.fonction, faculte: agent.faculte || null, role } });
     }
 
     // 2) Administration — identifiant + mot de passe dans .env.

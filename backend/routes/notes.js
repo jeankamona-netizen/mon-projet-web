@@ -2,8 +2,20 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 // Gérer les notes : ouvert à l'admin ET au décanat (doyen / vice-doyen).
-const { requireAdminOuDoyen: requireAdmin } = require('../middleware/auth');
+const { requireAdminOuDoyen: requireAdmin, faculteDuDoyen } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
+
+// Périmètre décanal : un doyen ne gère QUE les notes des étudiants de sa faculté.
+async function etudiantDansFaculte(etudiantId, facDoyen) {
+  if (!facDoyen) return true;
+  const [[e]] = await pool.query('SELECT faculte FROM etudiant WHERE id = ?', [etudiantId]);
+  return !!e && e.faculte === facDoyen;
+}
+async function noteDansFaculte(noteId, facDoyen) {
+  if (!facDoyen) return true;
+  const [[r]] = await pool.query('SELECT e.faculte FROM note n JOIN etudiant e ON e.id = n.etudiant_id WHERE n.id = ?', [noteId]);
+  return !!r && r.faculte === facDoyen;
+}
 
 // Le contrôle continu et l'examen peuvent arriver séparément (l'un avant
 // l'autre) : la moyenne sur 20 (50 % CC + 50 % examen) n'est calculée que
@@ -43,9 +55,10 @@ router.get('/bulletins/resume', requireAdmin, async (req, res) => {
       LEFT JOIN filiere f ON e.filiere_id = f.id
       JOIN note n ON n.etudiant_id = e.id
       JOIN cours c ON n.cours_id = c.id
+      ${faculteDuDoyen(req) ? 'WHERE e.faculte = ?' : ''}
       GROUP BY e.id, e.nom, e.postnom, e.prenom, e.faculte, e.promotion, f.nom, n.annee_academique, c.niveau
       ORDER BY e.nom, e.prenom
-    `);
+    `, faculteDuDoyen(req) ? [faculteDuDoyen(req)] : []);
     const resultats = lignes.map(l => {
       const moyenne = l.moyenne_generale !== null ? Number(l.moyenne_generale) : null;
       return {
@@ -82,7 +95,10 @@ router.get('/', requireAdmin, async (req, res) => {
       WHERE 1=1
     `;
     const params = [];
-    if (faculte) { sql += ' AND e.faculte = ?'; params.push(faculte); }
+    // Un doyen est verrouillé sur les étudiants de SA faculté (il ne peut pas
+    // élargir via le paramètre) ; l'admin utilise le filtre client.
+    const faculteEffective = faculteDuDoyen(req) || faculte;
+    if (faculteEffective) { sql += ' AND e.faculte = ?'; params.push(faculteEffective); }
     if (filiere) { sql += ' AND f.nom = ?'; params.push(filiere); }
     if (annee)   { sql += ' AND c.annee_academique = ?'; params.push(annee); }
     sql += ' ORDER BY n.id DESC';
@@ -112,6 +128,9 @@ router.post('/', requireAdmin, async (req, res) => {
     }
     if (noteHorsPlage(note_cc) || noteHorsPlage(note_examen)) {
       return res.status(400).json({ erreur: "Les notes doivent être comprises entre 0 et 20." });
+    }
+    if (!await etudiantDansFaculte(etudiant_id, faculteDuDoyen(req))) {
+      return res.status(403).json({ erreur: "Cet étudiant n'appartient pas à votre faculté." });
     }
 
     // La session (semestre) d'une note est TOUJOURS celle de son cours : un
@@ -163,6 +182,9 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (noteHorsPlage(note_cc) || noteHorsPlage(note_examen)) {
       return res.status(400).json({ erreur: "Les notes doivent être comprises entre 0 et 20." });
     }
+    if (!await noteDansFaculte(req.params.id, faculteDuDoyen(req))) {
+      return res.status(403).json({ erreur: "Cette note n'appartient pas à votre faculté." });
+    }
 
     // La session reste alignée sur le semestre du cours (jamais saisie libre).
     const [existante] = await pool.query(
@@ -190,6 +212,9 @@ router.put('/:id', requireAdmin, async (req, res) => {
 // ===== DELETE /api/notes/:id — supprimer une note =====
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
+    if (!await noteDansFaculte(req.params.id, faculteDuDoyen(req))) {
+      return res.status(403).json({ erreur: "Cette note n'appartient pas à votre faculté." });
+    }
     await pool.query('DELETE FROM note WHERE id = ?', [req.params.id]);
     journaliser({ ...acteurDeReq(req), action: 'Suppression de note', details: `Note #${req.params.id} supprimée`, ip: ipDeRequete(req) });
     res.json({ message: "Note supprimée avec succès." });

@@ -6,7 +6,7 @@ const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan    = require('morgan');
 const pool      = require('./database');
-const { requireAdmin, requireAdminOuDoyen } = require('./middleware/auth');
+const { requireAdmin, requireAdminOuDoyen, faculteDuDoyen } = require('./middleware/auth');
 const { journaliserActionsAdmin } = require('./middleware/audit');
 const crypto      = require('crypto');
 const bcrypt      = require('bcryptjs');
@@ -139,39 +139,65 @@ app.use('/api/audit',          auditRoutes);
 app.get('/api/stats', requireAdminOuDoyen, async (req, res) => {
   try {
     const { annee } = req.query;
+    // Doyen : tous les décomptes sont restreints à SA faculté.
+    const facDoyen = faculteDuDoyen(req);
 
     // Étudiants : profil courant OU historique d'inscription_cours pour
     // cette année (même logique que /api/etudiants) — un étudiant promu ne
     // doit pas disparaître du décompte d'une année qu'il a réellement suivie.
-    const [[{ etudiants }]] = annee
-      ? await pool.query(`
+    // Pour un doyen, décompte simple restreint à sa faculté.
+    let etudiants;
+    if (facDoyen) {
+      const cond = ['faculte = ?']; const p = [facDoyen];
+      if (annee) { cond.push('annee_academique = ?'); p.push(annee); }
+      [[{ etudiants }]] = await pool.query('SELECT COUNT(*) AS etudiants FROM etudiant WHERE ' + cond.join(' AND '), p);
+    } else if (annee) {
+      [[{ etudiants }]] = await pool.query(`
           SELECT COUNT(DISTINCT id) AS etudiants FROM (
             SELECT e.id FROM etudiant e WHERE e.annee_academique = ?
             UNION
             SELECT ic.etudiant_id AS id FROM inscription_cours ic JOIN cours c ON c.id = ic.cours_id WHERE c.annee_academique = ?
           ) x
-        `, [annee, annee])
-      : await pool.query('SELECT COUNT(*) AS etudiants FROM etudiant');
+        `, [annee, annee]);
+    } else {
+      [[{ etudiants }]] = await pool.query('SELECT COUNT(*) AS etudiants FROM etudiant');
+    }
 
-    // Les pré-inscriptions n'ont pas de notion d'année académique (un
-    // candidat postule une seule fois, sans cursus) : décompte global,
-    // non affecté par le filtre d'année.
-    const [[{ preinscriptions }]] = await pool.query('SELECT COUNT(*) AS preinscriptions FROM preinscription WHERE statut = "en_attente"');
+    // Pré-inscriptions en attente : global pour l'admin ; pour un doyen,
+    // celles dont la spécialité correspond à une filière de sa faculté (ou au
+    // nom de sa faculté, pour les licences non subdivisées).
+    let preinscriptions;
+    if (facDoyen) {
+      [[{ preinscriptions }]] = await pool.query(
+        `SELECT COUNT(*) AS preinscriptions FROM preinscription
+         WHERE statut = "en_attente" AND (specialite = ? OR specialite IN (
+           SELECT f.nom FROM filiere f JOIN faculte fa ON f.faculte_id = fa.id WHERE fa.nom = ?))`,
+        [facDoyen, facDoyen]);
+    } else {
+      [[{ preinscriptions }]] = await pool.query('SELECT COUNT(*) AS preinscriptions FROM preinscription WHERE statut = "en_attente"');
+    }
 
     // « Cours programmés » = nombre de cours DISTINCTS planifiés dans la semaine
     // en cours (lundi → dimanche contenant aujourd'hui), pas le nombre de
-    // créneaux : un même cours aligné plusieurs fois dans la semaine ne compte
-    // qu'une fois. La semaine est bornée sur date_debut du créneau.
-    const borneSemaine = `date_debut BETWEEN
+    // créneaux. Restreint à la faculté du doyen (cours communs inclus).
+    const borneSemaine = `h.date_debut BETWEEN
         DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
         AND DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 6 DAY)`;
-    const [[{ cours }]] = annee
-      ? await pool.query(`SELECT COUNT(DISTINCT cours_id) AS cours FROM horaire WHERE annee_academique = ? AND ${borneSemaine}`, [annee])
-      : await pool.query(`SELECT COUNT(DISTINCT cours_id) AS cours FROM horaire WHERE ${borneSemaine}`);
+    let coursSql = 'SELECT COUNT(DISTINCT h.cours_id) AS cours FROM horaire h';
+    const coursCond = [borneSemaine]; const coursParams = [];
+    if (facDoyen) { coursSql += ' JOIN cours c ON c.id = h.cours_id'; coursCond.push('(c.faculte = ? OR c.faculte IS NULL)'); coursParams.push(facDoyen); }
+    if (annee)    { coursCond.push('h.annee_academique = ?'); coursParams.push(annee); }
+    coursSql += ' WHERE ' + coursCond.join(' AND ');
+    const [[{ cours }]] = await pool.query(coursSql, coursParams);
 
-    // Les annonces (site public) ne sont pas non plus rattachées à une année
-    // académique : décompte global lui aussi.
-    const [[{ annonces }]] = await pool.query('SELECT COUNT(*) AS annonces FROM annonce WHERE actif = 1');
+    // Annonces actives : global pour l'admin ; pour un doyen, celles ciblant sa
+    // faculté ou diffusées à tous (cible_faculte NULL).
+    let annonces;
+    if (facDoyen) {
+      [[{ annonces }]] = await pool.query('SELECT COUNT(*) AS annonces FROM annonce WHERE actif = 1 AND (cible_faculte = ? OR cible_faculte IS NULL)', [facDoyen]);
+    } else {
+      [[{ annonces }]] = await pool.query('SELECT COUNT(*) AS annonces FROM annonce WHERE actif = 1');
+    }
 
     res.json({ etudiants, preinscriptions, cours, annonces });
   } catch (erreur) {
@@ -185,22 +211,30 @@ app.get('/api/stats', requireAdminOuDoyen, async (req, res) => {
 // =====================
 app.get('/api/stats/avancees', requireAdminOuDoyen, async (req, res) => {
   try {
-    const [evolution] = await pool.query(`
-      SELECT DATE_FORMAT(date_soumission, '%Y-%m') AS mois, COUNT(*) AS total
-      FROM preinscription
-      GROUP BY mois
-      ORDER BY mois ASC
-    `);
+    const facDoyen = faculteDuDoyen(req);
 
-    const [reussite] = await pool.query(`
-      SELECT e.faculte,
+    // Évolution des pré-inscriptions : pour un doyen, restreinte aux candidatures
+    // de sa faculté (spécialité = filière de sa faculté ou nom de la faculté).
+    const [evolution] = await pool.query(
+      `SELECT DATE_FORMAT(date_soumission, '%Y-%m') AS mois, COUNT(*) AS total
+       FROM preinscription
+       ${facDoyen ? `WHERE (specialite = ? OR specialite IN (
+         SELECT f.nom FROM filiere f JOIN faculte fa ON f.faculte_id = fa.id WHERE fa.nom = ?))` : ''}
+       GROUP BY mois ORDER BY mois ASC`,
+      facDoyen ? [facDoyen, facDoyen] : []
+    );
+
+    const [reussite] = await pool.query(
+      `SELECT e.faculte,
              COUNT(*) AS total_notes,
              SUM(CASE WHEN n.note >= 10 THEN 1 ELSE 0 END) AS reussies
       FROM note n
       JOIN etudiant e ON n.etudiant_id = e.id
       WHERE n.note IS NOT NULL AND e.faculte IS NOT NULL
-      GROUP BY e.faculte
-    `);
+      ${facDoyen ? 'AND e.faculte = ?' : ''}
+      GROUP BY e.faculte`,
+      facDoyen ? [facDoyen] : []
+    );
 
     res.json({
       evolutionPreinscriptions: evolution,
@@ -232,9 +266,15 @@ app.get('/api/audit-log', requireAdmin, async (req, res) => {
 // =====================
 // ÉTUDIANTS (CRUD)
 // =====================
-app.get('/api/etudiants', requireAdmin, async (req, res) => {
+// GET ouvert au décanat (chart de la vue d'ensemble + recherche « Délibérer »),
+// TOUJOURS restreint à la faculté du doyen. Les écritures (PUT/DELETE/photo/
+// réinit. mot de passe) restent réservées à l'admin (requireAdmin).
+app.get('/api/etudiants', requireAdminOuDoyen, async (req, res) => {
   try {
-    const { annee, promotion, nom, niveau, faculte } = req.query;
+    const { annee, promotion, nom, niveau } = req.query;
+    // Un doyen ne peut jamais élargir au-delà de sa faculté (le filtre client
+    // est ignoré au profit de sa faculté de rattachement).
+    const faculte = faculteDuDoyen(req) || req.query.faculte;
     let sql, params = [];
 
     if (annee || niveau) {
@@ -308,8 +348,10 @@ app.get('/api/etudiants', requireAdmin, async (req, res) => {
     if (promotion) { sql += ' AND e.promotion = ?'; params.push(promotion); }
     if (faculte)   { sql += ' AND e.faculte = ?';   params.push(faculte); }
     if (nom) {
-      sql += ' AND (LOWER(e.nom) LIKE LOWER(?) OR LOWER(e.prenom) LIKE LOWER(?) OR LOWER(e.postnom) LIKE LOWER(?))';
-      params.push(`%${nom}%`, `%${nom}%`, `%${nom}%`);
+      // Recherche par nom, post-nom, prénom OU matricule (e.id) — utilisée par
+      // la promotion et par l'onglet « Délibérer ».
+      sql += ' AND (LOWER(e.nom) LIKE LOWER(?) OR LOWER(e.prenom) LIKE LOWER(?) OR LOWER(e.postnom) LIKE LOWER(?) OR LOWER(e.id) LIKE LOWER(?))';
+      params.push(`%${nom}%`, `%${nom}%`, `%${nom}%`, `%${nom}%`);
     }
     sql += ' ORDER BY e.nom, e.prenom';
 
