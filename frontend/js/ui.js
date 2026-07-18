@@ -19,6 +19,11 @@ async function chargerFacultesDB() {
     // les menus tant que le navigateur ressert une réponse mise en cache.
     const r = await fetch(`${BASE_URL}/api/facultes`, { cache: 'no-store' });
     facultesDB = await r.json();
+    // Ordonne les filières par cycle : licence d'abord, puis master, puis
+    // doctorat — pour qu'une filière de licence (ex. « Informatique de Gestion »)
+    // apparaisse TOUJOURS avec les licences, jamais parmi/​après les masters,
+    // dans tous les menus qui listent la totalité des filières (horaire, programme…).
+    (facultesDB || []).forEach(f => { if (Array.isArray(f.filieres)) f.filieres = trierFilieresParCycle(f.filieres); });
   } catch (err) { console.error('Impossible de charger les facultés :', err); }
   return facultesDB;
 }
@@ -71,6 +76,19 @@ function cycleDuNiveau(niveau) {
 // Le nom d'une filière encode son cycle : « Master… »/« Master1… », « Doctorat… ».
 function filiereEstMaster(nom)   { return /^master/i.test(String(nom || '')); }
 function filiereEstDoctorat(nom) { return /^doctorat/i.test(String(nom || '')); }
+// Rang d'affichage par cycle : licence (0) avant master (1) avant doctorat (2).
+function cycleRangFiliere(nom) {
+  if (filiereEstDoctorat(nom)) return 2;
+  if (filiereEstMaster(nom))   return 1;
+  return 0;
+}
+// Trie une liste de filières par cycle (licence → master → doctorat), en
+// conservant l'ordre d'origine à l'intérieur d'un même cycle (tri stable).
+function trierFilieresParCycle(filieres) {
+  return [...filieres].sort((a, b) =>
+    cycleRangFiliere(typeof a === 'string' ? a : a.nom) - cycleRangFiliere(typeof b === 'string' ? b : b.nom)
+  );
+}
 // Filières d'une faculté correspondant au CYCLE du niveau choisi.
 function filieresDuCycle(nomFaculte, niveau) {
   const toutes = filieresDeFaculteNom(nomFaculte);
