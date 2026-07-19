@@ -1084,19 +1084,24 @@ function afficherTableauBulletins() {
     return `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
   });
 
-  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">Aucun étudiant noté.</td></tr>`; return; }
-  tbody.innerHTML = liste.map(e => `
+  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Aucun étudiant noté.</td></tr>`; return; }
+  tbody.innerHTML = liste.map(e => {
+    // Promotion = niveau + filière fusionnés (ex. « L1 Informatique de Gestion »).
+    const niv = e.niveau && e.niveau !== '—' ? e.niveau : '';
+    const fil = sansPrefixeNiveau(e.filiere) || '';
+    const promo = `${niv ? `<span class="annee-badge">${niv}</span> ` : ''}${fil}`.trim() || '—';
+    return `
     <tr${e.annee_academique !== courante ? ' class="bulletin-autre-annee"' : ''}>
       <td><input type="checkbox" class="note-select" data-etudiant-id="${e.etudiant_id}"></td>
       <td>${e.nom} ${e.postnom || ''} ${e.prenom}<br><span style="font-size:11px;color:#999">${e.etudiant_id}</span></td>
-      <td>${e.niveau && e.niveau !== '—' ? `<span class="annee-badge">${e.niveau}</span>` : '—'}</td>
-      <td>${sansPrefixeNiveau(e.filiere) || '—'}</td>
+      <td>${promo}</td>
       <td>${e.faculte || '—'}</td>
       <td>${e.annee_academique || '—'}</td>
       <td>${e.moyenne_generale !== null ? e.moyenne_generale.toFixed(2) + '/20' : '—'}</td>
       <td>${e.credits_valides} / ${e.credits_total}</td>
       <td>${e.mention}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function basculerSelectionToutesNotes(caseTout) {
