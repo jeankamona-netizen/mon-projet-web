@@ -92,7 +92,7 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Inscrits
             </a>
             <a href="#" class="nav-sous-item" data-cible="admin-reinscriptions" onclick="afficherOngletInscrits('admin-reinscriptions')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg> Réinscriptions
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg> Inscrire un nouvel étudiant
             </a>
             <a href="#" class="nav-sous-item" data-cible="admin-preinscriptions" onclick="afficherOngletInscrits('admin-preinscriptions')">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> Préinscriptions
@@ -649,67 +649,15 @@
         </div>
       </section>
 
-      <!-- ==================== RÉINSCRIPTIONS ==================== -->
+      <!-- ==================== INSCRIRE UN NOUVEL ÉTUDIANT ==================== -->
       <section id="admin-reinscriptions" class="dash-section">
-        <h2>Gérer les Inscrits</h2>
-        <p class="dash-sous-titre">Faire monter un étudiant de promotion, ou inscrire un nouvel étudiant directement à un niveau supérieur</p>
+        <h2>Inscrire un nouvel étudiant</h2>
+        <p class="dash-sous-titre">Inscrire un étudiant venant d'un autre établissement, directement à un niveau supérieur (L2, L3, M1…)</p>
 
-        <div class="reins-sous-onglets">
-          <button class="reins-onglet-btn active" onclick="basculerOngletReinscription('reins-onglet-promotion', this)">Promotion montante</button>
-          <button class="reins-onglet-btn" onclick="basculerOngletReinscription('reins-onglet-nouveau', this)">Nouvel étudiant (L2+)</button>
-        </div>
-
-        <!-- ONGLET 1 : PROMOTION D'UN ÉTUDIANT EXISTANT -->
-        <div class="reins-onglet-contenu active" id="reins-onglet-promotion">
-          <div class="dash-card">
-            <h3>Promouvoir un étudiant existant</h3>
-            <p style="font-size:12px;color:#888;margin-bottom:12px">L'étudiant garde son matricule, son compte et ses anciennes notes. Il est inscrit aux cours de son nouveau niveau.</p>
-
-            <div class="form-group-dash">
-              <label>Rechercher l'étudiant (nom ou matricule)</label>
-              <input type="text" id="reins-recherche" placeholder="Tapez un nom..." oninput="rechercherEtudiantPourPromotion()">
-            </div>
-            <div id="reins-resultats" style="max-height:160px;overflow-y:auto;margin-bottom:14px"></div>
-
-            <div id="reins-selection" style="display:none">
-              <p class="form-sous-section">Étudiant sélectionné</p>
-              <div class="dash-card" style="background:#f5f7fb;padding:12px 14px;margin-bottom:14px">
-                <div id="reins-etudiant-info" style="font-size:13px"></div>
-                <input type="hidden" id="reins-etudiant-id">
-              </div>
-
-              <div class="form-row-admin">
-                <div class="form-group-dash">
-                  <label>Nouveau niveau <span class="required">*</span></label>
-                  <select id="reins-nouveau-niveau">
-                    <option value="Pré-U">Pré-Universitaire</option>
-            <option value="L1">Licence 1</option>
-                    <option value="L2">Licence 2</option>
-                    <option value="L3">Licence 3</option>
-                    <option value="M1">Master 1</option>
-                    <option value="M2">Master 2</option>
-                    <option value="D1">Doctorat 1</option>
-                    <option value="D2">Doctorat 2</option>
-                  </select>
-                </div>
-                <div class="form-group-dash">
-                  <label>Année académique <span class="required">*</span></label>
-                  <select id="reins-annee-promo">
-                    <option value="2024-2025">2024-2025</option>
-                    <option value="2025-2026">2025-2026</option>
-                    <option value="2026-2027">2026-2027</option>
-                    <option value="2027-2028">2027-2028</option>
-                    <option value="2028-2029">2028-2029</option>
-                  </select>
-                </div>
-              </div>
-              <button class="btn-sauvegarder" style="width:100%;margin-top:6px" onclick="promouvoirEtudiant()">⬆️ Promouvoir l'étudiant</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- ONGLET 2 : NOUVEL ÉTUDIANT À UN NIVEAU SUPÉRIEUR -->
-        <div class="reins-onglet-contenu" id="reins-onglet-nouveau">
+        <!-- Inscription d'un nouvel étudiant uniquement : la promotion montante
+             d'un étudiant existant se fait désormais via l'onglet « Délibérer »
+             de Gérer les notes (plus de doublon). -->
+        <div class="reins-onglet-contenu active" id="reins-onglet-nouveau">
           <div class="dash-card">
             <h3>Inscrire un nouvel étudiant (non présent dans le système)</h3>
             <p style="font-size:12px;color:#888;margin-bottom:12px">Pour un étudiant venant d'un autre établissement et admis directement en L2, L3, etc. Un matricule et un mot de passe temporaire sont générés.</p>

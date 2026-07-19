@@ -178,7 +178,6 @@ const SELECTS_ANNEES = [
   { id: 'horaire-annee',       all: '' },
   { id: 'prog-annee',          all: '' },
   { id: 'inscrit-annee',       all: '' },
-  { id: 'reins-annee-promo',   all: '' },
   { id: 'reins-annee-nouveau', all: '' },
   { id: 'delib-annee',         all: '' }, // onglet Délibérer : défaut = année courante
   { id: 'filtre-inscrits-annee', all: 'Toutes les années', defautCourante: true },
@@ -3083,67 +3082,10 @@ async function reinitialiserMotDePasseAgent(id) {
 }
 
 // =====================
-// RÉINSCRIPTIONS (promotion montante + nouvel étudiant à un niveau supérieur)
+// INSCRIRE UN NOUVEL ÉTUDIANT (à un niveau supérieur). La promotion montante
+// d'un étudiant existant se fait désormais via l'onglet « Délibérer » de Gérer
+// les notes — l'ancien onglet « Promotion montante » a été retiré.
 // =====================
-function basculerOngletReinscription(idOnglet, btn) {
-  document.querySelectorAll('.reins-onglet-contenu').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.reins-onglet-btn').forEach(el => el.classList.remove('active'));
-  document.getElementById(idOnglet)?.classList.add('active');
-  btn?.classList.add('active');
-}
-
-let debounceReins;
-function rechercherEtudiantPourPromotion() {
-  clearTimeout(debounceReins);
-  debounceReins = setTimeout(async () => {
-    const nom = document.getElementById('reins-recherche').value.trim();
-    const zone = document.getElementById('reins-resultats');
-    if (!nom) { zone.innerHTML = ''; return; }
-    try {
-      const r = await fetchAdmin(`${BASE_URL}/api/etudiants?${new URLSearchParams({ nom })}`);
-      const etudiants = await r.json();
-      zone.innerHTML = etudiants.length === 0
-        ? '<p style="color:#999;font-size:12px;padding:6px 0">Aucun étudiant trouvé.</p>'
-        : etudiants.slice(0, 8).map(e => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 4px;border-bottom:1px solid #f0f0f0;font-size:13px">
-              <span>${e.nom} ${e.postnom||''} ${e.prenom} <span style="color:#999;font-size:11px">(${e.id} · ${e.niveau||'—'} ${sansPrefixeNiveau(e.promotion)||''})</span></span>
-              <button class="btn-icone" onclick="selectionnerEtudiantPromotion('${e.id}','${(e.nom+' '+(e.postnom||'')+' '+e.prenom).replace(/'/g,"\\'")}','${e.niveau||''}','${(sansPrefixeNiveau(e.promotion)||'').replace(/'/g,"\\'")}','${e.faculte||''}','${e.annee_academique||''}')" aria-label="Sélectionner">${icone('coche')}</button>
-            </div>`).join('');
-    } catch { zone.innerHTML = ''; }
-  }, 300);
-}
-
-function selectionnerEtudiantPromotion(id, nomComplet, niveau, promotion, faculte, annee) {
-  document.getElementById('reins-etudiant-id').value = id;
-  document.getElementById('reins-etudiant-info').innerHTML =
-    `<b>${nomComplet}</b><br><span style="color:#666">${id} · ${faculte||'—'} · ${promotion||'—'} · Niveau actuel : <b>${niveau||'—'}</b> · ${annee||'—'}</span>`;
-  document.getElementById('reins-resultats').innerHTML = '';
-  document.getElementById('reins-recherche').value = '';
-  document.getElementById('reins-selection').style.display = 'block';
-  // Pré-suggérer le niveau suivant.
-  const suite = { L1:'L2', L2:'L3', L3:'M1', M1:'M2', M2:'D1', D1:'D2' };
-  if (suite[niveau]) document.getElementById('reins-nouveau-niveau').value = suite[niveau];
-}
-
-async function promouvoirEtudiant() {
-  const etudiant_id = document.getElementById('reins-etudiant-id').value;
-  const nouveau_niveau = document.getElementById('reins-nouveau-niveau').value;
-  const annee_academique = document.getElementById('reins-annee-promo').value;
-  if (!etudiant_id) { afficherToast('⚠️ Sélectionnez d\'abord un étudiant.', 'erreur'); return; }
-  if (!await confirmerAction(`Promouvoir cet étudiant en ${nouveau_niveau} pour ${annee_academique} ?`, { titre: 'Promotion montante', texteConfirmer: 'Promouvoir' })) return;
-  try {
-    const r = await fetchAdmin(`${BASE_URL}/api/reinscriptions/promouvoir`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ etudiant_id, nouveau_niveau, annee_academique })
-    });
-    const d = await r.json();
-    if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
-    afficherToast(`✅ ${d.message} (${d.coursInscrits} cours inscrit(s))`);
-    document.getElementById('reins-selection').style.display = 'none';
-    document.getElementById('reins-etudiant-id').value = '';
-    chargerStats();
-  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
-}
 
 // =====================
 // DÉLIBÉRER (onglet de « Gérer les notes ») — promotion d'un étudiant après
