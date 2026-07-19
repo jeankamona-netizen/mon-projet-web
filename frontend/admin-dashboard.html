@@ -214,7 +214,7 @@
             <canvas id="graphique-evolution" height="140"></canvas>
           </div>
           <div class="dash-card">
-            <h3>Taux de réussite par faculté</h3>
+            <h3 id="titre-graphique-reussite">Taux de réussite par faculté</h3>
             <canvas id="graphique-reussite" height="140"></canvas>
           </div>
         </div>
@@ -230,6 +230,7 @@
         <div class="notes-sous-onglets">
           <button class="notes-onglet-btn active" onclick="basculerOngletNotes('notes-onglet-gestion', this)">Notes</button>
           <button class="notes-onglet-btn" onclick="basculerOngletNotes('notes-onglet-deliberation', this)">Délibérer</button>
+          <button class="notes-onglet-btn" onclick="basculerOngletNotes('notes-onglet-rapport', this)">Rapport de délibération</button>
           <button class="notes-onglet-btn" onclick="basculerOngletNotes('notes-onglet-bulletins', this)">Bulletins</button>
         </div>
 
@@ -321,8 +322,10 @@
               <button class="btn-sauvegarder" style="width:100%;margin-top:6px" onclick="deliberEtudiant()">⬆️ Promouvoir l'étudiant</button>
             </div>
           </div>
+        </div>
 
-          <!-- RAPPORT DE DÉLIBÉRATION -->
+        <!-- ONGLET : RAPPORT DE DÉLIBÉRATION -->
+        <div class="notes-onglet-contenu" id="notes-onglet-rapport">
           <div class="dash-card">
             <h3>Rapport de délibération</h3>
             <p style="font-size:12px;color:#888;margin-bottom:12px">Résultats d'une promotion pour un semestre ou toute l'année : moyenne, crédits, mention, décision (Admis si moyenne ≥ 10/20), et synthèse.</p>

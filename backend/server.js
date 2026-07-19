@@ -224,22 +224,37 @@ app.get('/api/stats/avancees', requireAdminOuDoyen, async (req, res) => {
       facDoyen ? [facDoyen, facDoyen] : []
     );
 
-    const [reussite] = await pool.query(
-      `SELECT e.faculte,
-             COUNT(*) AS total_notes,
-             SUM(CASE WHEN n.note >= 10 THEN 1 ELSE 0 END) AS reussies
-      FROM note n
-      JOIN etudiant e ON n.etudiant_id = e.id
-      WHERE n.note IS NOT NULL AND e.faculte IS NOT NULL
-      ${facDoyen ? 'AND e.faculte = ?' : ''}
-      GROUP BY e.faculte`,
-      facDoyen ? [facDoyen] : []
-    );
+    // Taux de réussite : par FACULTÉ pour l'admin ; par FILIÈRE (au sein de sa
+    // faculté) pour un doyen — le décanat ne gère qu'une faculté, un découpage
+    // par filière est bien plus parlant.
+    const [reussite] = facDoyen
+      ? await pool.query(
+          `SELECT COALESCE(f.nom, 'Sans filière') AS libelle,
+                  COUNT(*) AS total_notes,
+                  SUM(CASE WHEN n.note >= 10 THEN 1 ELSE 0 END) AS reussies
+           FROM note n
+           JOIN etudiant e ON n.etudiant_id = e.id
+           LEFT JOIN filiere f ON e.filiere_id = f.id
+           WHERE n.note IS NOT NULL AND e.faculte = ?
+           GROUP BY libelle`,
+          [facDoyen]
+        )
+      : await pool.query(
+          `SELECT e.faculte AS libelle,
+                  COUNT(*) AS total_notes,
+                  SUM(CASE WHEN n.note >= 10 THEN 1 ELSE 0 END) AS reussies
+           FROM note n
+           JOIN etudiant e ON n.etudiant_id = e.id
+           WHERE n.note IS NOT NULL AND e.faculte IS NOT NULL
+           GROUP BY e.faculte`
+        );
 
     res.json({
       evolutionPreinscriptions: evolution,
+      // Indique au frontend que le découpage est par filière (titre du graphique).
+      parFiliere: !!facDoyen,
       tauxReussiteParFaculte: reussite.map(r => ({
-        faculte: r.faculte,
+        faculte: r.libelle,
         totalNotes: r.total_notes,
         tauxReussite: Math.round((r.reussies / r.total_notes) * 100)
       }))

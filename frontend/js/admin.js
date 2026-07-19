@@ -944,7 +944,10 @@ async function chargerStatistiquesAvancees() {
 
   try {
     const r = await fetchAdmin(`${BASE_URL}/api/stats/avancees`);
-    const { evolutionPreinscriptions, tauxReussiteParFaculte } = await r.json();
+    const { evolutionPreinscriptions, tauxReussiteParFaculte, parFiliere } = await r.json();
+    // Décanat (une seule faculté) : le taux de réussite est ventilé par filière.
+    const titreReussite = document.getElementById('titre-graphique-reussite');
+    if (titreReussite) titreReussite.textContent = parFiliere ? 'Taux de réussite par filière' : 'Taux de réussite par faculté';
 
     if (canvasEvolution) {
       if (graphiqueEvolution) graphiqueEvolution.destroy();
