@@ -546,13 +546,18 @@ app.get('/api/etudiant/:id/paiements', async (req, res) => {
 // BULLETIN PDF PAR ÉTUDIANT — réservé à l'administrateur, l'étudiant n'a
 // pas le droit d'imprimer/télécharger son propre bulletin.
 // =====================
-app.get('/api/etudiant/:id/bulletin', requireAdmin, async (req, res) => {
+app.get('/api/etudiant/:id/bulletin', requireAdminOuDoyen, async (req, res) => {
   try {
     const [etudiants] = await pool.query(
       'SELECT e.*, f.nom AS filiere_nom FROM etudiant e LEFT JOIN filiere f ON e.filiere_id = f.id WHERE e.id = ?',
       [req.params.id]
     );
     if (etudiants.length === 0) return res.status(404).json({ erreur: 'Étudiant non trouvé.' });
+    // Un doyen/vice-doyen ne peut imprimer que les bulletins de SA faculté.
+    const facDoyen = faculteDuDoyen(req);
+    if (facDoyen && etudiants[0].faculte !== facDoyen) {
+      return res.status(403).json({ erreur: "Cet étudiant n'appartient pas à votre faculté." });
+    }
 
     // Bulletin = année académique COURANTE de l'étudiant uniquement. Sans ce
     // filtre, un étudiant réinscrit (ex. L1 2026-2027 puis L2 2027-2028) verrait

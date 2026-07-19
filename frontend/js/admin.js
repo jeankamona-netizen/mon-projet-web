@@ -3288,10 +3288,13 @@ async function chargerProfesseurs() {
   const tbody=document.getElementById('admin-professeurs-body');
   if (!tbody) return;
   const annee=document.getElementById('filtre-attr-annee')?.value||'';
+  // Un doyen/vice-doyen ne voit QUE sa faculté : cours de sa faculté, et donc
+  // seulement les professeurs qui y enseignent.
+  const facDoyen=faculteDoyenCourant();
   try {
     const [rProfs,rProgramme]=await Promise.all([
       fetchAdmin(`${BASE_URL}/api/professeurs`),
-      fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`)
+      fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`+(facDoyen?`&faculte=${encodeURIComponent(facDoyen)}`:''))
     ]);
     const profs=await rProfs.json();
     const programme=await rProgramme.json();
@@ -3301,7 +3304,10 @@ async function chargerProfesseurs() {
 
     // Recherche d'un professeur par nom/prénom (filtrage côté client).
     const q=(document.getElementById('recherche-prof')?.value||'').trim().toLowerCase();
-    const profsAff=q ? profs.filter(p=>`${p.nom} ${p.prenom||''}`.toLowerCase().includes(q)) : profs;
+    let profsAff=q ? profs.filter(p=>`${p.nom} ${p.prenom||''}`.toLowerCase().includes(q)) : profs;
+    // Décanat : n'afficher que les professeurs ayant au moins un cours dans SA
+    // faculté (ceux qui n'y enseignent pas n'ont pas à apparaître).
+    if (facDoyen) profsAff=profsAff.filter(p=>(coursParProf[p.id]||[]).length>0);
 
     tbody.innerHTML=profsAff.length===0?`<tr><td colspan="5" class="admin-vide">${q?'Aucun professeur ne correspond à cette recherche.':'Aucun professeur.'}</td></tr>`:
       profsAff.map(p=>{
@@ -3319,10 +3325,12 @@ async function chargerProfesseurs() {
 // choisie) — même numérotation que la vue à l'écran.
 async function imprimerAttributionsProfesseurs(profId = null) {
   const annee = document.getElementById('filtre-attr-annee')?.value || '';
+  // Décanat : n'imprimer que les cours de SA faculté (comme à l'écran).
+  const facDoyen = faculteDoyenCourant();
   try {
     const [rProfs, rProgramme] = await Promise.all([
       fetchAdmin(`${BASE_URL}/api/professeurs`),
-      fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`)
+      fetchAdmin(`${BASE_URL}/api/programme?annee=${annee}`+(facDoyen?`&faculte=${encodeURIComponent(facDoyen)}`:''))
     ]);
     let profs = await rProfs.json();
     // profId fourni → on n'imprime que ce professeur.
