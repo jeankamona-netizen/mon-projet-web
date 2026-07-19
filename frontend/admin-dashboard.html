@@ -715,36 +715,33 @@
             <p style="font-size:12px;color:#888;margin-bottom:12px">Pour un étudiant venant d'un autre établissement et admis directement en L2, L3, etc. Un matricule et un mot de passe temporaire sont générés.</p>
 
             <p class="form-sous-section" style="margin-top:0">Identité</p>
-            <div class="form-row-admin">
+           
               <div class="form-group-dash"><label>Nom <span class="required">*</span></label><input type="text" id="reins-nom" style="text-transform:uppercase"></div>
               <div class="form-group-dash"><label>Post-nom</label><input type="text" id="reins-postnom"></div>
-            </div>
-            <div class="form-row-admin">
-              <div class="form-group-dash"><label>Prénom <span class="required">*</span></label><input type="text" id="reins-prenom"></div>
-              <div class="form-group-dash">
-                <label>Sexe</label>
-                <select id="reins-sexe"><option value="M">Masculin</option><option value="F">Féminin</option></select>
+            
+              <div class="form-row-admin">
+                <div class="form-group-dash">
+                  <label>Prénom <span class="required">*</span></label><input type="text" id="reins-prenom">
+                </div>
+                <div class="form-group-dash">
+                  <label>Sexe</label>
+                  <select id="reins-sexe"><option value="M">Masculin</option>
+                    <option value="F">Féminin</option>
+                  </select>
+                </div>
+                <div class="form-group-dash"><label>Date de naissance</label><input type="date" id="reins-ddn"></div>
               </div>
-            </div>
-            <div class="form-row-admin">
-              <div class="form-group-dash"><label>Date de naissance</label><input type="date" id="reins-ddn"></div>
-              <div class="form-group-dash"><label>Téléphone</label><input type="text" id="reins-telephone"></div>
-            </div>
-            <div class="form-group-dash"><label>Email</label><input type="email" id="reins-email"></div>
-
+              <div class="form-row-admin">
+                <div class="form-group-dash"><label>Téléphone</label>
+                  <input type="text" id="reins-telephone">
+                </div>
+                <div class="form-group-dash"><label>Email</label>
+                  <input type="email" id="reins-email">
+                </div>
+              </div>
+           
             <p class="form-sous-section">Affectation académique</p>
-            <div class="form-row-admin">
-              <div class="form-group-dash">
-                <label>Faculté <span class="required">*</span></label>
-                <select id="reins-faculte" onchange="chargerFilieresPourReinscription()">
-                  <option value="">— Choisir —</option>
-                </select>
-              </div>
-              <div class="form-group-dash">
-                <label>Filière</label>
-                <select id="reins-filiere"><option value="">— Choisir une faculté d'abord —</option></select>
-              </div>
-            </div>
+             
             <div class="form-row-admin">
               <div class="form-group-dash">
                 <label>Niveau <span class="required">*</span></label>
@@ -752,7 +749,7 @@
                   <option value="L2">Licence 2</option>
                   <option value="L3">Licence 3</option>
                   <option value="Pré-U">Pré-Universitaire</option>
-            <option value="L1">Licence 1</option>
+                  <option value="L1">Licence 1</option>
                   <option value="M1">Master 1</option>
                   <option value="M2">Master 2</option>
                   <option value="D1">Doctorat 1</option>
@@ -770,6 +767,17 @@
                 </select>
               </div>
             </div>
+              <div class="form-group-dash">
+                <label>Faculté <span class="required">*</span></label>
+                <select id="reins-faculte" onchange="chargerFilieresPourReinscription()">
+                  <option value="">— Choisir —</option>
+                </select>
+              </div>
+              <div class="form-group-dash">
+                <label>Filière</label>
+                <select id="reins-filiere"><option value="">— Choisir une faculté d'abord —</option></select>
+              </div>
+           
             <button class="btn-sauvegarder" style="width:100%;margin-top:10px" onclick="reinscrireNouvelEtudiant()">✅ Réinscrire l'étudiant</button>
           </div>
         </div>
@@ -1057,10 +1065,10 @@
           <div class="form-group-dash"><label>Étudiant</label><input type="text" id="note-ctx-etudiant" readonly style="background:#f5f5f5"></div>
           <div class="form-group-dash"><label>Matière</label><input type="text" id="note-ctx-matiere" readonly style="background:#f5f5f5"></div>
         </div>
-        <div class="form-row-admin">
+        
           <div class="form-group-dash"><label>Faculté</label><input type="text" id="note-ctx-faculte" readonly style="background:#f5f5f5"></div>
           <div class="form-group-dash"><label>Filière</label><input type="text" id="note-ctx-filiere" readonly style="background:#f5f5f5"></div>
-        </div>
+        
         <div class="form-row-admin">
           <div class="form-group-dash"><label>Niveau</label><input type="text" id="note-ctx-niveau" readonly style="background:#f5f5f5"></div>
           <div class="form-group-dash"><label>Année académique</label><input type="text" id="note-ctx-annee" readonly style="background:#f5f5f5"></div>
@@ -1096,7 +1104,7 @@
         </div>
       </div>
 
-      <div class="form-row-admin">
+      
         <div class="form-group-dash">
           <label>Faculté</label>
           <select id="filtre-note-faculte" onchange="filtrerEtudiantsParFaculte()">
@@ -1109,7 +1117,7 @@
             <option value="">Toutes les filières</option>
           </select>
         </div>
-      </div>
+      
 
       <div class="form-group-dash">
         <label>Rechercher un étudiant par nom</label>
@@ -1171,6 +1179,35 @@
       </div>
 
       <input type="hidden" id="horaire-id-edit">
+        <div class="form-row-admin">
+          <div class="form-group-dash">
+            <label>Niveau</label>
+            <select id="horaire-niveau" onchange="rafraichirCoursHoraire()">
+              <option value="Pré-U">Pré-Universitaire</option>
+              <option value="L1">Licence 1</option>
+              <option value="L2">Licence 2</option>
+              <option value="L3">Licence 3</option>
+              <optgroup label="Master">
+                <option value="M1">Master 1</option>
+                <option value="M2">Master 2</option>
+              </optgroup>
+              <optgroup label="Doctorat">
+                <option value="D1">Doctorat 1</option>
+                <option value="D2">Doctorat 2</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-group-dash">
+            <label>Année académique</label>
+            <select id="horaire-annee" onchange="rafraichirCoursHoraire()">
+              <option value="2026-2027">2026-2027</option>
+              <option value="2027-2028">2027-2028</option>
+              <option value="2028-2029">2028-2029</option>
+              <option value="2029-2030">2029-2030</option>
+              <option value="2030-2031">2030-2031</option>
+            </select>
+          </div>
+        </div>
 
       
         <div class="form-group-dash">
@@ -1190,36 +1227,7 @@
       
 
 
-      <div class="form-row-admin">
-        <div class="form-group-dash">
-          <label>Niveau</label>
-          <select id="horaire-niveau" onchange="rafraichirCoursHoraire()">
-            <option value="Pré-U">Pré-Universitaire</option>
-            <option value="L1">Licence 1</option>
-            <option value="L2">Licence 2</option>
-            <option value="L3">Licence 3</option>
-            <optgroup label="Master">
-              <option value="M1">Master 1</option>
-              <option value="M2">Master 2</option>
-            </optgroup>
-            <optgroup label="Doctorat">
-              <option value="D1">Doctorat 1</option>
-              <option value="D2">Doctorat 2</option>
-            </optgroup>
-          </select>
-        </div>
-        <div class="form-group-dash">
-          <label>Année académique</label>
-          <select id="horaire-annee" onchange="rafraichirCoursHoraire()">
-            <option value="2026-2027">2026-2027</option>
-            <option value="2027-2028">2027-2028</option>
-            <option value="2028-2029">2028-2029</option>
-            <option value="2029-2030">2029-2030</option>
-            <option value="2030-2031">2030-2031</option>
-          </select>
-        </div>
-      </div>
-
+      
       <input type="hidden" id="horaire-jour">
 
       <div class="form-row-admin">
