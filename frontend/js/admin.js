@@ -963,11 +963,14 @@ async function chargerStatistiquesAvancees() {
   if ((!canvasEvolution && !canvasReussite) || typeof Chart === 'undefined') return;
 
   try {
-    const r = await fetchAdmin(`${BASE_URL}/api/stats/avancees`);
+    // Taux de réussite conforme à l'année académique en cours.
+    const annee = anneeCourante || '';
+    const r = await fetchAdmin(`${BASE_URL}/api/stats/avancees${annee ? '?annee=' + encodeURIComponent(annee) : ''}`);
     const { evolutionPreinscriptions, tauxReussiteParFaculte, parFiliere } = await r.json();
     // Décanat (une seule faculté) : le taux de réussite est ventilé par filière.
     const titreReussite = document.getElementById('titre-graphique-reussite');
-    if (titreReussite) titreReussite.textContent = parFiliere ? 'Taux de réussite par filière' : 'Taux de réussite par faculté';
+    if (titreReussite) titreReussite.textContent =
+      (parFiliere ? 'Taux de réussite par filière' : 'Taux de réussite par faculté') + (annee ? ` (${annee})` : '');
 
     if (canvasEvolution) {
       if (graphiqueEvolution) graphiqueEvolution.destroy();

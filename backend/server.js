@@ -212,6 +212,7 @@ app.get('/api/stats', requireAdminOuDoyen, async (req, res) => {
 app.get('/api/stats/avancees', requireAdminOuDoyen, async (req, res) => {
   try {
     const facDoyen = faculteDuDoyen(req);
+    const { annee } = req.query; // année académique à considérer pour le taux de réussite
 
     // Évolution des pré-inscriptions : pour un doyen, restreinte aux candidatures
     // de sa faculté (spécialité = filière de sa faculté ou nom de la faculté).
@@ -226,7 +227,9 @@ app.get('/api/stats/avancees', requireAdminOuDoyen, async (req, res) => {
 
     // Taux de réussite : par FACULTÉ pour l'admin ; par FILIÈRE (au sein de sa
     // faculté) pour un doyen — le décanat ne gère qu'une faculté, un découpage
-    // par filière est bien plus parlant.
+    // par filière est bien plus parlant. Restreint à l'année académique demandée
+    // (n.annee_academique) : le taux reflète l'année en cours, pas tout l'historique.
+    const condAnnee = annee ? ' AND n.annee_academique = ?' : '';
     const [reussite] = facDoyen
       ? await pool.query(
           `SELECT COALESCE(f.nom, 'Sans filière') AS libelle,
@@ -235,9 +238,9 @@ app.get('/api/stats/avancees', requireAdminOuDoyen, async (req, res) => {
            FROM note n
            JOIN etudiant e ON n.etudiant_id = e.id
            LEFT JOIN filiere f ON e.filiere_id = f.id
-           WHERE n.note IS NOT NULL AND e.faculte = ?
+           WHERE n.note IS NOT NULL AND e.faculte = ?${condAnnee}
            GROUP BY libelle`,
-          [facDoyen]
+          annee ? [facDoyen, annee] : [facDoyen]
         )
       : await pool.query(
           `SELECT e.faculte AS libelle,
@@ -245,8 +248,9 @@ app.get('/api/stats/avancees', requireAdminOuDoyen, async (req, res) => {
                   SUM(CASE WHEN n.note >= 10 THEN 1 ELSE 0 END) AS reussies
            FROM note n
            JOIN etudiant e ON n.etudiant_id = e.id
-           WHERE n.note IS NOT NULL AND e.faculte IS NOT NULL
-           GROUP BY e.faculte`
+           WHERE n.note IS NOT NULL AND e.faculte IS NOT NULL${condAnnee}
+           GROUP BY e.faculte`,
+          annee ? [annee] : []
         );
 
     res.json({
