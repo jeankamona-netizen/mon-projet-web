@@ -1009,6 +1009,11 @@ function basculerOngletNotes(idOnglet, btn) {
   document.querySelectorAll('.notes-onglet-btn').forEach(el => el.classList.remove('active'));
   document.getElementById(idOnglet)?.classList.add('active');
   btn?.classList.add('active');
+  // Rafraîchit les données de l'onglet ouvert pour toujours refléter l'état réel
+  // (une note saisie sous « Notes » apparaît aussitôt dans « Bulletins », etc.).
+  if (idOnglet === 'notes-onglet-gestion')        { chargerNotes(); }
+  else if (idOnglet === 'notes-onglet-bulletins') { chargerResumeBulletins(); }
+  // Délibérer / Rapport : formulaires à la demande, rien à précharger.
 }
 
 function chargerFilieresPourFiltreNotes() {
@@ -3169,9 +3174,20 @@ function selectionnerEtudiantDelib(id, nomComplet, niveau, promotion, faculte, a
   document.getElementById('delib-resultats').innerHTML = '';
   document.getElementById('delib-recherche').value = '';
   document.getElementById('delib-selection').style.display = 'block';
-  const suite = { L1:'L2', L2:'L3', L3:'M1', M1:'M2', M2:'D1', D1:'D2' };
+  // On délibère sur l'année COURANTE de l'étudiant (celle du relevé) ; la
+  // promotion se fera vers l'année suivante (voir deliberEtudiant).
+  const selAnnee = document.getElementById('delib-annee');
+  if (selAnnee && annee && [...selAnnee.options].some(o => o.value === annee)) selAnnee.value = annee;
+  const suite = { 'Pré-U':'L1', L1:'L2', L2:'L3', L3:'M1', M1:'M2', M2:'D1', D1:'D2' };
   if (suite[niveau]) document.getElementById('delib-nouveau-niveau').value = suite[niveau];
   chargerNotesDelib(id);
+}
+
+// Année académique suivante : « 2027-2028 » → « 2028-2029 ».
+function anneeSuivante(annee) {
+  const m = String(annee || '').match(/(\d{4})\s*[-/]\s*(\d{4})/);
+  if (!m) return annee;
+  return `${Number(m[1]) + 1}-${Number(m[2]) + 1}`;
 }
 
 // Recharge le relevé si l'année change alors qu'un étudiant est déjà sélectionné.
@@ -3240,9 +3256,12 @@ async function chargerNotesDelib(id) {
 async function deliberEtudiant() {
   const etudiant_id = document.getElementById('delib-etudiant-id').value;
   const nouveau_niveau = document.getElementById('delib-nouveau-niveau').value;
-  const annee_academique = document.getElementById('delib-annee').value;
+  const anneeDeliberee = document.getElementById('delib-annee').value;
   if (!etudiant_id) { afficherToast('⚠️ Sélectionnez d\'abord un étudiant.', 'erreur'); return; }
-  if (!annee_academique) { afficherToast('⚠️ Choisissez l\'année académique.', 'erreur'); return; }
+  if (!anneeDeliberee) { afficherToast('⚠️ Choisissez l\'année académique.', 'erreur'); return; }
+  // La promotion se fait toujours vers l'ANNÉE SUIVANTE : un L2 délibéré en
+  // 2027-2028 est promu en L3 pour 2028-2029.
+  const annee_academique = anneeSuivante(anneeDeliberee);
   if (!await confirmerAction(`Promouvoir cet étudiant en ${nouveau_niveau} pour ${annee_academique} ?`, { titre: 'Délibération — promotion', texteConfirmer: 'Promouvoir' })) return;
   try {
     const r = await fetchAdmin(`${BASE_URL}/api/reinscriptions/promouvoir`, {
