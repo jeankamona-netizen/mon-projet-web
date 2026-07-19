@@ -437,15 +437,20 @@ async function chargerNotificationsAdmin() {
   } catch { /* silencieux : la cloche reste fonctionnelle sans nouvelles données */ }
 }
 
-// Cloche du décanat : annonces/événements/communiqués actifs qui concernent la
-// faculté du doyen (ciblage sur sa faculté, ou diffusion à tous = cible NULL).
+// Cloche du décanat : informations actives qui le concernent.
+//  - Communiqués : uniquement ceux adressés au décanat (cible_role 'doyen') ou
+//    à tout le monde ('tous') — jamais ceux réservés aux étudiants, enseignants,
+//    caisse, etc.
+//  - Annonces / événements : ceux ciblant SA faculté, ou diffusés à tous.
 async function chargerNotificationsDoyen() {
   try {
     const fac = faculteDoyenCourant();
     const r = await fetch(`${BASE_URL}/api/annonces?actif=true`, { cache: 'no-store' });
     const toutes = await r.json();
-    annoncesDoyenCache = (Array.isArray(toutes) ? toutes : [])
-      .filter(a => !a.cible_faculte || a.cible_faculte === fac);
+    annoncesDoyenCache = (Array.isArray(toutes) ? toutes : []).filter(a => {
+      if (a.type === 'communique') return a.cible_role === 'doyen' || a.cible_role === 'tous';
+      return !a.cible_faculte || a.cible_faculte === fac;
+    });
     mettreAJourNotificationsAdmin();
   } catch { /* silencieux */ }
 }
