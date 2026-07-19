@@ -80,6 +80,83 @@ router.get('/bulletins/resume', requireAdmin, async (req, res) => {
   }
 });
 
+// ===== GET /api/notes/deliberation — rapport de délibération d'une promotion =====
+// Params : faculte, niveau, annee (requis) ; filiere (nom, optionnel) ; semestre
+// (S1/S2, optionnel → sinon toute l'année). Renvoie la liste des étudiants avec
+// moyenne, crédits validés/total, mention et décision (Admis si moyenne ≥ 10),
+// plus une synthèse statistique. Un doyen est verrouillé sur SA faculté.
+router.get('/deliberation', requireAdmin, async (req, res) => {
+  try {
+    const facDoyen = faculteDuDoyen(req);
+    const faculte = facDoyen || req.query.faculte;
+    const { niveau, annee, filiere, semestre } = req.query;
+    if (!faculte || !niveau || !annee) {
+      return res.status(400).json({ erreur: 'Faculté, niveau et année académique sont requis.' });
+    }
+
+    // Résout la filière (nom → id), scopée à la faculté.
+    let filiereId = null;
+    if (filiere) {
+      const [[f]] = await pool.query(
+        'SELECT f.id FROM filiere f JOIN faculte fa ON fa.id = f.faculte_id WHERE f.nom = ? AND fa.nom = ?',
+        [filiere, faculte]
+      );
+      if (f) filiereId = f.id;
+    }
+
+    const condCours = ['c.faculte = ?', 'c.niveau = ?', 'c.annee_academique = ?'];
+    const params = [faculte, niveau, annee];
+    if (semestre)  { condCours.push('c.semestre = ?'); params.push(semestre); }
+    if (filiereId) { condCours.push('c.filiere_id = ?'); params.push(filiereId); }
+
+    const [lignes] = await pool.query(`
+      SELECT e.id AS etudiant_id, e.nom, e.postnom, e.prenom, fil.nom AS filiere,
+             AVG(n.note) AS moyenne,
+             SUM(CASE WHEN n.note IS NOT NULL AND n.note >= 10 THEN c.credits ELSE 0 END) AS credits_valides,
+             SUM(c.credits) AS credits_total,
+             SUM(n.note IS NOT NULL) AS nb_notes, COUNT(c.id) AS nb_cours
+      FROM etudiant e
+      JOIN inscription_cours ic ON ic.etudiant_id = e.id
+      JOIN cours c ON c.id = ic.cours_id AND ${condCours.join(' AND ')}
+      LEFT JOIN note n ON n.etudiant_id = e.id AND n.cours_id = c.id
+      LEFT JOIN filiere fil ON e.filiere_id = fil.id
+      GROUP BY e.id, e.nom, e.postnom, e.prenom, fil.nom
+      ORDER BY e.nom, e.prenom
+    `, params);
+
+    const etudiants = lignes.map(l => {
+      const moyenne = l.moyenne !== null ? Number(l.moyenne) : null;
+      const decision = moyenne === null ? 'En attente' : (moyenne >= 10 ? 'Admis' : 'Ajourné');
+      return {
+        etudiant_id: l.etudiant_id, nom: l.nom, postnom: l.postnom, prenom: l.prenom,
+        filiere: l.filiere,
+        moyenne, credits_valides: Number(l.credits_valides), credits_total: Number(l.credits_total),
+        mention: moyenne === null ? '—' : LIBELLES_MENTION.find(m => moyenne >= m.min).texte,
+        decision,
+      };
+    });
+
+    const notes = etudiants.filter(e => e.moyenne !== null);
+    const admis = notes.filter(e => e.moyenne >= 10).length;
+    const synthese = {
+      effectif: etudiants.length,
+      notes: notes.length,
+      admis,
+      ajournes: notes.length - admis,
+      taux_reussite: notes.length ? Math.round((admis / notes.length) * 100) : 0,
+      moyenne_promotion: notes.length ? Math.round((notes.reduce((s, e) => s + e.moyenne, 0) / notes.length) * 100) / 100 : null,
+    };
+
+    res.json({
+      periode: { faculte, niveau, annee, filiere: filiere || null, semestre: semestre || null },
+      etudiants, synthese,
+    });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: "Erreur lors de la génération du rapport de délibération." });
+  }
+});
+
 // ===== GET /api/notes — toutes les notes (admin), filtrable par faculté/filière/année =====
 router.get('/', requireAdmin, async (req, res) => {
   try {

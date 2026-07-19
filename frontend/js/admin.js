@@ -128,6 +128,10 @@ function preparerEspaceDoyen() {
   if (bonjour) bonjour.textContent = nomComplet;
   const fonctionItem = document.querySelector('#admin-menu-compte .menu-compte-item');
   if (fonctionItem) fonctionItem.textContent = fonction;
+  // En-tête de la cloche : le décanat reçoit des « Informations » (annonces /
+  // communiqués), pas les « Messages & Newsletter » de l'admin.
+  const enteteCloche = document.getElementById('admin-notif-entete');
+  if (enteteCloche) enteteCloche.textContent = 'Informations';
   document.title = `Décanat — Tableau de bord`;
 }
 
@@ -180,6 +184,7 @@ const SELECTS_ANNEES = [
   { id: 'inscrit-annee',       all: '' },
   { id: 'reins-annee-nouveau', all: '' },
   { id: 'delib-annee',         all: '' }, // onglet Délibérer : défaut = année courante
+  { id: 'delib-rap-annee',     all: '' }, // rapport de délibération : défaut = année courante
   { id: 'filtre-inscrits-annee', all: 'Toutes les années', defautCourante: true },
 ];
 
@@ -374,8 +379,19 @@ async function supprimerAbonneNewsletter(id) {
 let messagesContactCache = [];
 let abonnesNewsletterCache = [];
 let preinscriptionsNotifCache = [];
+let annoncesDoyenCache = [];
 
 function construireNotificationsAdmin() {
+  // Décanat : la cloche ne montre que les informations émises qui le concernent
+  // — communiqués et annonces/événements ciblant SA faculté (ou diffusés à tous).
+  if (estDoyen()) {
+    const type2 = { evenement: '🎓', communique: '📣' };
+    return (annoncesDoyenCache || []).map(a => ({
+      categorie: 'annonce', id: `annonce-${a.id}`, icone: a.icone || type2[a.type] || '📢',
+      titre: a.titre,
+      sousTitre: a.type === 'communique' ? 'Communiqué' : (a.type === 'evenement' ? 'Événement' : 'Annonce'),
+    }));
+  }
   const items = [];
   // Nouvelles candidatures en attente : l'admin doit être alerté dès qu'un
   // candidat se pré-inscrit depuis le site public (seules celles encore « en
@@ -421,6 +437,19 @@ async function chargerNotificationsAdmin() {
   } catch { /* silencieux : la cloche reste fonctionnelle sans nouvelles données */ }
 }
 
+// Cloche du décanat : annonces/événements/communiqués actifs qui concernent la
+// faculté du doyen (ciblage sur sa faculté, ou diffusion à tous = cible NULL).
+async function chargerNotificationsDoyen() {
+  try {
+    const fac = faculteDoyenCourant();
+    const r = await fetch(`${BASE_URL}/api/annonces?actif=true`, { cache: 'no-store' });
+    const toutes = await r.json();
+    annoncesDoyenCache = (Array.isArray(toutes) ? toutes : [])
+      .filter(a => !a.cible_faculte || a.cible_faculte === fac);
+    mettreAJourNotificationsAdmin();
+  } catch { /* silencieux */ }
+}
+
 function mettreAJourNotificationsAdmin() {
   const nouvelles = calculerNotificationsAdminNouvelles();
   const badge = document.getElementById('admin-notif-badge');
@@ -456,7 +485,10 @@ function marquerUneNotificationAdminLue(id) {
 function ouvrirNotificationAdmin(idEncode, categorie) {
   if (idEncode != null) marquerUneNotificationAdminLue(decodeURIComponent(idEncode));
   document.getElementById('admin-notif-panneau')?.classList.remove('ouvert');
-  if (categorie === 'preinscription') {
+  if (estDoyen() || categorie === 'annonce') {
+    // Décanat : la cloche mène à « Partager des informations » (annonces).
+    afficherOngletAnnonces('annonces-onglet-public');
+  } else if (categorie === 'preinscription') {
     // Sous-onglet de « Gérer les inscrits » : ouvre le groupe et l'onglet.
     afficherOngletInscrits('admin-preinscriptions');
   } else {
@@ -3218,6 +3250,107 @@ async function deliberEtudiant() {
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
+// ===== RAPPORT DE DÉLIBÉRATION (par promotion, semestre ou année) =====
+function majFilieresRapportDelib() {
+  const fac = document.getElementById('delib-rap-faculte')?.value || '';
+  const niv = document.getElementById('delib-rap-niveau')?.value || '';
+  const sel = document.getElementById('delib-rap-filiere');
+  if (!sel) return;
+  const filieres = optionsFiliereFacNiveau(fac, niv);
+  sel.innerHTML = '<option value="">— Toutes les filières —</option>' +
+    filieres.map(f => `<option value="${f}">${f}</option>`).join('');
+}
+
+let rapportDelibData = null;
+async function genererRapportDeliberation() {
+  const faculte  = document.getElementById('delib-rap-faculte')?.value || '';
+  const niveau   = document.getElementById('delib-rap-niveau')?.value || '';
+  const filiere  = document.getElementById('delib-rap-filiere')?.value || '';
+  const annee    = document.getElementById('delib-rap-annee')?.value || '';
+  const semestre = document.getElementById('delib-rap-periode')?.value || '';
+  const zone = document.getElementById('delib-rap-resultat');
+  if (!faculte || !niveau || !annee) { afficherToast('⚠️ Choisissez faculté, niveau et année.', 'erreur'); return; }
+  if (zone) zone.innerHTML = '<p style="color:#888;font-size:13px">Génération...</p>';
+  try {
+    const params = new URLSearchParams({ faculte, niveau, annee });
+    if (filiere)  params.append('filiere', filiere);
+    if (semestre) params.append('semestre', semestre);
+    const r = await fetchAdmin(`${BASE_URL}/api/notes/deliberation?${params}`);
+    const d = await r.json();
+    if (!r.ok) { if (zone) zone.innerHTML = `<p style="color:#c0392b">❌ ${d.erreur}</p>`; return; }
+    rapportDelibData = d;
+    if (zone) zone.innerHTML = renduRapportDeliberation(d);
+  } catch { if (zone) zone.innerHTML = '<p style="color:#c0392b">⚠️ Erreur.</p>'; }
+}
+
+function libellePeriodeDelib(p) {
+  const per = p.semestre === 'S1' ? 'Semestre 1' : p.semestre === 'S2' ? 'Semestre 2' : "Toute l'année";
+  return `${p.faculte} · ${p.niveau}${p.filiere ? ' ' + sansPrefixeNiveau(p.filiere) : ''} · ${p.annee} · ${per}`;
+}
+
+function renduRapportDeliberation(d) {
+  if (!d.etudiants.length) return '<p class="admin-vide">Aucun étudiant pour cette sélection.</p>';
+  const s = d.synthese;
+  const fmt = v => (v === null || v === undefined) ? '—' : Number(v).toFixed(2);
+  const rows = d.etudiants.map((e, i) => {
+    const badge = e.decision === 'Admis' ? 'reussi' : e.decision === 'Ajourné' ? 'echec' : 'attente';
+    return `<tr>
+      <td>${i + 1}</td>
+      <td>${e.nom} ${e.postnom || ''} ${e.prenom}<br><span style="font-size:11px;color:#999">${e.etudiant_id}</span></td>
+      <td style="text-align:center">${e.moyenne !== null ? fmt(e.moyenne) + '/20' : '—'}</td>
+      <td style="text-align:center">${e.credits_valides}/${e.credits_total}</td>
+      <td style="text-align:center">${e.mention}</td>
+      <td style="text-align:center"><span class="badge ${badge}">${e.decision}</span></td>
+    </tr>`;
+  }).join('');
+  const carte = (val, lib, couleur) => `<div class="stat-card" style="flex:1;min-width:110px"><span class="stat-valeur"${couleur ? ` style="color:${couleur}"` : ''}>${val}</span><span class="stat-label">${lib}</span></div>`;
+  return `
+    <p style="font-size:12px;color:#666;margin-bottom:10px"><b>${libellePeriodeDelib(d.periode)}</b></p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      ${carte(s.effectif, 'Effectif')}
+      ${carte(s.admis, 'Admis', 'var(--vert,#1a7f37)')}
+      ${carte(s.ajournes, 'Ajournés', 'var(--rouge,#c0392b)')}
+      ${carte(s.taux_reussite + '%', 'Taux de réussite')}
+      ${carte(s.moyenne_promotion !== null ? fmt(s.moyenne_promotion) : '—', 'Moyenne promotion')}
+    </div>
+    <div class="dash-card" style="padding:0;overflow:auto">
+      <table class="dash-table" style="margin:0">
+        <thead><tr><th>N°</th><th>Étudiant</th><th style="text-align:center">Moyenne</th><th style="text-align:center">Crédits</th><th style="text-align:center">Mention</th><th style="text-align:center">Décision</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function imprimerRapportDeliberation() {
+  const d = rapportDelibData;
+  if (!d || !d.etudiants.length) { afficherToast('⚠️ Générez d\'abord le rapport.', 'erreur'); return; }
+  const s = d.synthese;
+  const esc = x => String(x == null ? '' : x).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const fmt = v => (v === null || v === undefined) ? '—' : Number(v).toFixed(2);
+  const rows = d.etudiants.map((e, i) => `<tr>
+      <td>${i + 1}</td>
+      <td>${esc(`${e.nom} ${e.postnom || ''} ${e.prenom}`)} <small>(${esc(e.etudiant_id)})</small></td>
+      <td class="c">${e.moyenne !== null ? fmt(e.moyenne) + '/20' : '—'}</td>
+      <td class="c">${e.credits_valides}/${e.credits_total}</td>
+      <td class="c">${esc(e.mention)}</td>
+      <td class="c"><b>${esc(e.decision)}</b></td>
+    </tr>`).join('');
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport de délibération</title>
+    <style>body{font-family:Arial,sans-serif;color:#222;padding:24px}h1{color:#1a3a6b;font-size:20px;margin:0 0 4px}
+    .sub{color:#666;margin:0 0 16px}.synth{margin:0 0 14px;font-size:13px}.synth b{color:#1a3a6b}
+    table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
+    th{background:#1a3a6b;color:#fff}.c{text-align:center}tr:nth-child(even) td{background:#f6f8fb}
+    @media print{@page{margin:12mm}}</style></head><body>
+    <h1>Rapport de délibération</h1>
+    <p class="sub">${esc(libellePeriodeDelib(d.periode))}</p>
+    <p class="synth">Effectif : <b>${s.effectif}</b> · Admis : <b>${s.admis}</b> · Ajournés : <b>${s.ajournes}</b> · Taux de réussite : <b>${s.taux_reussite}%</b> · Moyenne de la promotion : <b>${s.moyenne_promotion !== null ? fmt(s.moyenne_promotion) + '/20' : '—'}</b></p>
+    <table><thead><tr><th>N°</th><th>Étudiant</th><th class="c">Moyenne</th><th class="c">Crédits</th><th class="c">Mention</th><th class="c">Décision</th></tr></thead><tbody>${rows}</tbody></table>
+    <p style="margin-top:24px;font-size:12px;color:#666">Édité le ${new Date().toLocaleDateString('fr-FR')}</p>
+    <script>window.onload=function(){window.print();}<\/script></body></html>`;
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
 // Le catalogue ne distingue pas explicitement le cycle d'une filière : par
 // convention, une filière dont le nom commence par "Master " est de cycle
 // Master/Doctorat, toutes les autres sont Pré-U/Licence (voir aussi
@@ -3692,6 +3825,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   [
     'notes-filtre-faculte', 'filtre-faculte', 'filtre-faculte-prog',
     'reins-faculte', 'prog-faculte', 'inscrit-faculte', 'attr-faculte-select', 'annonce-cible',
+    'delib-rap-faculte',
   ].forEach(id => remplirSelectFacultes(id));
   remplirSelectFacultes('horaire-faculte', { garder: 1 }); // conserve le placeholder "— Choisir —"
   remplirSelectFacultes('filtre-inscrits-faculte', { libelleCourt: libelleCourtFaculte });
@@ -3699,9 +3833,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   remplirCheckboxesFacultes('inscriptions-facultes-checkboxes');
 
   if (document.getElementById('cpt-etudiants')) chargerStats();
-  // Cloche admin (messages, newsletter, préinscriptions) : hors périmètre du
-  // décanat → on ne la charge pas pour un doyen (routes réservées à l'admin).
-  if (document.getElementById('admin-notif-badge') && !estDoyen()) chargerNotificationsAdmin();
+  // Cloche : le décanat reçoit les annonces/communiqués de sa faculté ; l'admin
+  // reçoit messages, newsletter et pré-inscriptions.
+  if (document.getElementById('admin-notif-badge')) {
+    if (estDoyen()) chargerNotificationsDoyen(); else chargerNotificationsAdmin();
+  }
 
   // Fermer les panneaux déroulants (notifications, menu compte) au clic en dehors.
   document.addEventListener('click', e => {

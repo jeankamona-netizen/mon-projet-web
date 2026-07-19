@@ -26,13 +26,13 @@
       </div>
     </div>
     <div class="dash-header-right">
-      <div class="dash-notif-wrap" data-admin-seul>
+      <div class="dash-notif-wrap">
         <button class="dash-notif" id="admin-notif-bouton" onclick="basculerNotificationsAdmin(event)" aria-label="Notifications" aria-haspopup="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span class="notif-badge" id="admin-notif-badge" style="display:none">0</span>
         </button>
         <div class="notif-panneau" id="admin-notif-panneau">
-          <div class="notif-entete">Messages &amp; Newsletter</div>
+          <div class="notif-entete" id="admin-notif-entete">Messages &amp; Newsletter</div>
           <div class="notif-liste" id="admin-notif-liste"></div>
         </div>
       </div>
@@ -320,6 +320,54 @@
               </div>
               <button class="btn-sauvegarder" style="width:100%;margin-top:6px" onclick="deliberEtudiant()">⬆️ Promouvoir l'étudiant</button>
             </div>
+          </div>
+
+          <!-- RAPPORT DE DÉLIBÉRATION -->
+          <div class="dash-card">
+            <h3>Rapport de délibération</h3>
+            <p style="font-size:12px;color:#888;margin-bottom:12px">Résultats d'une promotion pour un semestre ou toute l'année : moyenne, crédits, mention, décision (Admis si moyenne ≥ 10/20), et synthèse.</p>
+            <div class="form-row-admin">
+              <div class="form-group-dash">
+                <label>Faculté <span class="required">*</span></label>
+                <select id="delib-rap-faculte" onchange="majFilieresRapportDelib()"><option value="">— Choisir —</option></select>
+              </div>
+              <div class="form-group-dash">
+                <label>Niveau <span class="required">*</span></label>
+                <select id="delib-rap-niveau" onchange="majFilieresRapportDelib()">
+                  <option value="Pré-U">Pré-Universitaire</option>
+                  <option value="L1">Licence 1</option>
+                  <option value="L2">Licence 2</option>
+                  <option value="L3">Licence 3</option>
+                  <option value="M1">Master 1</option>
+                  <option value="M2">Master 2</option>
+                  <option value="D1">Doctorat 1</option>
+                  <option value="D2">Doctorat 2</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row-admin">
+              <div class="form-group-dash">
+                <label>Filière</label>
+                <select id="delib-rap-filiere"><option value="">— Toutes les filières —</option></select>
+              </div>
+              <div class="form-group-dash">
+                <label>Année académique <span class="required">*</span></label>
+                <select id="delib-rap-annee"></select>
+              </div>
+              <div class="form-group-dash">
+                <label>Période</label>
+                <select id="delib-rap-periode">
+                  <option value="">Toute l'année</option>
+                  <option value="S1">Semestre 1</option>
+                  <option value="S2">Semestre 2</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+              <button class="btn-ajouter" onclick="genererRapportDeliberation()">📊 Générer le rapport</button>
+              <button class="btn-ajouter" style="background:var(--bleu)" onclick="imprimerRapportDeliberation()">🖨️ Imprimer</button>
+            </div>
+            <div id="delib-rap-resultat" style="margin-top:16px"></div>
           </div>
         </div>
 
