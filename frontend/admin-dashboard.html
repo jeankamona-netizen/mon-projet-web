@@ -715,13 +715,20 @@
             <p style="font-size:12px;color:#888;margin-bottom:12px">Pour un étudiant venant d'un autre établissement et admis directement en L2, L3, etc. Un matricule et un mot de passe temporaire sont générés.</p>
 
             <p class="form-sous-section" style="margin-top:0">Identité</p>
-           
-              <div class="form-group-dash"><label>Nom <span class="required">*</span></label><input type="text" id="reins-nom" style="text-transform:uppercase"></div>
-              <div class="form-group-dash"><label>Post-nom</label><input type="text" id="reins-postnom"></div>
-            
               <div class="form-row-admin">
                 <div class="form-group-dash">
-                  <label>Prénom <span class="required">*</span></label><input type="text" id="reins-prenom">
+                  <label>Nom <span class="required">*</span>
+                  </label><input type="text" id="reins-nom" style="text-transform:uppercase">
+                </div>
+                <div class="form-group-dash">
+                  <label>Post-nom</label>
+                  <input type="text" id="reins-postnom">
+                </div>     
+              </div>
+              <div class="form-row-admin">       
+                <div class="form-group-dash">
+                  <label>Prénom <span class="required">*</span>
+                  </label><input type="text" id="reins-prenom">
                 </div>
                 <div class="form-group-dash">
                   <label>Sexe</label>
@@ -729,8 +736,18 @@
                     <option value="F">Féminin</option>
                   </select>
                 </div>
-                <div class="form-group-dash"><label>Date de naissance</label><input type="date" id="reins-ddn"></div>
               </div>
+              <div class="form-row-admin">
+                <div class="form-group-dash">
+                  <label>Date de naissance</label>
+                  <input type="date" id="reins-ddn">
+                </div>   
+                <div class="form-group-dash">
+                  <label>Lieu de naissance</label>
+                  <input type="text" id="reins-lieunaissance">
+                </div> 
+              </div> 
+                          
               <div class="form-row-admin">
                 <div class="form-group-dash"><label>Téléphone</label>
                   <input type="text" id="reins-telephone">
@@ -767,6 +784,7 @@
                 </select>
               </div>
             </div>
+            <div class="form-row-admin">
               <div class="form-group-dash">
                 <label>Faculté <span class="required">*</span></label>
                 <select id="reins-faculte" onchange="chargerFilieresPourReinscription()">
@@ -777,6 +795,7 @@
                 <label>Filière</label>
                 <select id="reins-filiere"><option value="">— Choisir une faculté d'abord —</option></select>
               </div>
+            </div>
            
             <button class="btn-sauvegarder" style="width:100%;margin-top:10px" onclick="reinscrireNouvelEtudiant()">✅ Réinscrire l'étudiant</button>
           </div>
@@ -1143,11 +1162,11 @@
 
       <div class="form-row-admin">
         <div class="form-group-dash">
-          <label>Contrôle continu (/20) <span class="info">(peut être ajouté plus tard)</span></label>
+          <label>Contrôle continu (/20) </label>
           <input type="number" id="note-cc" min="0" max="20" step="0.5" placeholder="ex: 14" oninput="previsualiserMoyenneNote()">
         </div>
         <div class="form-group-dash">
-          <label>Examen (/20) <span class="info">(peut être ajouté plus tard)</span></label>
+          <label>Examen (/20) </label>
           <input type="number" id="note-examen" min="0" max="20" step="0.5" placeholder="ex: 15" oninput="previsualiserMoyenneNote()">
         </div>
       </div>
@@ -1644,16 +1663,16 @@
           <input type="text" id="inscrit-nom" style="text-transform:uppercase">
         </div>
         <div class="form-group-dash">
+          <label>Prénom</label>
+          <input type="text" id="inscrit-prenom">
+        </div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-dash">
           <label>Post-nom</label>
           <input type="text" id="inscrit-postnom">
         </div>
       </div>
-
-      <div class="form-group-dash">
-        <label>Prénom</label>
-        <input type="text" id="inscrit-prenom">
-      </div>
-
       <div class="form-row-admin">
         <div class="form-group-dash">
           <label>Date de naissance</label>
@@ -1680,7 +1699,36 @@
       </div>
 
       <p class="form-sous-section">Informations académiques</p>
-
+      <div class="form-row-admin">
+         <div class="form-group-dash">
+            <label>Année académique</label>
+            <select id="inscrit-annee">
+              <option value="2026-2027">2026-2027</option>
+              <option value="2027-2028">2027-2028</option>
+              <option value="2028-2029">2028-2029</option>
+              <option value="2029-2030">2029-2030</option>
+              <option value="2030-2031">2030-2031</option>
+            </select>
+          </div>
+          <div class="form-group-dash">
+            <label>Niveau / Promotion</label>
+            <select id="inscrit-promotion" onchange="chargerFilieresPourInscrit()">
+              <option value="Pré-U">Pré-Universitaire</option>
+              <option value="L1">Licence 1</option>
+              <option value="L2">Licence 2</option>
+              <option value="L3">Licence 3</option>
+              <optgroup label="Master">
+                <option value="M1">Master 1</option>
+                <option value="M2">Master 2</option>
+              </optgroup>
+              <optgroup label="Doctorat">
+                <option value="D1">Doctorat 1</option>
+                <option value="D2">Doctorat 2</option>
+              </optgroup>
+            </select>
+         </div>
+       
+      </div>
       <div class="form-row-admin">
         <div class="form-group-dash">
           <label>Faculté</label>
@@ -1694,45 +1742,14 @@
             <option value="">— Choisir une faculté d'abord —</option>
           </select>
         </div>
-      </div>
-
-      <div class="form-row-admin">
         <div class="form-group-dash">
-          <label>Niveau / Promotion</label>
-          <select id="inscrit-promotion" onchange="chargerFilieresPourInscrit()">
-            <option value="Pré-U">Pré-Universitaire</option>
-            <option value="L1">Licence 1</option>
-            <option value="L2">Licence 2</option>
-            <option value="L3">Licence 3</option>
-            <optgroup label="Master">
-              <option value="M1">Master 1</option>
-              <option value="M2">Master 2</option>
-            </optgroup>
-            <optgroup label="Doctorat">
-              <option value="D1">Doctorat 1</option>
-              <option value="D2">Doctorat 2</option>
-            </optgroup>
+          <label>Statut</label>
+          <select id="inscrit-statut">
+            <option value="actif">Actif</option>
+            <option value="suspendu">Suspendu</option>
+            <option value="diplome">Diplômé</option>
           </select>
         </div>
-        <div class="form-group-dash">
-          <label>Année académique</label>
-          <select id="inscrit-annee">
-            <option value="2026-2027">2026-2027</option>
-            <option value="2027-2028">2027-2028</option>
-            <option value="2028-2029">2028-2029</option>
-            <option value="2029-2030">2029-2030</option>
-            <option value="2030-2031">2030-2031</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="form-group-dash">
-        <label>Statut</label>
-        <select id="inscrit-statut">
-          <option value="actif">Actif</option>
-          <option value="suspendu">Suspendu</option>
-          <option value="diplome">Diplômé</option>
-        </select>
       </div>
 
       <div class="form-group-dash">
