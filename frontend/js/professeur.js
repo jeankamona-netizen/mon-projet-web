@@ -81,12 +81,8 @@ async function chargerAttributionsProf() {
   if (!professeur || !tbody) return;
   tbody.innerHTML = '<tr><td colspan="9" class="admin-vide">Chargement...</td></tr>';
   try {
-    // Année académique courante (définie par l'admin).
-    let anneeCourante = '';
-    try {
-      const ra = await fetch(`${BASE_URL}/api/annees`);
-      if (ra.ok) anneeCourante = (await ra.json()).find(a => a.est_courante)?.libelle || '';
-    } catch { /* on affichera alors toutes les années */ }
+    // Année académique courante (définie par l'admin) — référence commune.
+    const anneeCourante = await chargerAnneeCouranteUML();
 
     const r = await fetch(`${BASE_URL}/api/professeur/${professeur.id}/cours`);
     let cours = await r.json();
@@ -193,11 +189,25 @@ async function modifierProfilProf() {
 // =====================
 let horaireProfCache = [];
 
+// Année académique COURANTE (définie par l'admin) : référence commune à toutes
+// les pages du professeur pour rester cohérentes avec l'année en cours.
+// Chargée une seule fois puis mémorisée.
+let anneeCouranteUML = '';
+async function chargerAnneeCouranteUML() {
+  if (anneeCouranteUML) return anneeCouranteUML;
+  try {
+    const r = await fetch(`${BASE_URL}/api/annees`);
+    if (r.ok) anneeCouranteUML = (await r.json()).find(a => a.est_courante)?.libelle || '';
+  } catch { /* silencieux */ }
+  return anneeCouranteUML;
+}
+
 async function chargerHoraireProf(id) {
   semaineHoraireProfDecalage = 0; // cliquer sur « Mon horaire » ramène toujours à la semaine en cours
   const conteneur = document.getElementById('prof-horaire-calendrier');
   if (!conteneur) return;
   try {
+    await chargerAnneeCouranteUML();
     const r = await fetch(`${BASE_URL}/api/professeur/${id}/horaires`);
     if (!r.ok) throw new Error();
     horaireProfCache = await r.json();
@@ -221,10 +231,15 @@ function remplirFiltreAnneeHoraireProf() {
   const sel = document.getElementById('horaire-filtre-annee');
   if (!sel) return;
   const anneeChoisie = sel.value;
-  const annees = [...new Set(horaireProfCache.map(h => h.annee_academique))].sort();
+  const anneesSet = new Set(horaireProfCache.map(h => h.annee_academique));
+  if (anneeCouranteUML) anneesSet.add(anneeCouranteUML); // toujours proposer l'année courante
+  const annees = [...anneesSet].filter(Boolean).sort();
   sel.innerHTML = '<option value="">Toutes les années</option>' +
     annees.map(a => `<option value="${a}">${a}</option>`).join('');
-  if (annees.includes(anneeChoisie)) sel.value = anneeChoisie;
+  // Par défaut, l'horaire affiche l'année COURANTE (définie par l'admin) pour
+  // rester cohérent avec l'année en cours ; on conserve un choix précédent valide.
+  if (anneeChoisie && annees.includes(anneeChoisie)) sel.value = anneeChoisie;
+  else if (anneeCouranteUML && annees.includes(anneeCouranteUML)) sel.value = anneeCouranteUML;
 }
 
 const ORDRE_JOURS_PROF = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
@@ -420,8 +435,12 @@ async function chargerCoursProf() {
   const valeurPrecedente = select.value;
 
   try {
+    await chargerAnneeCouranteUML();
     const r = await fetch(`${BASE_URL}/api/professeur/${professeur.id}/cours`);
-    const cours = await r.json();
+    let cours = await r.json();
+    // On ne propose à la saisie que les cours de l'année COURANTE (définie par
+    // l'admin) : la saisie des notes reste cohérente avec l'année en cours.
+    if (anneeCouranteUML) cours = cours.filter(c => c.annee_academique === anneeCouranteUML);
     select.innerHTML = '<option value="">— Choisir un cours —</option>' +
       cours.map(c => `<option value="${c.id}" data-annee="${c.annee_academique}">${c.code} — ${c.nom} (${c.promotion})</option>`).join('');
     // On garde le cours déjà sélectionné s'il existe toujours, et on
