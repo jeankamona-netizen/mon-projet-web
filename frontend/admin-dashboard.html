@@ -329,12 +329,12 @@
           <div class="dash-card">
             <h3>Rapport de délibération</h3>
             <p style="font-size:12px;color:#888;margin-bottom:12px">Résultats d'une promotion pour un semestre ou toute l'année : moyenne, crédits, mention, décision (Admis si moyenne ≥ 10/20), et synthèse.</p>
-            <div class="form-row-admin">
-              <div class="form-group-dash">
+            <div class="form-row-admin" id="delib-rap-rowA">
+              <div class="form-group-dash" id="delib-rap-grp-faculte">
                 <label>Faculté <span class="required">*</span></label>
                 <select id="delib-rap-faculte" onchange="majFilieresRapportDelib()"><option value="">— Choisir —</option></select>
               </div>
-              <div class="form-group-dash">
+              <div class="form-group-dash" id="delib-rap-grp-niveau">
                 <label>Niveau <span class="required">*</span></label>
                 <select id="delib-rap-niveau" onchange="majFilieresRapportDelib()">
                   <option value="Pré-U">Pré-Universitaire</option>
@@ -348,16 +348,16 @@
                 </select>
               </div>
             </div>
-            <div class="form-row-admin">
-              <div class="form-group-dash">
+            <div class="form-row-admin" id="delib-rap-rowB">
+              <div class="form-group-dash" id="delib-rap-grp-filiere">
                 <label>Filière</label>
                 <select id="delib-rap-filiere"><option value="">— Toutes les filières —</option></select>
               </div>
-              <div class="form-group-dash">
+              <div class="form-group-dash" id="delib-rap-grp-annee">
                 <label>Année académique <span class="required">*</span></label>
                 <select id="delib-rap-annee"></select>
               </div>
-              <div class="form-group-dash">
+              <div class="form-group-dash" id="delib-rap-grp-periode">
                 <label>Période</label>
                 <select id="delib-rap-periode">
                   <option value="">Toute l'année</option>
@@ -366,7 +366,7 @@
                 </select>
               </div>
             </div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;align-items:flex-end" id="delib-rap-boutons">
               <button class="btn-ajouter" onclick="genererRapportDeliberation()">📊 Générer le rapport</button>
               <button class="btn-ajouter" style="background:var(--bleu)" onclick="imprimerRapportDeliberation()">🖨️ Imprimer</button>
             </div>

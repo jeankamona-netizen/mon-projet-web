@@ -133,6 +133,26 @@ function preparerEspaceDoyen() {
   const enteteCloche = document.getElementById('admin-notif-entete');
   if (enteteCloche) enteteCloche.textContent = 'Informations';
   document.title = `Décanat — Tableau de bord`;
+  preparerRapportDelibDoyen();
+}
+
+// Rapport de délibération — disposition décanale : la faculté disparaît (déduite
+// de la faculté du doyen), ligne 1 = année · niveau · filière, ligne 2 =
+// période · boutons. L'admin conserve la disposition initiale.
+function preparerRapportDelibDoyen() {
+  if (!estDoyen()) return;
+  const rowA = document.getElementById('delib-rap-rowA');
+  const rowB = document.getElementById('delib-rap-rowB');
+  const boutons = document.getElementById('delib-rap-boutons');
+  if (!rowA || !rowB || !boutons) return;
+  const gFac = document.getElementById('delib-rap-grp-faculte');
+  const gNiv = document.getElementById('delib-rap-grp-niveau');
+  const gFil = document.getElementById('delib-rap-grp-filiere');
+  const gAnn = document.getElementById('delib-rap-grp-annee');
+  const gPer = document.getElementById('delib-rap-grp-periode');
+  if (gFac) gFac.remove();          // faculté = celle du décanat
+  if (gAnn && gNiv && gFil) rowA.append(gAnn, gNiv, gFil);
+  if (gPer) rowB.append(gPer, boutons);
 }
 
 // =====================
@@ -3279,7 +3299,8 @@ async function deliberEtudiant() {
 
 // ===== RAPPORT DE DÉLIBÉRATION (par promotion, semestre ou année) =====
 function majFilieresRapportDelib() {
-  const fac = document.getElementById('delib-rap-faculte')?.value || '';
+  // Décanat : la faculté est masquée → on prend celle du doyen.
+  const fac = document.getElementById('delib-rap-faculte')?.value || faculteDoyenCourant();
   const niv = document.getElementById('delib-rap-niveau')?.value || '';
   const sel = document.getElementById('delib-rap-filiere');
   if (!sel) return;
@@ -3290,7 +3311,8 @@ function majFilieresRapportDelib() {
 
 let rapportDelibData = null;
 async function genererRapportDeliberation() {
-  const faculte  = document.getElementById('delib-rap-faculte')?.value || '';
+  // Décanat : la faculté est déduite (champ masqué) ; l'admin la choisit.
+  const faculte  = document.getElementById('delib-rap-faculte')?.value || faculteDoyenCourant();
   const niveau   = document.getElementById('delib-rap-niveau')?.value || '';
   const filiere  = document.getElementById('delib-rap-filiere')?.value || '';
   const annee    = document.getElementById('delib-rap-annee')?.value || '';
@@ -3321,13 +3343,14 @@ function renduRapportDeliberation(d) {
   const fmt = v => (v === null || v === undefined) ? '—' : Number(v).toFixed(2);
   const rows = d.etudiants.map((e, i) => {
     const badge = e.decision === 'Admis' ? 'reussi' : e.decision === 'Ajourné' ? 'echec' : 'attente';
+    const decisionLib = e.decision === 'Admis' ? 'Réussi' : e.decision;
     return `<tr>
       <td>${i + 1}</td>
       <td>${e.nom} ${e.postnom || ''} ${e.prenom}<br><span style="font-size:11px;color:#999">${e.etudiant_id}</span></td>
       <td style="text-align:center">${e.moyenne !== null ? fmt(e.moyenne) + '/20' : '—'}</td>
       <td style="text-align:center">${e.credits_valides}/${e.credits_total}</td>
       <td style="text-align:center">${e.mention}</td>
-      <td style="text-align:center"><span class="badge ${badge}">${e.decision}</span></td>
+      <td style="text-align:center"><span class="badge ${badge}">${decisionLib}</span></td>
     </tr>`;
   }).join('');
   const carte = (val, lib, couleur) => `<div class="stat-card" style="flex:1;min-width:110px"><span class="stat-valeur"${couleur ? ` style="color:${couleur}"` : ''}>${val}</span><span class="stat-label">${lib}</span></div>`;
@@ -3335,7 +3358,7 @@ function renduRapportDeliberation(d) {
     <p style="font-size:12px;color:#666;margin-bottom:10px"><b>${libellePeriodeDelib(d.periode)}</b></p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
       ${carte(s.effectif, 'Effectif')}
-      ${carte(s.admis, 'Admis', 'var(--vert,#1a7f37)')}
+      ${carte(s.admis, 'Réussites', 'var(--vert,#1a7f37)')}
       ${carte(s.ajournes, 'Ajournés', 'var(--rouge,#c0392b)')}
       ${carte(s.taux_reussite + '%', 'Taux de réussite')}
       ${carte(s.moyenne_promotion !== null ? fmt(s.moyenne_promotion) : '—', 'Moyenne promotion')}
@@ -3360,7 +3383,7 @@ function imprimerRapportDeliberation() {
       <td class="c">${e.moyenne !== null ? fmt(e.moyenne) + '/20' : '—'}</td>
       <td class="c">${e.credits_valides}/${e.credits_total}</td>
       <td class="c">${esc(e.mention)}</td>
-      <td class="c"><b>${esc(e.decision)}</b></td>
+      <td class="c"><b>${esc(e.decision === 'Admis' ? 'Réussi' : e.decision)}</b></td>
     </tr>`).join('');
   const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport de délibération</title>
     <style>body{font-family:Arial,sans-serif;color:#222;padding:24px}h1{color:#1a3a6b;font-size:20px;margin:0 0 4px}
@@ -3370,7 +3393,7 @@ function imprimerRapportDeliberation() {
     @media print{@page{margin:12mm}}</style></head><body>
     <h1>Rapport de délibération</h1>
     <p class="sub">${esc(libellePeriodeDelib(d.periode))}</p>
-    <p class="synth">Effectif : <b>${s.effectif}</b> · Admis : <b>${s.admis}</b> · Ajournés : <b>${s.ajournes}</b> · Taux de réussite : <b>${s.taux_reussite}%</b> · Moyenne de la promotion : <b>${s.moyenne_promotion !== null ? fmt(s.moyenne_promotion) + '/20' : '—'}</b></p>
+    <p class="synth">Effectif : <b>${s.effectif}</b> · Réussites : <b>${s.admis}</b> · Ajournés : <b>${s.ajournes}</b> · Taux de réussite : <b>${s.taux_reussite}%</b> · Moyenne de la promotion : <b>${s.moyenne_promotion !== null ? fmt(s.moyenne_promotion) + '/20' : '—'}</b></p>
     <table><thead><tr><th>N°</th><th>Étudiant</th><th class="c">Moyenne</th><th class="c">Crédits</th><th class="c">Mention</th><th class="c">Décision</th></tr></thead><tbody>${rows}</tbody></table>
     <p style="margin-top:24px;font-size:12px;color:#666">Édité le ${new Date().toLocaleDateString('fr-FR')}</p>
     <script>window.onload=function(){window.print();}<\/script></body></html>`;
