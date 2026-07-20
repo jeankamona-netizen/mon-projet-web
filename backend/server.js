@@ -425,18 +425,23 @@ app.get('/api/verification/carte', async (req, res) => {
     // Année de la carte scannée (paramètre a), à défaut l'année courante de l'étudiant.
     const annee = String(req.query.a || '').trim() || e.annee_academique;
 
-    // Classe (faculté/promotion/niveau) pour CETTE année : profil courant si
-    // c'est son année en cours, sinon dérivée de son historique d'inscription.
-    let faculte = e.faculte, promotion = e.promotion, niveau = e.niveau;
+    // La FACULTÉ et la FILIÈRE (colonne promotion, déjà nettoyée du préfixe de
+    // niveau et alignée sur le barème) ne changent pas à la promotion : on garde
+    // celles du profil. Seul le NIVEAU dépend de l'année → si la carte porte une
+    // année passée (étudiant promu depuis), on récupère le niveau réel de cette
+    // année via son historique d'inscription aux cours.
+    const faculte = e.faculte;
+    const promotion = e.promotion;
+    let niveau = e.niveau;
     if (annee && annee !== e.annee_academique) {
       const [[h]] = await pool.query(
-        `SELECT MAX(c.faculte) AS faculte, MAX(c.promotion) AS promotion, MAX(c.niveau) AS niveau
-         FROM inscription_cours ic JOIN cours c ON c.id = ic.cours_id
+        `SELECT MAX(c.niveau) AS niveau FROM inscription_cours ic JOIN cours c ON c.id = ic.cours_id
          WHERE ic.etudiant_id = ? AND c.annee_academique = ?`, [m, annee]);
-      if (h && h.niveau) { faculte = h.faculte || faculte; promotion = h.promotion || promotion; niveau = h.niveau || niveau; }
+      if (h && h.niveau) niveau = h.niveau;
     }
 
-    // Situation financière de l'année : attendu (barème) − versé = solde.
+    // Situation financière de l'année : attendu (barème pour faculté + filière +
+    // niveau + ANNÉE de la carte) − versé = solde.
     const [[bareme]] = await pool.query(
       'SELECT SUM(montant) AS total FROM frais_scolarite WHERE faculte = ? AND promotion = ? AND niveau = ? AND annee_academique = ?',
       [faculte, promotion, niveau, annee]);
@@ -446,11 +451,15 @@ app.get('/api/verification/carte', async (req, res) => {
     const attendu = bareme && bareme.total !== null ? Number(bareme.total) : null;
     const totalVerse = Number(verse.total);
 
+    // Filière nettoyée de tout préfixe de niveau pour éviter un doublon dans la
+    // classe (ex. « L1 » + « L1 Sciences Économiques »).
+    const filiereAff = String(promotion || '')
+      .replace(/^\s*(Pr[ée]-?U(niversitaire)?|Master|Doctorat|[LMD][123])\s+/i, '').trim() || promotion || '';
     res.json({
       matricule: e.id, nom: e.nom, postnom: e.postnom, prenom: e.prenom,
       date_naissance: e.date_naissance, lieu_naissance: e.lieu_naissance,
       faculte, niveau, promotion,
-      classe: `${niveau || ''} ${promotion || ''}`.replace(/\s+/g, ' ').trim(),
+      classe: `${niveau || ''} ${filiereAff}`.replace(/\s+/g, ' ').trim(),
       annee,
       situation: {
         attendu, verse: totalVerse,
