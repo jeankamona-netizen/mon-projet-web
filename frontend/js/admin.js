@@ -2847,9 +2847,10 @@ function imprimerCarteEtudiant(id) {
   const nomComplet = `${e.nom || ''} ${e.postnom || ''} ${e.prenom || ''}`.replace(/\s+/g, ' ').trim();
   const ddn = e.date_naissance ? new Date(e.date_naissance).toLocaleDateString('fr-FR') : '—';
 
-  // QR : condensé texte lisible par n'importe quel lecteur.
-  const payload = `UML | Matricule: ${e.id} | ${nomComplet} | ${e.faculte || ''} | ${e.promotion || ''} | ${e.annee_academique || ''}`;
-  const qr = qrcode(0, 'M'); qr.addData(payload); qr.make();
+  // QR : URL de vérification en ligne. Le scan ouvre une page publique montrant
+  // l'identité, la classe et la situation financière de l'année de la carte.
+  const verifUrl = `${location.origin}/verifier.html?m=${encodeURIComponent(e.id)}&a=${encodeURIComponent(e.annee_academique || '')}&s=${encodeURIComponent(e.verif_sig || '')}`;
+  const qr = qrcode(0, 'M'); qr.addData(verifUrl); qr.make();
   const qrSrc = qr.createDataURL(4, 6);
 
   const initiales = `${(e.prenom || '')[0] || ''}${(e.nom || '')[0] || ''}`.toUpperCase() || 'ET';

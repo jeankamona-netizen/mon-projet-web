@@ -841,6 +841,26 @@ function imprimerRecu(p, etu, caissier) {
   const logoSrc = `${location.origin}/img/logo.png`;
   const ligne = (c, v) => `<tr><td class="c">${c}</td><td class="v">${esc(v || '—')}</td></tr>`;
 
+  // QR reprenant les informations du reçu (vérifiable au scan). Autonome (texte).
+  let qrRecuSrc = '';
+  try {
+    if (typeof qrcode !== 'undefined') {
+      const payloadRecu =
+        `REÇU UML — ${numero}\n` +
+        `Matricule: ${etu.id}\n` +
+        `Étudiant: ${nomComplet}\n` +
+        `Montant: ${montant(p.montant)} $\n` +
+        `Motif: ${p.rubrique || '—'}\n` +
+        `Référence: ${p.reference || '—'}\n` +
+        `Mode: ${p.mode_paiement || '—'}\n` +
+        `Date: ${formaterDateCaisse(p.date_paiement)}\n` +
+        `Année: ${etu.annee_academique || '—'}\n` +
+        `Caissier: ${caissier}`;
+      const qr = qrcode(0, 'M'); qr.addData(payloadRecu); qr.make();
+      qrRecuSrc = qr.createDataURL(3, 4);
+    }
+  } catch { /* QR indisponible : le reçu reste valide sans lui */ }
+
   const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Reçu ${esc(numero)}</title>
 <style>
   :root { --bleu:#1a3a6b; --jaune:#f0c020; }
@@ -892,6 +912,10 @@ function imprimerRecu(p, etu, caissier) {
       <div class="b"><span class="l">${esc(caissier)}</span></div>
       <div class="b"><span class="l">Sceau</span></div>
     </div>
+    ${qrRecuSrc ? `<div style="text-align:center;padding:6px 0 10px;border-top:1px dashed #e0e6ef">
+      <img src="${qrRecuSrc}" alt="QR du reçu" style="width:104px;height:104px">
+      <div style="font-size:9px;color:#999;margin-top:2px">Scanner pour vérifier ce reçu</div>
+    </div>` : ''}
     <div class="r-pied">Reçu généré électroniquement — Université Méthodiste de Lubumbashi</div>
   </div>
 <script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>
@@ -1460,8 +1484,10 @@ function imprimerCarteEtudiantCaisse(id) {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
   const nomComplet = `${e.nom || ''} ${e.postnom || ''} ${e.prenom || ''}`.replace(/\s+/g, ' ').trim();
   const ddn = e.date_naissance ? new Date(e.date_naissance).toLocaleDateString('fr-FR') : '—';
-  const payload = `UML | Matricule: ${e.id} | ${nomComplet} | ${e.faculte || ''} | ${e.promotion || ''} | ${e.annee_academique || ''}`;
-  const qr = qrcode(0, 'M'); qr.addData(payload); qr.make();
+  // QR : URL de vérification en ligne (identité + classe + situation financière
+  // de l'année de la carte). Voir /verifier.html + /api/verification/carte.
+  const verifUrl = `${location.origin}/verifier.html?m=${encodeURIComponent(e.id)}&a=${encodeURIComponent(e.annee_academique || '')}&s=${encodeURIComponent(e.verif_sig || '')}`;
+  const qr = qrcode(0, 'M'); qr.addData(verifUrl); qr.make();
   const qrSrc = qr.createDataURL(4, 6);
   const initiales = `${(e.prenom || '')[0] || ''}${(e.nom || '')[0] || ''}`.toUpperCase() || 'ET';
   const photoHTML = e.photo ? `<img class="r-photo" src="${BASE_URL}/${esc(e.photo)}" alt="Photo">` : `<div class="r-photo r-photo-vide">${esc(initiales)}</div>`;

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vérification de carte — UML</title>
+  <link rel="icon" href="img/logo.png" type="image/png">
+  <style>
+    :root { --bleu:#1a3a6b; --bleu2:#24508f; --jaune:#f0c020; --vert:#1a7f37; --rouge:#c0392b; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Segoe UI',Arial,sans-serif; background:#e9edf2; color:#1a2233; min-height:100vh; padding:18px; }
+    .carte { max-width:460px; margin:0 auto; background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 8px 26px rgba(0,0,0,.14); }
+    .tete { display:flex; align-items:center; gap:12px; padding:16px 18px; background:linear-gradient(120deg,#14294b,var(--bleu) 60%,var(--bleu2)); color:#fff; }
+    .tete img { width:44px; height:44px; object-fit:contain; background:#fff; border-radius:6px; padding:3px; }
+    .tete .u { font-size:14px; font-weight:800; line-height:1.2; }
+    .tete .u small { display:block; font-size:9.5px; font-weight:600; opacity:.85; }
+    .bandeau { background:var(--jaune); color:var(--bleu); text-align:center; font-weight:800; letter-spacing:.5px; padding:6px; font-size:12.5px; }
+    .corps { padding:6px 0 4px; }
+    .ligne { display:flex; justify-content:space-between; gap:12px; padding:9px 18px; border-bottom:1px solid #eef1f5; font-size:13.5px; }
+    .ligne .c { color:#7a8699; flex:0 0 42%; }
+    .ligne .v { font-weight:700; text-align:right; }
+    .fin { padding:16px 18px; }
+    .fin h3 { font-size:12px; color:#7a8699; text-transform:uppercase; letter-spacing:.4px; margin-bottom:10px; }
+    .fin-grille { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; text-align:center; }
+    .fin-case { background:#f4f6f9; border-radius:9px; padding:10px 6px; }
+    .fin-case small { display:block; font-size:10.5px; color:#7a8699; margin-bottom:3px; }
+    .fin-case b { font-size:16px; color:var(--bleu); }
+    .statut { margin-top:12px; text-align:center; font-weight:800; font-size:14px; padding:9px; border-radius:9px; }
+    .statut.ok { background:rgba(26,127,55,.12); color:var(--vert); }
+    .statut.non { background:rgba(192,57,43,.10); color:var(--rouge); }
+    .statut.inconnu { background:#f4f6f9; color:#7a8699; }
+    .pied { text-align:center; font-size:10.5px; color:#9aa4b2; padding:12px 18px; border-top:1px dashed #d4dae3; }
+    .msg { max-width:460px; margin:40px auto; text-align:center; color:#7a8699; font-size:15px; background:#fff; padding:30px 20px; border-radius:14px; box-shadow:0 8px 26px rgba(0,0,0,.10); }
+    .msg .ic { font-size:40px; display:block; margin-bottom:10px; }
+  </style>
+</head>
+<body>
+  <div id="contenu"><div class="msg"><span class="ic">⏳</span>Vérification en cours…</div></div>
+
+  <script src="js/config.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const m = params.get('m') || '';
+    const a = params.get('a') || '';
+    const s = params.get('s') || '';
+    const esc = v => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    const fdate = d => { if (!d) return '—'; const x = new Date(d); return isNaN(x) ? '—' : x.toLocaleDateString('fr-FR'); };
+    const money = n => (n == null ? '—' : Number(n).toFixed(2) + ' $');
+
+    function erreur(txt) {
+      document.getElementById('contenu').innerHTML =
+        `<div class="msg"><span class="ic">⚠️</span>${esc(txt)}</div>`;
+    }
+
+    async function verifier() {
+      if (!m || !s) { erreur('Lien de vérification incomplet.'); return; }
+      try {
+        const url = `${BASE_URL}/api/verification/carte?m=${encodeURIComponent(m)}&a=${encodeURIComponent(a)}&s=${encodeURIComponent(s)}`;
+        const r = await fetch(url);
+        const d = await r.json();
+        if (!r.ok) { erreur(d.erreur || 'Carte non reconnue.'); return; }
+
+        const naissance = `${fdate(d.date_naissance)}${d.lieu_naissance ? ' à ' + esc(d.lieu_naissance) : ''}`;
+        const sit = d.situation || {};
+        let statutHtml;
+        if (sit.attendu == null) {
+          statutHtml = `<div class="statut inconnu">Barème non défini pour cette promotion</div>`;
+        } else if (sit.enOrdre) {
+          statutHtml = `<div class="statut ok">✔ En ordre de paiement</div>`;
+        } else {
+          statutHtml = `<div class="statut non">Solde restant : ${money(sit.solde)}</div>`;
+        }
+
+        document.getElementById('contenu').innerHTML = `
+          <div class="carte">
+            <div class="tete">
+              <img src="img/logo.png" alt="" onerror="this.style.display='none'">
+              <div class="u">UNIVERSITÉ MÉTHODISTE DE LUBUMBASHI<small>Scientia, Sanctitas et Veritas</small></div>
+            </div>
+            <div class="bandeau">CARTE ÉTUDIANT — VÉRIFICATION</div>
+            <div class="corps">
+              <div class="ligne"><span class="c">Matricule</span><span class="v">${esc(d.matricule)}</span></div>
+              <div class="ligne"><span class="c">Nom</span><span class="v">${esc(d.nom)}</span></div>
+              <div class="ligne"><span class="c">Post-nom</span><span class="v">${esc(d.postnom) || '—'}</span></div>
+              <div class="ligne"><span class="c">Prénom</span><span class="v">${esc(d.prenom)}</span></div>
+              <div class="ligne"><span class="c">Né(e) le</span><span class="v">${naissance}</span></div>
+              <div class="ligne"><span class="c">Classe</span><span class="v">${esc(d.classe) || '—'}</span></div>
+              <div class="ligne"><span class="c">Année académique</span><span class="v">${esc(d.annee) || '—'}</span></div>
+            </div>
+            <div class="fin">
+              <h3>Situation financière — ${esc(d.annee) || '—'}</h3>
+              <div class="fin-grille">
+                <div class="fin-case"><small>Attendu</small><b>${money(sit.attendu)}</b></div>
+                <div class="fin-case"><small>Versé</small><b>${money(sit.verse)}</b></div>
+                <div class="fin-case"><small>Solde</small><b>${money(sit.solde)}</b></div>
+              </div>
+              ${statutHtml}
+            </div>
+            <div class="pied">Vérification en ligne — Université Méthodiste de Lubumbashi</div>
+          </div>`;
+      } catch {
+        erreur('Impossible de contacter le serveur de vérification.');
+      }
+    }
+    verifier();
+  </script>
+</body>
+</html>

@@ -388,9 +388,78 @@ app.get('/api/etudiants', requireInscritsLecture, async (req, res) => {
     sql += ' ORDER BY e.nom, e.prenom';
 
     const [etudiants] = await pool.query(sql, params);
-    res.json(etudiants);
+    // Signature anti-énumération pour la vérification publique de la carte
+    // (QR) : HMAC(JWT_SECRET, matricule). Seules les cartes émises par le
+    // système (qui embarquent cette signature) sont vérifiables.
+    const secretVerif = process.env.JWT_SECRET || 'dev';
+    res.json(etudiants.map(e => ({
+      ...e,
+      verif_sig: crypto.createHmac('sha256', secretVerif).update(String(e.id)).digest('hex').slice(0, 16),
+    })));
   } catch (erreur) {
     console.error(erreur);
+    res.status(500).json({ erreur: erreur.message });
+  }
+});
+
+// =====================
+// VÉRIFICATION PUBLIQUE D'UNE CARTE ÉTUDIANT (scan du QR code)
+// Accessible sans authentification MAIS protégée par une signature HMAC portée
+// par le QR (impossible d'énumérer les étudiants sans une carte réelle). Renvoie
+// l'identité + la classe + la situation financière POUR L'ANNÉE de la carte.
+// =====================
+app.get('/api/verification/carte', async (req, res) => {
+  try {
+    const m = String(req.query.m || '').trim();
+    const s = String(req.query.s || '').trim();
+    if (!m || !s) return res.status(400).json({ erreur: 'Paramètres manquants.' });
+    const attenduSig = crypto.createHmac('sha256', process.env.JWT_SECRET || 'dev').update(m).digest('hex').slice(0, 16);
+    if (s !== attenduSig) return res.status(403).json({ erreur: 'Carte non reconnue (signature invalide).' });
+
+    const [[e]] = await pool.query(
+      `SELECT id, nom, postnom, prenom, date_naissance, lieu_naissance,
+              faculte, promotion, niveau, annee_academique
+       FROM etudiant WHERE id = ?`, [m]);
+    if (!e) return res.status(404).json({ erreur: 'Étudiant introuvable.' });
+
+    // Année de la carte scannée (paramètre a), à défaut l'année courante de l'étudiant.
+    const annee = String(req.query.a || '').trim() || e.annee_academique;
+
+    // Classe (faculté/promotion/niveau) pour CETTE année : profil courant si
+    // c'est son année en cours, sinon dérivée de son historique d'inscription.
+    let faculte = e.faculte, promotion = e.promotion, niveau = e.niveau;
+    if (annee && annee !== e.annee_academique) {
+      const [[h]] = await pool.query(
+        `SELECT MAX(c.faculte) AS faculte, MAX(c.promotion) AS promotion, MAX(c.niveau) AS niveau
+         FROM inscription_cours ic JOIN cours c ON c.id = ic.cours_id
+         WHERE ic.etudiant_id = ? AND c.annee_academique = ?`, [m, annee]);
+      if (h && h.niveau) { faculte = h.faculte || faculte; promotion = h.promotion || promotion; niveau = h.niveau || niveau; }
+    }
+
+    // Situation financière de l'année : attendu (barème) − versé = solde.
+    const [[bareme]] = await pool.query(
+      'SELECT SUM(montant) AS total FROM frais_scolarite WHERE faculte = ? AND promotion = ? AND niveau = ? AND annee_academique = ?',
+      [faculte, promotion, niveau, annee]);
+    const [[verse]] = await pool.query(
+      'SELECT COALESCE(SUM(montant),0) AS total FROM paiement WHERE etudiant_id = ? AND annee_academique = ?',
+      [m, annee]);
+    const attendu = bareme && bareme.total !== null ? Number(bareme.total) : null;
+    const totalVerse = Number(verse.total);
+
+    res.json({
+      matricule: e.id, nom: e.nom, postnom: e.postnom, prenom: e.prenom,
+      date_naissance: e.date_naissance, lieu_naissance: e.lieu_naissance,
+      faculte, niveau, promotion,
+      classe: `${niveau || ''} ${promotion || ''}`.replace(/\s+/g, ' ').trim(),
+      annee,
+      situation: {
+        attendu, verse: totalVerse,
+        solde: attendu === null ? null : Math.max(0, attendu - totalVerse),
+        enOrdre: attendu !== null && totalVerse >= attendu,
+      },
+    });
+  } catch (erreur) {
+    console.error('Erreur vérification carte:', erreur);
     res.status(500).json({ erreur: erreur.message });
   }
 });
