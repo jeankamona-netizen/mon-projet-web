@@ -149,6 +149,12 @@ router.get('/etudiant/:id/situation', async (req, res) => {
 router.get('/liste', async (req, res) => {
   try {
     const { annee, faculte, niveau } = req.query;
+    // Un CAISSIER (role 'caisse') ne voit et n'imprime QUE ses propres opérations :
+    // la liste ne présente que les étudiants qu'il a lui-même encaissés, avec ses
+    // seuls versements. L'administrateur du budget (et l'admin) gardent tout.
+    const u = req.utilisateur || {};
+    const estCaissier = u.role === 'caisse';
+    const monAgent = u.agent_id || 0;
 
     // N'afficher que les étudiants INSCRITS pour l'année (et le niveau) demandés :
     // profil courant OU historique d'inscription aux cours de cette période
@@ -191,20 +197,31 @@ router.get('/liste', async (req, res) => {
               FROM etudiant e LEFT JOIN filiere fil ON e.filiere_id = fil.id WHERE 1=1`;
     }
     if (faculte) { sqlE += ' AND e.faculte = ?'; pE.push(faculte); }
+    // Caissier : ne présenter que les étudiants qu'il a lui-même encaissés
+    // (au moins un versement de sa main sur la période).
+    if (estCaissier) {
+      sqlE += ` AND EXISTS (SELECT 1 FROM paiement pex WHERE pex.etudiant_id = e.id AND pex.agent_id = ?${annee ? ' AND pex.annee_academique = ?' : ''})`;
+      pE.push(monAgent); if (annee) pE.push(annee);
+    }
     // Tri du plus RÉCEMMENT enregistré au plus ancien : dernier versement saisi
-    // de l'étudiant (id auto-incrémenté), restreint à l'année consultée. Les
-    // étudiants sans versement (MAX NULL) passent après, par faculté/niveau/nom.
+    // de l'étudiant (id auto-incrémenté), restreint à l'année consultée (et à
+    // l'agent pour un caissier). Les étudiants sans versement (MAX NULL) passent
+    // après, par faculté/niveau/nom.
     const scopeAnnee = annee ? ' AND p.annee_academique = ?' : '';
-    sqlE += ` ORDER BY (SELECT MAX(p.id) FROM paiement p WHERE p.etudiant_id = e.id${scopeAnnee}) DESC,
+    const scopeAgent = estCaissier ? ' AND p.agent_id = ?' : '';
+    sqlE += ` ORDER BY (SELECT MAX(p.id) FROM paiement p WHERE p.etudiant_id = e.id${scopeAnnee}${scopeAgent}) DESC,
               e.faculte, e.niveau, e.nom, e.prenom`;
     if (annee) pE.push(annee);
+    if (estCaissier) pE.push(monAgent);
     const [etudiants] = await pool.query(sqlE, pE);
 
-    // Versements de l'année regroupés par étudiant + rubrique.
+    // Versements de l'année regroupés par étudiant + rubrique (restreints à
+    // l'agent pour un caissier : ses seuls encaissements apparaissent).
     let sqlP = `SELECT p.etudiant_id, COALESCE(NULLIF(p.rubrique,''),'Autre') AS rubrique, SUM(p.montant) AS total
                 FROM paiement p WHERE 1=1`;
     const pP = [];
     if (annee) { sqlP += ' AND p.annee_academique = ?'; pP.push(annee); }
+    if (estCaissier) { sqlP += ' AND p.agent_id = ?'; pP.push(monAgent); }
     sqlP += ' GROUP BY p.etudiant_id, rubrique';
     const [versements] = await pool.query(sqlP, pP);
 
@@ -255,11 +272,16 @@ router.get('/stats', async (req, res) => {
       : await pool.query('SELECT COALESCE(SUM(montant),0) AS total, COUNT(*) AS nb FROM paiement');
 
     // « Étudiants ayant payé » = étudiants DISTINCTS ayant versé AUJOURD'HUI
-    // (le jour des opérations en cours). « Sans aucun versement » reste une
-    // photo globale (étudiants sans le moindre paiement de leur historique).
-    const [[payeursJourRow]] = await pool.query(
-      'SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement WHERE date_paiement = CURDATE()'
-    );
+    // (le jour des opérations en cours). Pour un CAISSIER, uniquement les
+    // étudiants qu'IL a encaissés aujourd'hui (pas ceux d'un collègue).
+    // « Sans aucun versement » reste une photo globale (étudiants sans le
+    // moindre paiement de leur historique).
+    const [[payeursJourRow]] = estCaissier
+      ? await pool.query(
+          'SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement WHERE date_paiement = CURDATE() AND agent_id = ?',
+          [u.agent_id || 0]
+        )
+      : await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement WHERE date_paiement = CURDATE()');
     const [[payeursRow]] = await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement');
     const [[etudiants]] = await pool.query('SELECT COUNT(*) AS n FROM etudiant');
     // Encaissements de l'ANNÉE ACADÉMIQUE COURANTE uniquement (définie par
@@ -325,6 +347,14 @@ router.get('/rapport', async (req, res) => {
     return res.status(400).json({ erreur: "Paramètres invalides (type: jour/mois/annee, valeur au bon format)." });
   }
 
+  // Un CAISSIER (role 'caisse') ne produit un rapport QUE de ses propres
+  // encaissements — jamais ceux d'un collègue. L'administrateur du budget (et
+  // l'admin) obtiennent le rapport global.
+  const u = req.utilisateur || {};
+  const estCaissier = u.role === 'caisse';
+  const scopeAgent = estCaissier ? ' AND p.agent_id = ?' : '';
+  const p1 = estCaissier ? [valeur, u.agent_id || 0] : [valeur];
+
   try {
     const [lignes] = await pool.query(
       `SELECT p.id, p.date_paiement, p.montant, p.rubrique, p.mode_paiement, p.reference,
@@ -335,18 +365,18 @@ router.get('/rapport', async (req, res) => {
        JOIN etudiant e ON p.etudiant_id = e.id
        LEFT JOIN filiere f ON e.filiere_id = f.id
        LEFT JOIN agent a ON p.agent_id = a.id
-       WHERE ${conf.condition}
+       WHERE ${conf.condition}${scopeAgent}
        ORDER BY p.date_paiement DESC, e.id, p.id`,
-      [valeur]
+      p1
     );
     const [[resume]] = await pool.query(
       `SELECT COALESCE(SUM(montant),0) AS total, COUNT(*) AS nb
-       FROM paiement p WHERE ${conf.condition}`, [valeur]
+       FROM paiement p WHERE ${conf.condition}${scopeAgent}`, p1
     );
     const [parRubrique] = await pool.query(
       `SELECT COALESCE(rubrique,'—') AS rubrique, SUM(montant) AS total, COUNT(*) AS nb
-       FROM paiement p WHERE ${conf.condition}
-       GROUP BY rubrique ORDER BY total DESC`, [valeur]
+       FROM paiement p WHERE ${conf.condition}${scopeAgent}
+       GROUP BY rubrique ORDER BY total DESC`, p1
     );
     res.json({
       type, valeur,
