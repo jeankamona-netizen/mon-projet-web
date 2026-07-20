@@ -234,11 +234,23 @@ router.get('/stats', async (req, res) => {
     );
     const [[payeursRow]] = await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement');
     const [[etudiants]] = await pool.query('SELECT COUNT(*) AS n FROM etudiant');
-    // Encaissements par année académique (pour le graphique / la répartition).
-    const [parAnnee] = await pool.query(
-      `SELECT COALESCE(annee_academique, '—') AS annee, SUM(montant) AS total, COUNT(*) AS nb
-       FROM paiement GROUP BY annee_academique ORDER BY annee DESC`
+    // Encaissements de l'ANNÉE ACADÉMIQUE COURANTE uniquement (définie par
+    // l'admin dans « Années académiques »). Repli sur toutes les années si
+    // aucune année courante n'est encore fixée.
+    const [[anneeCourante]] = await pool.query(
+      'SELECT libelle FROM annee_academique WHERE est_courante = 1 LIMIT 1'
     );
+    const libelleCourant = anneeCourante ? anneeCourante.libelle : null;
+    const [parAnnee] = libelleCourant
+      ? await pool.query(
+          `SELECT COALESCE(annee_academique, '—') AS annee, SUM(montant) AS total, COUNT(*) AS nb
+           FROM paiement WHERE annee_academique = ? GROUP BY annee_academique ORDER BY annee DESC`,
+          [libelleCourant]
+        )
+      : await pool.query(
+          `SELECT COALESCE(annee_academique, '—') AS annee, SUM(montant) AS total, COUNT(*) AS nb
+           FROM paiement GROUP BY annee_academique ORDER BY annee DESC`
+        );
     // « Derniers versements » = uniquement ceux de la JOURNÉE en cours, pour
     // l'admin, l'administrateur du budget ET le caissier. Le caissier ne voit
     // en plus que les SIENS (cohérent avec ses indicateurs du jour).

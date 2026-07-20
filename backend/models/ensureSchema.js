@@ -119,6 +119,26 @@ async function assurerSchemaPaiement(pool) {
   }
 }
 
+// Présences : feuille de présence par créneau d'horaire et par séance
+// (present / retard / absent). La table peut manquer sur une base de production
+// créée avant l'ajout de la fonctionnalité → sans elle, la saisie des présences
+// (professeur ET décanat) échoue en 500. Création idempotente.
+async function assurerSchemaPresence(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS presence (
+      id           INT AUTO_INCREMENT PRIMARY KEY,
+      horaire_id   INT NOT NULL,
+      etudiant_id  VARCHAR(20) NOT NULL,
+      date_seance  DATE NOT NULL,
+      statut       ENUM('present','absent','retard') NOT NULL DEFAULT 'absent',
+      marque_le    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY horaire_etudiant_date (horaire_id, etudiant_id, date_seance),
+      FOREIGN KEY (horaire_id)  REFERENCES horaire(id)  ON DELETE CASCADE,
+      FOREIGN KEY (etudiant_id) REFERENCES etudiant(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+}
+
 // Rattachement d'un agent à une faculté : indispensable pour le décanat (doyen /
 // vice-doyen), dont tout l'accès est limité à SA faculté. Stocké par NOM de
 // faculté (comme cours.faculte et etudiant.faculte), pas par id, pour rester
@@ -250,6 +270,7 @@ async function assurerSchema(pool) {
   await assurerSchemaFraisScolarite(pool);
   await assurerSchemaJournalAudit(pool);
   await assurerSchemaPaiement(pool);
+  await assurerSchemaPresence(pool);
   await assurerSchemaAgentFaculte(pool);
   await nettoyerPrefixesNiveauFilieres(pool);
   await nettoyerCoursCommunEtFiliere(pool);
@@ -257,7 +278,7 @@ async function assurerSchema(pool) {
   // Chargement (idempotent) de la maquette Informatique de Gestion. Placé APRÈS
   // le nettoyage des cours pour ne pas être altéré par celui-ci.
   try { await seedMaquetteIG(); } catch (e) { console.error('⚠️ Seed maquette IG :', e.message); }
-  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement, agent.faculte, filières, cours, noms).');
+  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement, presence, agent.faculte, filières, cours, noms).');
 }
 
 module.exports = { assurerSchema };

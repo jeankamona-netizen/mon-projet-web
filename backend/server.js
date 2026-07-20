@@ -832,12 +832,21 @@ app.post('/api/professeur/:id/horaires/:horaireId/presences', async (req, res) =
 // PRÉSENCES — feuille d'appel d'une séance (espace admin, tous les cours,
 // même règle de verrouillage au jour même que côté professeur)
 // =====================
-app.get('/api/admin/horaires/:horaireId/presences', requireAdmin, async (req, res) => {
+app.get('/api/admin/horaires/:horaireId/presences', requireAdminOuDoyen, async (req, res) => {
   const { date } = req.query;
   if (!date) return res.status(400).json({ erreur: "Le paramètre date est obligatoire." });
   try {
-    const [horaireLigne] = await pool.query('SELECT cours_id FROM horaire WHERE id = ? LIMIT 1', [req.params.horaireId]);
+    // On récupère aussi la faculté du cours pour valider l'accès du doyen
+    // (sa faculté, ou un cours commun sans faculté).
+    const [horaireLigne] = await pool.query(
+      'SELECT h.cours_id, c.faculte FROM horaire h JOIN cours c ON c.id = h.cours_id WHERE h.id = ? LIMIT 1',
+      [req.params.horaireId]
+    );
     if (horaireLigne.length === 0) return res.status(404).json({ erreur: "Créneau introuvable." });
+    const facDoyen = faculteDuDoyen(req);
+    if (facDoyen && horaireLigne[0].faculte && horaireLigne[0].faculte !== facDoyen) {
+      return res.status(403).json({ erreur: "Ce cours n'appartient pas à votre faculté." });
+    }
 
     const [etudiants] = await pool.query(`
       SELECT e.id, e.nom, e.postnom, e.prenom, p.statut
@@ -851,7 +860,7 @@ app.get('/api/admin/horaires/:horaireId/presences', requireAdmin, async (req, re
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });
 
-app.post('/api/admin/horaires/:horaireId/presences', requireAdmin, async (req, res) => {
+app.post('/api/admin/horaires/:horaireId/presences', requireAdminOuDoyen, async (req, res) => {
   const { date_seance, presences } = req.body;
   if (!date_seance || !Array.isArray(presences) || presences.length === 0) {
     return res.status(400).json({ erreur: "Date de séance et liste de présences obligatoires." });
@@ -864,8 +873,15 @@ app.post('/api/admin/horaires/:horaireId/presences', requireAdmin, async (req, r
     return res.status(403).json({ erreur: "Les présences ne peuvent être saisies ou modifiées que le jour même du cours." });
   }
   try {
-    const [horaireLigne] = await pool.query('SELECT 1 FROM horaire WHERE id = ? LIMIT 1', [req.params.horaireId]);
+    const [horaireLigne] = await pool.query(
+      'SELECT c.faculte FROM horaire h JOIN cours c ON c.id = h.cours_id WHERE h.id = ? LIMIT 1',
+      [req.params.horaireId]
+    );
     if (horaireLigne.length === 0) return res.status(404).json({ erreur: "Créneau introuvable." });
+    const facDoyen = faculteDuDoyen(req);
+    if (facDoyen && horaireLigne[0].faculte && horaireLigne[0].faculte !== facDoyen) {
+      return res.status(403).json({ erreur: "Ce cours n'appartient pas à votre faculté." });
+    }
 
     for (const p of presences) {
       await pool.query(
