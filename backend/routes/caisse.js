@@ -59,7 +59,11 @@ router.get('/etudiants', async (req, res) => {
       sql += ' AND (LOWER(e.nom) LIKE LOWER(?) OR LOWER(e.prenom) LIKE LOWER(?) OR LOWER(e.postnom) LIKE LOWER(?) OR e.id LIKE ?)';
       params.push(`%${nom}%`, `%${nom}%`, `%${nom}%`, `%${nom}%`);
     }
-    sql += ' GROUP BY e.id ORDER BY e.nom, e.prenom';
+    // Tri du plus RÉCEMMENT enregistré au plus ancien : on classe par le dernier
+    // versement enregistré de l'étudiant (id auto-incrémenté = ordre de saisie).
+    // Les étudiants sans versement sur la période (MAX NULL) passent en dernier,
+    // triés alphabétiquement.
+    sql += ' GROUP BY e.id ORDER BY MAX(p.id) DESC, e.nom, e.prenom';
 
     const [lignes] = await pool.query(sql, params);
     res.json(lignes.map(l => {
@@ -187,7 +191,13 @@ router.get('/liste', async (req, res) => {
               FROM etudiant e LEFT JOIN filiere fil ON e.filiere_id = fil.id WHERE 1=1`;
     }
     if (faculte) { sqlE += ' AND e.faculte = ?'; pE.push(faculte); }
-    sqlE += ' ORDER BY e.faculte, e.niveau, e.nom, e.prenom';
+    // Tri du plus RÉCEMMENT enregistré au plus ancien : dernier versement saisi
+    // de l'étudiant (id auto-incrémenté), restreint à l'année consultée. Les
+    // étudiants sans versement (MAX NULL) passent après, par faculté/niveau/nom.
+    const scopeAnnee = annee ? ' AND p.annee_academique = ?' : '';
+    sqlE += ` ORDER BY (SELECT MAX(p.id) FROM paiement p WHERE p.etudiant_id = e.id${scopeAnnee}) DESC,
+              e.faculte, e.niveau, e.nom, e.prenom`;
+    if (annee) pE.push(annee);
     const [etudiants] = await pool.query(sqlE, pE);
 
     // Versements de l'année regroupés par étudiant + rubrique.
