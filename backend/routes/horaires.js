@@ -28,11 +28,12 @@ router.get('/', async (req, res) => {
        c.nom AS cours, (c.faculte IS NULL) AS cours_commun,
        p.nom AS professeur, p.prenom AS professeur_prenom, p.grade,
        (SELECT COUNT(*) FROM inscription_cours ic WHERE ic.cours_id = c.id) AS nb_etudiants,
-       -- Session commune à intitulés différents : même professeur, même
-       -- salle, même date/heure, mais un cours_id différent (physiquement
-       -- une seule séance enregistrée sous plusieurs intitulés/facultés).
-       (SELECT GROUP_CONCAT(DISTINCT c2.nom SEPARATOR ' · ')
-        FROM horaire h2 JOIN cours c2 ON c2.id = h2.cours_id
+       -- Session commune (cours d'ensemble) : même professeur, même salle, même
+       -- date/heure, mais un cours_id différent (une seule séance réunissant
+       -- plusieurs promotions/filières). On renvoie les PROMOTIONS partagées
+       -- (ex. « L1 Génie Logiciel »), pas les intitulés de cours.
+       (SELECT GROUP_CONCAT(DISTINCT h2.promotion SEPARATOR ' · ')
+        FROM horaire h2
         WHERE h2.id != h.id AND h2.professeur_id = h.professeur_id AND h2.salle = h.salle
           AND h2.date_debut = h.date_debut AND h2.heure_debut = h.heure_debut AND h2.heure_fin = h.heure_fin
           AND h2.cours_id != h.cours_id AND h.professeur_id IS NOT NULL

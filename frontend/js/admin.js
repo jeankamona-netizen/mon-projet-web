@@ -1558,7 +1558,7 @@ function afficherCalendrierHorairesAdmin() {
                   </div>
                   <div class="cal-evenement-corps">
                     ${h.cours_commun ? '<span class="badge-commun" title="Cours d\'ensemble : prioritaire en cas de conflit d\'horaire">🎯 Cours d\'ensemble</span>' : ''}
-                    ${h.autres_intitules_session ? `<span class="badge-session" title="Même professeur, même salle, même heure : c'est une seule séance enregistrée sous plusieurs intitulés">🔗 Session commune avec : ${h.autres_intitules_session}</span>` : ''}
+                    ${h.autres_intitules_session ? `<span class="badge-session" title="Cours d'ensemble : même professeur, même salle, même heure — réuni avec cette/ces promotion(s)">🔗 En commun : ${h.autres_intitules_session}</span>` : ''}
                     <span class="cours-nom">${h.cours}</span>
                     <span class="cours-info"><strong>${h.promotion}</strong> · ${h.annee_academique}</span>
                     <span class="cours-info">${h.professeur ? (h.grade ? h.grade+' ' : '')+(h.professeur_prenom ? h.professeur_prenom+' ' : '')+h.professeur : '— aucun professeur'}</span>
