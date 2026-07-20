@@ -101,6 +101,31 @@ function afficherSectionCaisse(id, lien) {
   if (id === 'caisse-bareme')   chargerBareme();
 }
 
+// Navigue vers une section depuis les cartes-statistiques cliquables de la vue
+// d'ensemble (le lien latéral correspondant reste mis en évidence).
+function ouvrirSectionCaisse(id) {
+  const lien = document.querySelector(`.nav-item[onclick*="'${id}'"]`);
+  afficherSectionCaisse(id, lien);
+}
+
+// Carte « Total encaissé aujourd'hui » → Rapports, filtré sur la journée en
+// cours (mes mouvements du jour), généré automatiquement.
+function ouvrirMouvementsDuJour() {
+  ouvrirSectionCaisse('caisse-rapports');
+  const type = document.getElementById('rapport-type');
+  const jour = document.getElementById('rapport-jour');
+  if (type) type.value = 'jour';
+  if (jour) jour.value = new Date().toISOString().split('T')[0];
+  basculerChampRapport();
+  genererRapport();
+}
+
+// Carte « Mes versements du jour » → Frais & versements.
+function ouvrirFraisVersements() { ouvrirSectionCaisse('caisse-frais'); }
+
+// Carte « Étudiants ayant payé » → Listes des étudiants (année en cours).
+function ouvrirListesEtudiants() { ouvrirSectionCaisse('caisse-listes'); }
+
 function formaterDateCaisse(dateStr) {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('fr-FR');
@@ -131,7 +156,8 @@ async function chargerStatsCaisse() {
     const d = await r.json();
     document.getElementById('cpt-total').textContent = montant(d.total_encaisse);
     document.getElementById('cpt-versements').textContent = d.nb_versements;
-    document.getElementById('cpt-payeurs').textContent = d.nb_payeurs;
+    // « Étudiants ayant payé » = ceux ayant versé aujourd'hui (jour des opérations).
+    document.getElementById('cpt-payeurs').textContent = d.nb_payeurs_jour ?? d.nb_payeurs;
     document.getElementById('cpt-restants').textContent = Math.max(0, (d.nb_etudiants || 0) - (d.nb_payeurs || 0));
     // Caissier : les deux premiers indicateurs ne concernent que SES versements
     // du jour → on l'indique clairement dans les libellés.
@@ -193,6 +219,9 @@ async function chargerAnneesCaisse() {
     const courante = annees.find(a => a.est_courante)?.libelle;
     anneesCaisse = annees;
     anneeCouranteCaisse = courante || '';
+    // Année académique courante dans la zone bleue (badge jaune).
+    const badgeAnnee = document.getElementById('caisse-annee-sidebar');
+    if (badgeAnnee) badgeAnnee.textContent = courante || '—';
     const opts = annees.map(a => `<option value="${a.libelle}">${a.libelle}</option>`).join('');
     // Filtre étudiants : « Toutes » + défaut année en cours.
     const selEtu = document.getElementById('caisse-filtre-annee');

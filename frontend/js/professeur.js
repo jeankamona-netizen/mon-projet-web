@@ -54,6 +54,15 @@ function basculerMenuCompteProf(event) {
   document.getElementById('prof-menu-compte')?.classList.toggle('ouvert');
 }
 
+// Ouvre la section « Mon profil » depuis le menu burger (Informations
+// personnelles) — réutilise la page profil existante (édition + mot de passe).
+function ouvrirProfilProf(event) {
+  if (event) event.preventDefault();
+  document.getElementById('prof-menu-compte')?.classList.remove('ouvert');
+  const lien = document.querySelector('.nav-item[onclick*="prof-profil"]');
+  afficherSectionProf('prof-profil', lien);
+}
+
 // =====================
 // NAVIGATION
 // =====================
@@ -605,6 +614,11 @@ document.addEventListener('DOMContentLoaded', () => {
       afficherProfilProf(professeur);
       chargerHoraireProf(professeur.id);
       chargerCommuniquesProf();
+      // Année académique courante dans la zone bleue (badge jaune).
+      chargerAnneeCouranteUML().then(a => {
+        const badge = document.getElementById('prof-annee-sidebar');
+        if (badge) badge.textContent = a || '—';
+      });
     }
   }
 

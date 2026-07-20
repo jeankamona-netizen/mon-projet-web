@@ -833,17 +833,22 @@ async function chargerGraphiqueFacultes() {
     const r = await fetchAdmin(`${BASE_URL}/api/etudiants${annee ? '?annee=' + encodeURIComponent(annee) : ''}`);
     const etudiants = await r.json();
 
-    // Regroupe par (faculté → filière) selon les inscriptions réelles.
+    // Regroupe par (faculté → filière) selon la promotion ACTUELLE de chaque
+    // étudiant : un étudiant déjà promu (L1 → L2 …) est compté dans sa promotion
+    // courante (« promu »), pas dans le niveau qu'il occupait auparavant. On
+    // retombe sur le libellé historique si le profil courant est absent.
+    const facDe = e => e.faculte_actuelle || e.faculte || 'Non renseignée';
+    const filDe = e => e.promotion_actuelle || e.promotion || 'Sans filière';
     const parFacFil = {};
     etudiants.forEach(e => {
-      const fac = e.faculte || 'Non renseignée';
-      const fil = e.promotion || 'Sans filière';
+      const fac = facDe(e);
+      const fil = filDe(e);
       (parFacFil[fac] = parFacFil[fac] || {})[fil] = (parFacFil[fac][fil] || 0) + 1;
     });
 
     const facultes = Object.keys(parFacFil);
     // Seules les filières où des étudiants sont réellement inscrits apparaissent.
-    const filieres = [...new Set(etudiants.map(e => e.promotion || 'Sans filière'))];
+    const filieres = [...new Set(etudiants.map(filDe))];
 
     const palette = ['#1a3a6b','#f0c020','#2d7a2d','#cc2200','#2D6FE0','#8a6d00','#7a2d7a',
                      '#00897b','#e07b00','#5c6bc0','#c2185b','#558b2f','#00838f','#6d4c41','#455a64'];

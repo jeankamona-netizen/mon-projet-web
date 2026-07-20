@@ -68,6 +68,7 @@
         <div class="profil-info">
           <span class="profil-nom" id="caisse-nom-sidebar"></span>
           <span class="profil-promo" id="caisse-fonction-sidebar"></span>
+          <span class="annee-badge" id="caisse-annee-sidebar" title="Année académique courante (définie par l'administration)">—</span>
         </div>
       </div>
       <nav class="sidebar-nav">
@@ -103,22 +104,30 @@
         <p class="dash-sous-titre">Synthèse des encaissements de l'UML</p>
 
         <div class="stats-grid">
-          <div class="stat-card">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="ouvrirMouvementsDuJour()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
             <span class="stat-icon vert"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
             <span class="stat-valeur" id="cpt-total">—</span>
             <span class="stat-label" id="lbl-total">Total encaissé ($)</span>
           </div>
-          <div class="stat-card">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="ouvrirFraisVersements()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
             <span class="stat-icon bleu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
             <span class="stat-valeur" id="cpt-versements">—</span>
             <span class="stat-label" id="lbl-versements">Versements enregistrés</span>
           </div>
-          <div class="stat-card">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="ouvrirListesEtudiants()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
             <span class="stat-icon jaune"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
             <span class="stat-valeur" id="cpt-payeurs">—</span>
-            <span class="stat-label">Étudiants ayant payé</span>
+            <span class="stat-label">Étudiants ayant payé (aujourd'hui)</span>
           </div>
-          <div class="stat-card">
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0"
+               onclick="ouvrirFraisVersements()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
             <span class="stat-icon rouge"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/></svg></span>
             <span class="stat-valeur" id="cpt-restants">—</span>
             <span class="stat-label">Sans aucun versement</span>

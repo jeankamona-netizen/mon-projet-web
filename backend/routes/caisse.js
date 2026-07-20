@@ -226,8 +226,12 @@ router.get('/stats', async (req, res) => {
         )
       : await pool.query('SELECT COALESCE(SUM(montant),0) AS total, COUNT(*) AS nb FROM paiement');
 
-    // « Étudiants ayant payé » et « Sans aucun versement » restent une photo
-    // globale de la population étudiante (indépendante du caissier / du jour).
+    // « Étudiants ayant payé » = étudiants DISTINCTS ayant versé AUJOURD'HUI
+    // (le jour des opérations en cours). « Sans aucun versement » reste une
+    // photo globale (étudiants sans le moindre paiement de leur historique).
+    const [[payeursJourRow]] = await pool.query(
+      'SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement WHERE date_paiement = CURDATE()'
+    );
     const [[payeursRow]] = await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement');
     const [[etudiants]] = await pool.query('SELECT COUNT(*) AS n FROM etudiant');
     // Encaissements par année académique (pour le graphique / la répartition).
@@ -252,6 +256,7 @@ router.get('/stats', async (req, res) => {
       total_encaisse: Number(enc.total),
       nb_versements: Number(enc.nb),
       nb_payeurs: Number(payeursRow.payeurs),
+      nb_payeurs_jour: Number(payeursJourRow.payeurs),
       nb_etudiants: Number(etudiants.n),
       // Indique au frontend que les deux premiers indicateurs sont « du jour »
       // (pour adapter les libellés côté caissier).

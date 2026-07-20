@@ -45,6 +45,11 @@
           <div class="menu-compte-titre">Fonction</div>
           <div class="menu-compte-item" style="cursor:default" id="prof-menu-grade">—</div>
           <div class="menu-compte-sep"></div>
+          <a href="#" class="menu-compte-item" onclick="ouvrirProfilProf(event)" style="display:flex;align-items:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Informations personnelles
+          </a>
+          <div class="menu-compte-sep"></div>
           <a href="#" class="menu-compte-item" onclick="deconnecterProfesseur(); return false" style="display:flex;align-items:center;gap:8px">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
             Se déconnecter
@@ -64,6 +69,7 @@
         <div class="profil-info">
           <span class="profil-nom" id="prof-nom-sidebar"></span>
           <span class="profil-promo" id="prof-grade-sidebar"></span>
+          <span class="annee-badge" id="prof-annee-sidebar" title="Année académique courante (définie par l'administration)">—</span>
         </div>
       </div>
 
