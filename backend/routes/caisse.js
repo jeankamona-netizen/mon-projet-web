@@ -148,7 +148,7 @@ router.get('/etudiant/:id/situation', async (req, res) => {
 // niveau (ou tous). Une colonne par rubrique effectivement versée + total.
 router.get('/liste', async (req, res) => {
   try {
-    const { annee, faculte, niveau } = req.query;
+    const { annee, faculte, niveau, date } = req.query;
     // Un CAISSIER (role 'caisse') ne voit et n'imprime QUE ses propres opérations :
     // la liste ne présente que les étudiants qu'il a lui-même encaissés, avec ses
     // seuls versements. L'administrateur du budget (et l'admin) gardent tout.
@@ -197,31 +197,39 @@ router.get('/liste', async (req, res) => {
               FROM etudiant e LEFT JOIN filiere fil ON e.filiere_id = fil.id WHERE 1=1`;
     }
     if (faculte) { sqlE += ' AND e.faculte = ?'; pE.push(faculte); }
-    // Caissier : ne présenter que les étudiants qu'il a lui-même encaissés
-    // (au moins un versement de sa main sur la période).
-    if (estCaissier) {
-      sqlE += ` AND EXISTS (SELECT 1 FROM paiement pex WHERE pex.etudiant_id = e.id AND pex.agent_id = ?${annee ? ' AND pex.annee_academique = ?' : ''})`;
-      pE.push(monAgent); if (annee) pE.push(annee);
+    // Le roster est restreint aux étudiants ayant un versement CORRESPONDANT dès
+    // qu'on filtre par caissier (ses propres opérations) et/ou par date de
+    // paiement. Les conditions se combinent (ET) avec l'année déjà appliquée.
+    if (estCaissier || date) {
+      const condEx = ['pex.etudiant_id = e.id']; const pEx = [];
+      if (annee)      { condEx.push('pex.annee_academique = ?'); pEx.push(annee); }
+      if (estCaissier){ condEx.push('pex.agent_id = ?');         pEx.push(monAgent); }
+      if (date)       { condEx.push('DATE(pex.date_paiement) = ?'); pEx.push(date); }
+      sqlE += ` AND EXISTS (SELECT 1 FROM paiement pex WHERE ${condEx.join(' AND ')})`;
+      pE.push(...pEx);
     }
     // Tri du plus RÉCEMMENT enregistré au plus ancien : dernier versement saisi
-    // de l'étudiant (id auto-incrémenté), restreint à l'année consultée (et à
-    // l'agent pour un caissier). Les étudiants sans versement (MAX NULL) passent
-    // après, par faculté/niveau/nom.
+    // de l'étudiant (id auto-incrémenté), restreint aux mêmes filtres (année,
+    // agent si caissier, date). Les étudiants sans versement (MAX NULL) suivent,
+    // par faculté/niveau/nom.
     const scopeAnnee = annee ? ' AND p.annee_academique = ?' : '';
     const scopeAgent = estCaissier ? ' AND p.agent_id = ?' : '';
-    sqlE += ` ORDER BY (SELECT MAX(p.id) FROM paiement p WHERE p.etudiant_id = e.id${scopeAnnee}${scopeAgent}) DESC,
+    const scopeDate  = date ? ' AND DATE(p.date_paiement) = ?' : '';
+    sqlE += ` ORDER BY (SELECT MAX(p.id) FROM paiement p WHERE p.etudiant_id = e.id${scopeAnnee}${scopeAgent}${scopeDate}) DESC,
               e.faculte, e.niveau, e.nom, e.prenom`;
     if (annee) pE.push(annee);
     if (estCaissier) pE.push(monAgent);
+    if (date) pE.push(date);
     const [etudiants] = await pool.query(sqlE, pE);
 
-    // Versements de l'année regroupés par étudiant + rubrique (restreints à
-    // l'agent pour un caissier : ses seuls encaissements apparaissent).
+    // Versements regroupés par étudiant + rubrique (mêmes filtres combinés :
+    // année, agent si caissier, date de paiement).
     let sqlP = `SELECT p.etudiant_id, COALESCE(NULLIF(p.rubrique,''),'Autre') AS rubrique, SUM(p.montant) AS total
                 FROM paiement p WHERE 1=1`;
     const pP = [];
     if (annee) { sqlP += ' AND p.annee_academique = ?'; pP.push(annee); }
     if (estCaissier) { sqlP += ' AND p.agent_id = ?'; pP.push(monAgent); }
+    if (date) { sqlP += ' AND DATE(p.date_paiement) = ?'; pP.push(date); }
     sqlP += ' GROUP BY p.etudiant_id, rubrique';
     const [versements] = await pool.query(sqlP, pP);
 

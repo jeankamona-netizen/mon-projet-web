@@ -213,17 +213,17 @@
         <p class="dash-sous-titre">Liste des étudiants et de leurs frais versés, par rubrique, pour une année académique</p>
 
         <div class="admin-toolbar" style="flex-wrap:wrap;gap:8px;align-items:center">
-          <label style="font-size:13px;color:#555">Année</label>
-          <select class="admin-recherche" id="liste-annee" onchange="chargerListes()" style="flex:0 0 150px"></select>
-          <select class="admin-recherche" id="liste-faculte" onchange="chargerListes()" style="flex:0 0 220px">
+          <select class="admin-recherche" id="liste-annee" onchange="chargerListes()" style="flex:0 0 150px" title="Année académique"></select>
+          <select class="admin-recherche" id="liste-faculte" onchange="chargerListes()" style="flex:1 1 200px" title="Faculté">
             <option value="">Toutes les facultés</option>
           </select>
-          <select class="admin-recherche" id="liste-niveau" onchange="chargerListes()" style="flex:0 0 140px">
+          <select class="admin-recherche" id="liste-niveau" onchange="chargerListes()" style="flex:0 0 140px" title="Niveau">
             <option value="">Tous niveaux</option>
             <option value="Pré-U">Pré-U</option>
             <option value="L1">L1</option><option value="L2">L2</option><option value="L3">L3</option>
             <option value="M1">M1</option><option value="M2">M2</option><option value="D1">D1</option><option value="D2">D2</option>
           </select>
+          <input type="date" class="admin-recherche" id="liste-date" onchange="chargerListes()" style="flex:0 0 160px" title="Date de paiement (laisser vide = toutes les dates)">
           <button class="btn-ajouter" style="background:var(--bleu)" onclick="imprimerListe()">🖨️ Imprimer la liste</button>
         </div>
 

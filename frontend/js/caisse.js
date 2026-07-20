@@ -272,15 +272,18 @@ async function chargerListes() {
   const annee = document.getElementById('liste-annee')?.value || '';
   const faculte = document.getElementById('liste-faculte')?.value || '';
   const niveau = document.getElementById('liste-niveau')?.value || '';
+  const date = document.getElementById('liste-date')?.value || '';
   tbody.innerHTML = `<tr><td class="admin-vide">Chargement...</td></tr>`;
   try {
+    // Chaque filtre se combine (ET) : année, faculté, niveau et date de paiement.
     const params = new URLSearchParams();
     if (annee) params.append('annee', annee);
     if (faculte) params.append('faculte', faculte);
     if (niveau) params.append('niveau', niveau);
+    if (date) params.append('date', date);
     const r = await fetchCaisse(`${BASE_URL}/api/caisse/liste?${params}`);
     const d = await r.json();
-    derniereListe = { ...d, faculte, niveau };
+    derniereListe = { ...d, faculte, niveau, date };
     const rubriques = d.rubriques || [];
     const nbCol = 4 + rubriques.length; // N°, Étudiant, Promotion, [rubriques], Total
 
@@ -320,6 +323,7 @@ function imprimerListe() {
   const rubriques = d.rubriques || [];
   const facLib = d.faculte || 'Toutes les facultés';
   const nivLib = d.niveau || 'Tous niveaux';
+  const dateLib = d.date ? new Date(d.date).toLocaleDateString('fr-FR') : 'Toutes les dates';
 
   const totaux = {}; let totalGeneral = 0;
   d.etudiants.forEach(e => { rubriques.forEach(x => { totaux[x] = (totaux[x] || 0) + (Number(e.par_rubrique[x]) || 0); }); totalGeneral += Number(e.total) || 0; });
@@ -368,7 +372,7 @@ function imprimerListe() {
     <div class="u">UNIVERSITÉ MÉTHODISTE DE LUBUMBASHI<small>Scientia, Sanctitas et Veritas</small></div>
   </div>
   <h1>Liste des étudiants — frais versés par rubrique</h1>
-  <div class="filtres">Année : ${esc(d.annee || '—')} · Faculté : ${esc(facLib)} · Niveau : ${esc(nivLib)} · Édité le ${new Date().toLocaleDateString('fr-FR')} par ${esc(`${titreAvantNom()} ${nomCaissier()}`.trim())}</div>
+  <div class="filtres">Année : ${esc(d.annee || '—')} · Faculté : ${esc(facLib)} · Niveau : ${esc(nivLib)} · Date de paiement : ${esc(dateLib)} · Édité le ${new Date().toLocaleDateString('fr-FR')} par ${esc(`${titreAvantNom()} ${nomCaissier()}`.trim())}</div>
   <table><thead><tr>${entetes}</tr></thead><tbody>${corps}${ligneTotal}</tbody></table>
   <div class="signe"><span>${esc(nomCaissier())}</span></div>
 <script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>
