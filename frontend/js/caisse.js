@@ -1242,7 +1242,7 @@ function filiereAffichee(e) {
 async function chargerInscritsCaisse() {
   const tbody = document.getElementById('admin-inscrits-body');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
   try {
     const nom = document.getElementById('recherche-inscrits')?.value || '';
     const annee = document.getElementById('filtre-inscrits-annee')?.value || '';
@@ -1255,14 +1255,14 @@ async function chargerInscritsCaisse() {
     if (faculte) params.append('faculte', faculte);
     const r = await fetchCaisse(`${BASE_URL}/api/etudiants?${params}`);
     inscritsCaisse = await r.json();
-    if (!inscritsCaisse.length) { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
+    if (!inscritsCaisse.length) { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
+    // Niveau + Filière fusionnés en « Promotion » (ex. « L1 Théologie »).
     // ⚠️ Pas de bouton « bulletin » ni « réinitialiser le mot de passe » pour la
     // caisse — uniquement carte étudiant, modifier et supprimer.
     tbody.innerHTML = inscritsCaisse.map(e => `
       <tr>
-        <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}${e.historique?' <span class="badge attente" style="font-size:10px" title="Étudiant promu depuis — historique de cette période">Historique</span>':''}<br><span style="font-size:11px;color:#999">${e.id}</span></td>
-        <td>${e.niveau?`<span class="annee-badge">${e.niveau}</span>`:'—'}</td>
-        <td>${filiereAffichee(e)}</td>
+        <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}${e.historique?' <span class="badge attente" style="font-size:10px" title="Étudiant promu depuis — historique de cette période">Historique</span>':''} <span style="font-size:11px;color:#999">· ${e.id}</span></td>
+        <td>${libelleFiliere(e.niveau, e.filiere || e.promotion)}</td>
         <td>${e.faculte||'—'}</td>
         <td>${e.annee_academique||'—'}</td>
         <td><span class="badge ${e.statut==='actif'?'reussi':e.statut==='diplome'?'attente':'echec'}">${e.statut||'actif'}</span></td>
@@ -1272,7 +1272,7 @@ async function chargerInscritsCaisse() {
           <button class="btn-icone danger" onclick="supprimerInscritCaisse('${e.id}')" aria-label="Supprimer">${icone('corbeille')}</button>
         </td>
       </tr>`).join('');
-  } catch { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+  } catch { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
 // Filières limitées à la faculté + niveau (cycle) choisis dans le modal de modif.

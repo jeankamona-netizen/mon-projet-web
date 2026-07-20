@@ -2757,11 +2757,17 @@ function sansPrefixeNiveau(nom) {
 function filiereAffichee(e) {
   return sansPrefixeNiveau(e.filiere || e.promotion) || '—';
 }
+// Promotion = niveau + filière fusionnés (ex. « L1 Théologie ») ; niveau seul
+// s'il n'y a pas de vraie filière (Pré-U, licence non subdivisée…).
+function libellePromotionInscrit(e) {
+  const f = filiereAffichee(e);
+  return f && f !== '—' ? `${e.niveau || ''} ${f}`.trim() : (e.niveau || '—');
+}
 
 async function chargerInscrits() {
   const tbody=document.getElementById('admin-inscrits-body');
   if (!tbody) return;
-  tbody.innerHTML=`<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
+  tbody.innerHTML=`<tr><td colspan="6" class="admin-vide">Chargement...</td></tr>`;
   try {
     const nom=document.getElementById('recherche-inscrits')?.value||'';
     const annee=document.getElementById('filtre-inscrits-annee')?.value||'';
@@ -2775,12 +2781,11 @@ async function chargerInscrits() {
     const r=await fetchAdmin(`${BASE_URL}/api/etudiants?${params}`);
     inscritsAdmin=await r.json();
     const liste = inscritsAdmin;
-    if (!liste.length) { tbody.innerHTML=`<tr><td colspan="7" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
+    if (!liste.length) { tbody.innerHTML=`<tr><td colspan="6" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
     tbody.innerHTML=liste.map(e=>`
       <tr>
-        <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}${e.historique?' <span class="badge attente" style="font-size:10px" title="Étudiant promu depuis — ceci est son historique pour cette période">Historique</span>':''}<br><span style="font-size:11px;color:#999">${e.id}</span></td>
-        <td>${e.niveau?`<span class="annee-badge">${e.niveau}</span>`:'—'}</td>
-        <td>${filiereAffichee(e)}</td>
+        <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}${e.historique?' <span class="badge attente" style="font-size:10px" title="Étudiant promu depuis — ceci est son historique pour cette période">Historique</span>':''} <span style="font-size:11px;color:#999">· ${e.id}</span></td>
+        <td>${libellePromotionInscrit(e)}</td>
         <td>${e.faculte||'—'}</td>
         <td>${e.annee_academique||'—'}</td>
         <td><span class="badge ${e.statut==='actif'?'reussi':e.statut==='diplome'?'attente':'echec'}">${e.statut||'actif'}</span></td>
@@ -2792,7 +2797,7 @@ async function chargerInscrits() {
           <button class="btn-icone danger" onclick="supprimerInscrit('${e.id}')" aria-label="Supprimer">${icone('corbeille')}</button>
         </td>
       </tr>`).join('');
-  } catch { tbody.innerHTML=`<tr><td colspan="7" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+  } catch { tbody.innerHTML=`<tr><td colspan="6" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
 
 // Le bulletin est réservé à l'administrateur (l'étudiant n'a pas le droit de
