@@ -132,6 +132,17 @@ function formaterDateCaisse(dateStr) {
   return new Date(dateStr).toLocaleDateString('fr-FR');
 }
 function montant(n) { return Number(n || 0).toFixed(2); }
+// Sérialise un objet en JSON sûr à insérer dans un attribut HTML (onclick…).
+// Sans ça, une apostrophe dans les données (ex. rubrique « Carte d'étudiant »,
+// « Frais d'inscription ») ferme prématurément l'attribut et casse le onclick.
+function attrJSON(obj) {
+  return JSON.stringify(obj)
+    .replace(/&/g, '&amp;')
+    .replace(/'/g, '&#39;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 // Retire un préfixe de niveau/cycle en tête d'un nom de filière (« L1 Systèmes
 // Informatiques » → « Systèmes Informatiques »), pour ne pas répéter le niveau.
 function sansPrefixeNiveau(nom) {
@@ -691,7 +702,7 @@ function afficherPaiementsAnnee() {
         <td>${p.reference || '—'}</td>
         <td>${p.mode_paiement || '—'}</td>
         <td class="admin-actions-cell">
-          <button class="btn-icone" onclick='reimprimerRecu(${JSON.stringify(p)})' title="Réimprimer le reçu">🧾</button>
+          <button class="btn-icone" onclick='reimprimerRecu(${attrJSON(p)})' title="Réimprimer le reçu">🧾</button>
           ${lecture ? '' : `<button class="btn-icone danger" onclick="supprimerPaiementCaisse(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button>`}
         </td>
       </tr>`).join('');
@@ -805,7 +816,7 @@ function afficherFraisAnnee() {
         <td>${p.reference || '—'}</td>
         <td>${p.mode_paiement || '—'}</td>
         <td class="admin-actions-cell">
-          <button class="btn-icone" onclick='reimprimerRecuFrais(${JSON.stringify(p)})' title="Réimprimer le reçu">🧾</button>
+          <button class="btn-icone" onclick='reimprimerRecuFrais(${attrJSON(p)})' title="Réimprimer le reçu">🧾</button>
           ${lecture ? '' : `<button class="btn-icone danger" onclick="supprimerFraisEtudiant(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button>`}
         </td>
       </tr>`).join('');
