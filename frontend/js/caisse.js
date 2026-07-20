@@ -869,10 +869,11 @@ function imprimerRecu(p, etu, caissier) {
   .barre { text-align:center; margin-bottom:16px; }
   .barre button { font-size:14px; padding:9px 20px; border:none; border-radius:6px; background:var(--bleu); color:#fff; cursor:pointer; }
   .recu { width:420px; margin:0 auto; background:#fff; border:1px solid #ccc; border-radius:8px; overflow:hidden; }
-  .r-tete { display:flex; align-items:center; gap:10px; padding:12px 16px; background:linear-gradient(120deg,var(--bleu),#24508f); color:#fff; }
-  .r-tete img { width:38px; height:38px; object-fit:contain; background:#fff; border-radius:5px; padding:2px; }
-  .r-tete .u { font-size:13px; font-weight:800; line-height:1.15; }
-  .r-tete .u small { display:block; font-weight:600; font-size:9px; opacity:.85; }
+  .r-tete { display:flex; align-items:center; gap:10px; padding:12px 16px; background:#fff; color:var(--bleu); border-bottom:3px solid var(--bleu); }
+  .r-tete .logo { width:40px; height:40px; object-fit:contain; flex:0 0 auto; }
+  .r-tete .u { font-size:13px; font-weight:800; line-height:1.15; flex:1 1 auto; }
+  .r-tete .u small { display:block; font-weight:600; font-size:9px; color:#666; }
+  .r-tete .qr { width:66px; height:66px; flex:0 0 auto; }
   .r-titre { background:var(--jaune); color:var(--bleu); text-align:center; font-weight:800; letter-spacing:1px; padding:5px; font-size:13px; }
   .r-num { text-align:center; font-size:11px; color:#666; padding:6px; }
   table { width:100%; border-collapse:collapse; }
@@ -892,8 +893,9 @@ function imprimerRecu(p, etu, caissier) {
   <div class="barre"><button onclick="window.print()">🖨️ Imprimer le reçu</button></div>
   <div class="recu">
     <div class="r-tete">
-      <img src="${logoSrc}" alt="" onerror="this.style.display='none'">
+      <img class="logo" src="${logoSrc}" alt="" onerror="this.style.display='none'">
       <div class="u">UNIVERSITÉ MÉTHODISTE DE LUBUMBASHI<small>Scientia, Sanctitas et Veritas</small></div>
+      ${qrRecuSrc ? `<img class="qr" src="${qrRecuSrc}" alt="QR du reçu" title="Scanner pour vérifier ce reçu">` : ''}
     </div>
     <div class="r-titre">REÇU DE PAIEMENT</div>
     <div class="r-num">N° ${esc(numero)} — ${formaterDateCaisse(p.date_paiement)}</div>
@@ -912,10 +914,6 @@ function imprimerRecu(p, etu, caissier) {
       <div class="b"><span class="l">${esc(caissier)}</span></div>
       <div class="b"><span class="l">Sceau</span></div>
     </div>
-    ${qrRecuSrc ? `<div style="text-align:center;padding:6px 0 10px;border-top:1px dashed #e0e6ef">
-      <img src="${qrRecuSrc}" alt="QR du reçu" style="width:104px;height:104px">
-      <div style="font-size:9px;color:#999;margin-top:2px">Scanner pour vérifier ce reçu</div>
-    </div>` : ''}
     <div class="r-pied">Reçu généré électroniquement — Université Méthodiste de Lubumbashi</div>
   </div>
 <script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>
