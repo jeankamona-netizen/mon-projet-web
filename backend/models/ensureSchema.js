@@ -1,4 +1,5 @@
 const { seedMaquetteIG } = require('./seedMaquetteIG');
+const { seedEtudiantsTest } = require('./seedEtudiantsTest');
 const { inscrireAuxCoursDuNiveau, FILIERES_PREU } = require('./inscriptionAuto');
 
 // =====================================================================
@@ -138,6 +139,19 @@ async function assurerSchemaPresence(pool) {
       FOREIGN KEY (etudiant_id) REFERENCES etudiant(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+}
+
+// La colonne etudiant.promotion (VARCHAR(50) à l'origine) est trop courte pour
+// certains noms de filière longs (ex. « Master Sciences de la Mission,
+// Œcuménisme et de la Religion »). On l'élargit à 150 (comme faculte).
+async function assurerSchemaPromotionLongue(pool) {
+  const [[col]] = await pool.query(
+    `SELECT CHARACTER_MAXIMUM_LENGTH AS len FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'etudiant' AND COLUMN_NAME = 'promotion'`
+  );
+  if (col && col.len !== null && col.len < 150) {
+    await pool.query('ALTER TABLE etudiant MODIFY COLUMN promotion VARCHAR(150)');
+  }
 }
 
 // Date d'inscription de l'étudiant (jour d'enregistrement) : permet de filtrer
@@ -316,9 +330,9 @@ async function majNomsMajuscules(pool) {
 
 // Correction des étudiants placés à tort en Pré-U : seules les filières
 // scientifiques (Systèmes Informatiques, Génie Logiciel, Intelligence
-// Artificielle) ont une année préparatoire commune. Tout autre choix
-// (Informatique de Gestion, Design, Théologie, Sciences Économiques, Sciences
-// de l'Éducation…) doit démarrer en L1. Le Pré-U ayant effacé la filière
+// Artificielle, Design) ont une année préparatoire commune. Tout autre choix
+// (Informatique de Gestion, Théologie, Sciences Économiques, Sciences de
+// l'Éducation…) doit démarrer en L1. Le Pré-U ayant effacé la filière
 // (promotion='Sciences', filiere_id=NULL), on retrouve le choix d'origine via
 // la préinscription (specialite). Idempotent : au 2e passage, plus aucun Pré-U
 // « illégitime » ne subsiste.
@@ -384,6 +398,7 @@ async function assurerSchema(pool) {
   await assurerSchemaJournalAudit(pool);
   await assurerSchemaPaiement(pool);
   await assurerSchemaPresence(pool);
+  await assurerSchemaPromotionLongue(pool);
   await assurerSchemaDateInscription(pool);
   await assurerSchemaAgentFaculte(pool);
   await nettoyerPrefixesNiveauFilieres(pool);
@@ -392,8 +407,10 @@ async function assurerSchema(pool) {
   // Chargement (idempotent) de la maquette Informatique de Gestion. Placé APRÈS
   // le nettoyage des cours pour ne pas être altéré par celui-ci.
   try { await seedMaquetteIG(); } catch (e) { console.error('⚠️ Seed maquette IG :', e.message); }
-  // Correction des Pré-U illégitimes (hors SI/GL/IA) → L1, avant la resync.
+  // Correction des Pré-U illégitimes (hors SI/GL/IA/Design) → L1, avant la resync.
   try { await corrigerPreUErrones(pool); } catch (e) { console.error('⚠️ Correction Pré-U :', e.message); }
+  // Données de test : 5 étudiants fictifs par filière (idempotent).
+  try { await seedEtudiantsTest(); } catch (e) { console.error('⚠️ Seed étudiants test :', e.message); }
   // Resynchronisation des inscriptions EN DERNIER : après tout nettoyage/seed de
   // cours, pour que chaque cours (commun ou de filière) atteigne bien tous ses
   // étudiants (programme annuel + horaire).

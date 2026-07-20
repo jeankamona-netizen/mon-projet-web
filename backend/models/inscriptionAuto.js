@@ -9,9 +9,9 @@ const FILIERES_AUTONOMES = ['Informatique de Gestion', 'Master Informatique de G
 
 // Filières scientifiques qui passent par l'année préparatoire commune
 // (Pré-U Sciences) avant la Licence. TOUTE autre filière/faculté (Informatique
-// de Gestion, Design, Théologie, Sciences Économiques, Sciences de l'Éducation…)
+// de Gestion, Théologie, Sciences Économiques, Sciences de l'Éducation…)
 // démarre directement en L1.
-const FILIERES_PREU = ['Systèmes Informatiques', 'Génie Logiciel', 'Intelligence Artificielle'];
+const FILIERES_PREU = ['Systèmes Informatiques', 'Génie Logiciel', 'Intelligence Artificielle', 'Design'];
 
 // Une filière (par NOM) est-elle autonome (cursus complet, sans cours communs) ?
 function nomFiliereEstAutonome(nom) {

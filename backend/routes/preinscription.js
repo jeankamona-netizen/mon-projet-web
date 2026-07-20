@@ -207,11 +207,11 @@ if (statut === 'accepte') {
     else niveauCourt = 'L1';
   }
   // Seules les filières SCIENTIFIQUES (Systèmes Informatiques, Génie Logiciel,
-  // Intelligence Artificielle) passent par l'année préparatoire commune
-  // (Pré-U Sciences). TOUTES les autres — Informatique de Gestion, Design,
-  // Théologie, Sciences Économiques, Sciences de l'Éducation… — démarrent
-  // directement en L1 avec leur filière. Règle par FILIÈRE choisie, pas par
-  // faculté (Sciences Informatiques contient aussi Design et IG, sans Pré-U).
+  // Intelligence Artificielle, Design) passent par l'année préparatoire commune
+  // (Pré-U Sciences). TOUTES les autres — Informatique de Gestion, Théologie,
+  // Sciences Économiques, Sciences de l'Éducation… — démarrent directement en
+  // L1 avec leur filière. Règle par FILIÈRE choisie, pas par faculté (Sciences
+  // Informatiques contient aussi Informatique de Gestion, sans Pré-U).
   if (niveauCourt === 'L1' && match && FILIERES_PREU.includes(match.nom)) {
     niveauCourt = 'Pré-U';
   }
