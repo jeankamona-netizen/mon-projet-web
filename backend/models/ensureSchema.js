@@ -1,4 +1,5 @@
 const { seedMaquetteIG } = require('./seedMaquetteIG');
+const { inscrireAuxCoursDuNiveau, FILIERES_PREU } = require('./inscriptionAuto');
 
 // =====================================================================
 // Migrations légères, idempotentes, exécutées au démarrage du serveur.
@@ -313,6 +314,71 @@ async function majNomsMajuscules(pool) {
   if (total) console.log(`✅ Noms de famille passés en majuscules : ${total} ligne(s).`);
 }
 
+// Correction des étudiants placés à tort en Pré-U : seules les filières
+// scientifiques (Systèmes Informatiques, Génie Logiciel, Intelligence
+// Artificielle) ont une année préparatoire commune. Tout autre choix
+// (Informatique de Gestion, Design, Théologie, Sciences Économiques, Sciences
+// de l'Éducation…) doit démarrer en L1. Le Pré-U ayant effacé la filière
+// (promotion='Sciences', filiere_id=NULL), on retrouve le choix d'origine via
+// la préinscription (specialite). Idempotent : au 2e passage, plus aucun Pré-U
+// « illégitime » ne subsiste.
+async function corrigerPreUErrones(pool) {
+  const [preu] = await pool.query(
+    "SELECT id, nom, prenom, date_naissance, faculte, promotion, filiere_id, annee_academique FROM etudiant WHERE niveau = 'Pré-U'"
+  );
+  if (!preu.length) return;
+  const [filieres] = await pool.query(
+    'SELECT f.id, f.nom, fa.nom AS faculte FROM filiere f JOIN faculte fa ON f.faculte_id = fa.id'
+  );
+  const norm = s => String(s || '')
+    .replace(/^\s*(pr[ée]-?u(niversitaire)?|master|doctorat|[lmd][123])\s+/i, '')
+    .trim().replace(/\s+/g, ' ').toLowerCase();
+  const trouver = nom => nom
+    ? (filieres.find(f => f.nom === nom) || filieres.find(f => norm(f.nom) === norm(nom)) || null)
+    : null;
+
+  let corriges = 0;
+  for (const e of preu) {
+    // Filière visée : le filiere_id de la fiche s'il existe, sinon la spécialité
+    // d'origine de la préinscription (le Pré-U a effacé la filière).
+    let match = e.filiere_id ? filieres.find(f => f.id === e.filiere_id) : null;
+    let specialiteBrute = null;
+    if (!match) {
+      const [[pre]] = await pool.query(
+        'SELECT specialite FROM preinscription WHERE nom = ? AND prenom = ? AND (date_naissance <=> ?) ORDER BY date_soumission DESC LIMIT 1',
+        [e.nom, e.prenom, e.date_naissance]
+      );
+      if (pre && pre.specialite) { specialiteBrute = pre.specialite; match = trouver(pre.specialite); }
+    }
+    // Légitimement en Pré-U → on ne touche pas.
+    if (match && FILIERES_PREU.includes(match.nom)) continue;
+    // Cas indéterminé (aucune filière retrouvée) en faculté informatique : on
+    // laisse, pour ne jamais rétrograder par erreur un vrai Pré-U scientifique.
+    if (!match && !specialiteBrute && e.faculte === 'Sciences Informatiques') continue;
+
+    // Sinon : correction vers L1, avec la vraie faculté / filière / promotion.
+    let faculte = e.faculte, filiere_id = null, promotion;
+    if (match) { faculte = match.faculte; filiere_id = match.id; promotion = match.nom; }
+    else if (specialiteBrute) { promotion = specialiteBrute; }
+    else { promotion = (e.promotion && e.promotion !== 'Sciences') ? e.promotion : e.faculte; }
+
+    await pool.query(
+      'UPDATE etudiant SET niveau = ?, faculte = ?, filiere_id = ?, promotion = ? WHERE id = ?',
+      ['L1', faculte, filiere_id, promotion, e.id]
+    );
+    // Retirer ses anciennes inscriptions aux cours de Pré-U, puis l'inscrire aux
+    // cours de L1 de sa filière (programme + horaire alignés).
+    await pool.query(
+      `DELETE ic FROM inscription_cours ic JOIN cours c ON c.id = ic.cours_id
+       WHERE ic.etudiant_id = ? AND c.niveau = 'Pré-U'`, [e.id]
+    );
+    try { await inscrireAuxCoursDuNiveau(e.id, faculte, 'L1', filiere_id, e.annee_academique); }
+    catch (err) { console.warn('⚠️ ré-inscription L1 (correction Pré-U)', e.id, ':', err.message); }
+    corriges++;
+  }
+  if (corriges) console.log(`✅ Étudiants Pré-U corrigés vers L1 (filière hors SI/GL/IA) : ${corriges}.`);
+}
+
 async function assurerSchema(pool) {
   await assurerSchemaFraisScolarite(pool);
   await assurerSchemaJournalAudit(pool);
@@ -326,6 +392,8 @@ async function assurerSchema(pool) {
   // Chargement (idempotent) de la maquette Informatique de Gestion. Placé APRÈS
   // le nettoyage des cours pour ne pas être altéré par celui-ci.
   try { await seedMaquetteIG(); } catch (e) { console.error('⚠️ Seed maquette IG :', e.message); }
+  // Correction des Pré-U illégitimes (hors SI/GL/IA) → L1, avant la resync.
+  try { await corrigerPreUErrones(pool); } catch (e) { console.error('⚠️ Correction Pré-U :', e.message); }
   // Resynchronisation des inscriptions EN DERNIER : après tout nettoyage/seed de
   // cours, pour que chaque cours (commun ou de filière) atteigne bien tous ses
   // étudiants (programme annuel + horaire).

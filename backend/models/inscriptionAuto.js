@@ -7,6 +7,12 @@ const pool = require('../database');
 // et son master, qui n'ont pas de tronc commun avec Génie Logiciel, Design, etc.
 const FILIERES_AUTONOMES = ['Informatique de Gestion', 'Master Informatique de Gestion'];
 
+// Filières scientifiques qui passent par l'année préparatoire commune
+// (Pré-U Sciences) avant la Licence. TOUTE autre filière/faculté (Informatique
+// de Gestion, Design, Théologie, Sciences Économiques, Sciences de l'Éducation…)
+// démarre directement en L1.
+const FILIERES_PREU = ['Systèmes Informatiques', 'Génie Logiciel', 'Intelligence Artificielle'];
+
 // Une filière (par NOM) est-elle autonome (cursus complet, sans cours communs) ?
 function nomFiliereEstAutonome(nom) {
   return FILIERES_AUTONOMES.includes(String(nom || '').trim());
@@ -88,4 +94,4 @@ async function inscrireEtudiantsAuCours(coursId, faculte, niveau, filiere_id, an
   return etudiants.length;
 }
 
-module.exports = { inscrireAuxCoursDuNiveau, inscrireEtudiantsAuCours, nomFiliereEstAutonome, FILIERES_AUTONOMES };
+module.exports = { inscrireAuxCoursDuNiveau, inscrireEtudiantsAuCours, nomFiliereEstAutonome, FILIERES_AUTONOMES, FILIERES_PREU };

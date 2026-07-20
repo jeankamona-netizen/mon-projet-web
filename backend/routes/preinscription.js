@@ -6,7 +6,7 @@ const pool = require('../database');
 const { envoyerEmailAcceptation, envoyerEmailRejet } = require('../mailer');
 const upload = require('../upload');
 const { requireAdmin } = require('../middleware/auth');
-const { inscrireAuxCoursDuNiveau } = require('../models/inscriptionAuto');
+const { inscrireAuxCoursDuNiveau, FILIERES_PREU } = require('../models/inscriptionAuto');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 const { genererMatricule } = require('../models/matricule');
 const { nomMajuscule } = require('../nom');
@@ -206,14 +206,13 @@ if (statut === 'accepte') {
     else if (dossier.niveau.toLowerCase().includes('doctorat')) niveauCourt = 'D1';
     else niveauCourt = 'L1';
   }
-  // Sciences Informatiques exige une année préparatoire : un candidat admis en
-  // 1er cycle dans cette faculté démarre en Pré-U (année commune « Sciences »),
-  // jamais directement en L1. EXCEPTION : certaines filières n'ont pas de Pré-U
-  // et commencent directement en L1 (ex. « Informatique de Gestion » / LIAGE) —
-  // celles-là gardent L1 avec leur filière.
-  const FILIERES_SANS_PREU = ['Informatique de Gestion'];
-  const filiereSansPreU = match && FILIERES_SANS_PREU.includes(match.nom);
-  if (faculteNom === 'Sciences Informatiques' && niveauCourt === 'L1' && !filiereSansPreU) {
+  // Seules les filières SCIENTIFIQUES (Systèmes Informatiques, Génie Logiciel,
+  // Intelligence Artificielle) passent par l'année préparatoire commune
+  // (Pré-U Sciences). TOUTES les autres — Informatique de Gestion, Design,
+  // Théologie, Sciences Économiques, Sciences de l'Éducation… — démarrent
+  // directement en L1 avec leur filière. Règle par FILIÈRE choisie, pas par
+  // faculté (Sciences Informatiques contient aussi Design et IG, sans Pré-U).
+  if (niveauCourt === 'L1' && match && FILIERES_PREU.includes(match.nom)) {
     niveauCourt = 'Pré-U';
   }
   // La colonne "promotion" reçoit le nom RÉEL de la filière (celui de la base,
