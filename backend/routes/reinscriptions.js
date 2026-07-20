@@ -3,7 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const pool = require('../database');
-const { requireAdmin, requireAdminOuDoyen, faculteDuDoyen } = require('../middleware/auth');
+const { requireAdmin, requireAdminOuDoyen, requireAdminOuCaisse, faculteDuDoyen } = require('../middleware/auth');
 const { inscrireAuxCoursDuNiveau } = require('../models/inscriptionAuto');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
 const { genererMatricule } = require('../models/matricule');
@@ -60,7 +60,7 @@ router.post('/promouvoir', requireAdminOuDoyen, async (req, res) => {
 });
 
 // ===== POST /api/reinscriptions/nouveau — inscrire un nouvel étudiant directement à un niveau donné (L2, L3…) =====
-router.post('/nouveau', requireAdmin, async (req, res) => {
+router.post('/nouveau', requireAdminOuCaisse, async (req, res) => {
   const { nom, postnom, prenom, sexe, date_naissance, email, telephone, faculte, filiere, niveau, annee_academique } = req.body;
   if (!nom || !prenom || !faculte || !niveau || !annee_academique) {
     return res.status(400).json({ erreur: 'Nom, prénom, faculté, niveau et année académique sont obligatoires.' });

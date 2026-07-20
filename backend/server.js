@@ -6,7 +6,7 @@ const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan    = require('morgan');
 const pool      = require('./database');
-const { requireAdmin, requireAdminOuDoyen, faculteDuDoyen } = require('./middleware/auth');
+const { requireAdmin, requireAdminOuDoyen, requireAdminOuCaisse, requireInscritsLecture, faculteDuDoyen } = require('./middleware/auth');
 const { journaliserActionsAdmin } = require('./middleware/audit');
 const crypto      = require('crypto');
 const bcrypt      = require('bcryptjs');
@@ -288,7 +288,7 @@ app.get('/api/audit-log', requireAdmin, async (req, res) => {
 // GET ouvert au décanat (chart de la vue d'ensemble + recherche « Délibérer »),
 // TOUJOURS restreint à la faculté du doyen. Les écritures (PUT/DELETE/photo/
 // réinit. mot de passe) restent réservées à l'admin (requireAdmin).
-app.get('/api/etudiants', requireAdminOuDoyen, async (req, res) => {
+app.get('/api/etudiants', requireInscritsLecture, async (req, res) => {
   try {
     const { annee, promotion, nom, niveau } = req.query;
     // Un doyen ne peut jamais élargir au-delà de sa faculté (le filtre client
@@ -391,7 +391,7 @@ app.get('/api/etudiants', requireAdminOuDoyen, async (req, res) => {
   }
 });
 
-app.put('/api/etudiants/:id', requireAdmin, async (req, res) => {
+app.put('/api/etudiants/:id', requireAdminOuCaisse, async (req, res) => {
   const { nom, postnom, prenom, date_naissance, sexe, email, telephone, faculte, promotion, niveau, annee_academique, statut } = req.body;
   if (!nom || !prenom) {
     return res.status(400).json({ erreur: 'Le nom et le prénom sont obligatoires.' });
@@ -429,7 +429,7 @@ app.put('/api/etudiants/:id', requireAdmin, async (req, res) => {
 
 // Photo de l'étudiant (pour la carte) : téléversée depuis le disque par l'admin,
 // stockée dans frontend/uploads. Chemin relatif enregistré dans etudiant.photo.
-app.post('/api/etudiants/:id/photo', requireAdmin, upload.single('photo'), upload.verifierContenuFichiers, async (req, res) => {
+app.post('/api/etudiants/:id/photo', requireAdminOuCaisse, upload.single('photo'), upload.verifierContenuFichiers, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ erreur: 'Aucune photo reçue.' });
     const chemin = 'uploads/' + req.file.filename;
@@ -439,7 +439,7 @@ app.post('/api/etudiants/:id/photo', requireAdmin, upload.single('photo'), uploa
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });
 
-app.delete('/api/etudiants/:id', requireAdmin, async (req, res) => {
+app.delete('/api/etudiants/:id', requireAdminOuCaisse, async (req, res) => {
   try {
     // On récupère le nom avant suppression, pour un journal d'audit lisible.
     const [[etu]] = await pool.query('SELECT nom, postnom, prenom FROM etudiant WHERE id = ?', [req.params.id]);

@@ -61,6 +61,13 @@ const requireBudget   = exigerRoles(['admin', 'budget'], 'Réservé à l\'admini
 // d'audit, qui restent protégés par requireAdmin strict.
 const requireAdminOuDoyen = exigerRoles(['admin', 'doyen'], 'Accès réservé à l\'administration et au décanat.');
 
+// Gestion des inscrits : la caisse peut, comme l'admin, inscrire/modifier/
+// supprimer des étudiants (mais PAS réinitialiser un mot de passe ni imprimer
+// un bulletin, qui restent en requireAdmin). Lecture de la liste ouverte à
+// l'admin, au décanat (scopé à sa faculté) et à la caisse.
+const requireAdminOuCaisse    = exigerRoles(['admin', 'caisse'], 'Accès réservé à l\'administration et à la caisse.');
+const requireInscritsLecture  = exigerRoles(['admin', 'doyen', 'caisse'], 'Accès réservé à l\'administration, au décanat et à la caisse.');
+
 // Faculté de rattachement du demandeur SI c'est un doyen/vice-doyen (rôle
 // 'doyen'), sinon null. Les handlers ouverts au décanat s'en servent pour
 // restreindre lecture ET écriture à la seule faculté du doyen. L'admin (rôle
@@ -71,4 +78,4 @@ function faculteDuDoyen(req) {
   return u && u.role === 'doyen' ? (u.faculte || null) : null;
 }
 
-module.exports = { requireAdmin, requireFinance, requireCaissier, requireBudget, requireAdminOuDoyen, faculteDuDoyen };
+module.exports = { requireAdmin, requireFinance, requireCaissier, requireBudget, requireAdminOuDoyen, requireAdminOuCaisse, requireInscritsLecture, faculteDuDoyen };

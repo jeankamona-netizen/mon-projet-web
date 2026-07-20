@@ -98,6 +98,7 @@ function afficherSectionCaisse(id, lien) {
   if (id === 'caisse-frais')    chargerEtudiantsCaisse();
   if (id === 'caisse-rapports') initRapports();
   if (id === 'caisse-listes')   chargerListes();
+  if (id === 'caisse-inscrits') chargerInscritsCaisse();
   if (id === 'caisse-bareme')   chargerBareme();
 }
 
@@ -232,6 +233,14 @@ async function chargerAnneesCaisse() {
     // Listes : année en cours par défaut.
     const selLi = document.getElementById('liste-annee');
     if (selLi) { selLi.innerHTML = opts; if (courante) selLi.value = courante; }
+    // Gérer les inscrits : filtre (« Toutes » + courante), modal modif et
+    // modal nouvel étudiant (année courante par défaut).
+    const selFiltre = document.getElementById('filtre-inscrits-annee');
+    if (selFiltre) { selFiltre.innerHTML = '<option value="">Toutes les années</option>' + opts; if (courante) selFiltre.value = courante; }
+    const selMod = document.getElementById('inscrit-annee');
+    if (selMod) { selMod.innerHTML = opts; if (courante) selMod.value = courante; }
+    const selNouv = document.getElementById('reins-annee-nouveau');
+    if (selNouv) { selNouv.innerHTML = opts; if (courante) selNouv.value = courante; }
   } catch { /* silencieux */ }
 }
 
@@ -1217,6 +1226,321 @@ function basculerMenuCaisse(event) {
 // =====================
 // INITIALISATION
 // =====================
+// =====================
+// GÉRER LES INSCRITS (caisse) — mêmes pouvoirs que l'admin SAUF réinitialiser
+// le mot de passe et imprimer le bulletin (boutons volontairement absents).
+// Réutilise les routes /api/etudiants et /api/reinscriptions/nouveau, ouvertes
+// au rôle caisse côté serveur (requireAdminOuCaisse / requireInscritsLecture).
+// =====================
+let inscritsCaisse = [];
+
+// Filière affichée : nom nettoyé du préfixe de niveau (repli sur la promotion).
+function filiereAffichee(e) {
+  return sansPrefixeNiveau(e.filiere || e.promotion) || '—';
+}
+
+async function chargerInscritsCaisse() {
+  const tbody = document.getElementById('admin-inscrits-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const nom = document.getElementById('recherche-inscrits')?.value || '';
+    const annee = document.getElementById('filtre-inscrits-annee')?.value || '';
+    const niveau = document.getElementById('filtre-inscrits-niveau')?.value || '';
+    const faculte = document.getElementById('filtre-inscrits-faculte')?.value || '';
+    const params = new URLSearchParams();
+    if (nom) params.append('nom', nom);
+    if (annee) params.append('annee', annee);
+    if (niveau) params.append('niveau', niveau);
+    if (faculte) params.append('faculte', faculte);
+    const r = await fetchCaisse(`${BASE_URL}/api/etudiants?${params}`);
+    inscritsCaisse = await r.json();
+    if (!inscritsCaisse.length) { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
+    // ⚠️ Pas de bouton « bulletin » ni « réinitialiser le mot de passe » pour la
+    // caisse — uniquement carte étudiant, modifier et supprimer.
+    tbody.innerHTML = inscritsCaisse.map(e => `
+      <tr>
+        <td><strong>${e.nom}</strong> ${e.postnom||''} ${e.prenom}${e.historique?' <span class="badge attente" style="font-size:10px" title="Étudiant promu depuis — historique de cette période">Historique</span>':''}<br><span style="font-size:11px;color:#999">${e.id}</span></td>
+        <td>${e.niveau?`<span class="annee-badge">${e.niveau}</span>`:'—'}</td>
+        <td>${filiereAffichee(e)}</td>
+        <td>${e.faculte||'—'}</td>
+        <td>${e.annee_academique||'—'}</td>
+        <td><span class="badge ${e.statut==='actif'?'reussi':e.statut==='diplome'?'attente':'echec'}">${e.statut||'actif'}</span></td>
+        <td class="admin-actions-cell">
+          <button class="btn-icone" onclick="imprimerCarteEtudiantCaisse('${e.id}')" aria-label="Imprimer la carte étudiant" title="Imprimer la carte étudiant">${icone('carte')}</button>
+          <button class="btn-icone" onclick="modifierInscritCaisse('${e.id}')" aria-label="Modifier">${icone('crayon')}</button>
+          <button class="btn-icone danger" onclick="supprimerInscritCaisse('${e.id}')" aria-label="Supprimer">${icone('corbeille')}</button>
+        </td>
+      </tr>`).join('');
+  } catch { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+}
+
+// Filières limitées à la faculté + niveau (cycle) choisis dans le modal de modif.
+function chargerFilieresPourInscrit() {
+  const f = document.getElementById('inscrit-faculte')?.value || '';
+  const niveau = document.getElementById('inscrit-promotion')?.value || '';
+  const sel = document.getElementById('inscrit-filiere');
+  if (!sel) return;
+  if (!f) { sel.innerHTML = '<option value="">— Choisir une faculté d\'abord —</option>'; return; }
+  const fl = optionsFiliereFacNiveau(f, niveau);
+  sel.innerHTML = fl.length === 0
+    ? '<option value="">— Choisir un niveau —</option>'
+    : (fl.length === 1
+        ? fl.map(x => `<option value="${x}">${x}</option>`).join('')
+        : '<option value="">— Choisir une filière —</option>' + fl.map(x => `<option value="${x}">${x}</option>`).join(''));
+}
+
+function modifierInscritCaisse(id) {
+  const e = inscritsCaisse.find(x => x.id === id);
+  if (!e) { afficherToast('⚠️ Étudiant non trouvé. Actualisez.', 'erreur'); return; }
+  // Toujours éditer le profil COURANT (champs *_actuel[le]) même sur une ligne
+  // « Historique », pour ne jamais écraser une promotion par des valeurs d'une
+  // période passée.
+  const anneeReelle     = e.historique ? e.annee_academique_actuelle : e.annee_academique;
+  const niveauReel      = e.historique ? e.niveau_actuel             : e.niveau;
+  const faculteReelle   = e.historique ? e.faculte_actuelle          : e.faculte;
+  const promotionReelle = e.historique ? e.promotion_actuelle        : e.promotion;
+  if (e.historique) afficherToast('ℹ️ Cet étudiant a été promu depuis — vous modifiez son profil courant.');
+
+  document.getElementById('inscrit-id-edit').value   = e.id;
+  document.getElementById('inscrit-nom').value       = e.nom || '';
+  document.getElementById('inscrit-postnom').value   = e.postnom || '';
+  document.getElementById('inscrit-prenom').value    = e.prenom || '';
+  document.getElementById('inscrit-ddn').value       = e.date_naissance ? e.date_naissance.split('T')[0] : '';
+  document.getElementById('inscrit-sexe').value      = e.sexe || 'M';
+  document.getElementById('inscrit-email').value     = e.email || '';
+  document.getElementById('inscrit-telephone').value = e.telephone || '';
+  const selAnnee = document.getElementById('inscrit-annee');
+  if (selAnnee) {
+    if (anneeReelle && !Array.from(selAnnee.options).some(o => o.value === anneeReelle)) {
+      const opt = document.createElement('option'); opt.value = anneeReelle; opt.textContent = anneeReelle; selAnnee.appendChild(opt);
+    }
+    selAnnee.value = anneeReelle || anneeCouranteCaisse || '';
+  }
+  document.getElementById('inscrit-statut').value    = e.statut || 'actif';
+  document.getElementById('inscrit-promotion').value = niveauReel || 'L1';
+  document.getElementById('inscrit-faculte').value   = faculteReelle || '';
+  chargerFilieresPourInscrit();
+  const sel = document.getElementById('inscrit-filiere');
+  if (promotionReelle) {
+    if (!Array.from(sel.options).some(o => o.value === promotionReelle)) {
+      const opt = document.createElement('option'); opt.value = promotionReelle; opt.textContent = promotionReelle; sel.appendChild(opt);
+    }
+    sel.value = promotionReelle;
+  }
+  document.getElementById('inscrit-photo').value = e.photo || '';
+  const fch = document.getElementById('inscrit-photo-fichier'); if (fch) fch.value = '';
+  const ap = document.getElementById('inscrit-photo-apercu');
+  if (ap) ap.innerHTML = e.photo ? `<img src="${BASE_URL}/${e.photo}" alt="" style="max-width:90px;border-radius:6px">` : '<span style="color:#999;font-size:12px">Aucune photo</span>';
+  document.getElementById('modal-inscrit')?.classList.add('active');
+}
+
+function fermerModalInscrit() { document.getElementById('modal-inscrit')?.classList.remove('active'); }
+
+// Aperçu local (sans téléversement) de la photo choisie.
+function apercuPhotoInscrit(input) {
+  const zone = document.getElementById('inscrit-photo-apercu');
+  if (!zone) return;
+  const f = input.files?.[0];
+  zone.innerHTML = f ? `<img src="${URL.createObjectURL(f)}" alt="" style="max-width:90px;border-radius:6px">` : '';
+}
+
+async function sauvegarderInscritCaisse() {
+  const id = document.getElementById('inscrit-id-edit').value;
+  const corps = {
+    nom: document.getElementById('inscrit-nom').value.trim(),
+    postnom: document.getElementById('inscrit-postnom').value.trim(),
+    prenom: document.getElementById('inscrit-prenom').value.trim(),
+    date_naissance: document.getElementById('inscrit-ddn').value,
+    sexe: document.getElementById('inscrit-sexe').value,
+    email: document.getElementById('inscrit-email').value.trim(),
+    telephone: document.getElementById('inscrit-telephone').value.trim(),
+    faculte: document.getElementById('inscrit-faculte').value,
+    promotion: document.getElementById('inscrit-filiere').value,
+    niveau: document.getElementById('inscrit-promotion').value,
+    annee_academique: document.getElementById('inscrit-annee').value,
+    statut: document.getElementById('inscrit-statut').value
+  };
+  try {
+    const r = await fetchCaisse(`${BASE_URL}/api/etudiants/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + (d.erreur || 'Mise à jour impossible'), 'erreur'); return; }
+    const fichierPhoto = document.getElementById('inscrit-photo-fichier')?.files?.[0];
+    if (fichierPhoto) {
+      const fd = new FormData(); fd.append('photo', fichierPhoto);
+      const rp = await fetchCaisse(`${BASE_URL}/api/etudiants/${id}/photo`, { method: 'POST', body: fd });
+      if (!rp.ok) { const dp = await rp.json(); afficherToast('⚠️ ' + (dp.erreur || "Échec de l'envoi de la photo."), 'erreur'); }
+    }
+    afficherToast('✅ Mis à jour !'); fermerModalInscrit(); chargerInscritsCaisse(); chargerStatsCaisse();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function supprimerInscritCaisse(id) {
+  if (!await confirmerAction(`Supprimer l'étudiant ${id} ? Cette action est irréversible.`, { titre: "Supprimer l'étudiant", texteConfirmer: 'Supprimer' })) return;
+  try {
+    const r = await fetchCaisse(`${BASE_URL}/api/etudiants/${id}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + (d.erreur || 'Suppression impossible'), 'erreur'); return; }
+    afficherToast('✅ Étudiant supprimé.'); chargerInscritsCaisse(); chargerStatsCaisse();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+// ----- Inscrire un nouvel étudiant (modal) -----
+function ouvrirModalNouvelInscritCaisse() {
+  ['reins-nom','reins-postnom','reins-prenom','reins-ddn','reins-lieunaissance','reins-email','reins-telephone'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const selFac = document.getElementById('reins-faculte'); if (selFac) selFac.selectedIndex = 0;
+  const selAnn = document.getElementById('reins-annee-nouveau'); if (selAnn && anneeCouranteCaisse) selAnn.value = anneeCouranteCaisse;
+  chargerFilieresPourReinscription();
+  document.getElementById('modal-nouvel-inscrit')?.classList.add('active');
+}
+function fermerModalNouvelInscritCaisse() { document.getElementById('modal-nouvel-inscrit')?.classList.remove('active'); }
+
+function chargerFilieresPourReinscription() {
+  const faculte = document.getElementById('reins-faculte')?.value || '';
+  const niveau = document.getElementById('reins-niveau')?.value || '';
+  const sel = document.getElementById('reins-filiere');
+  if (!sel) return;
+  if (!faculte) { sel.innerHTML = '<option value="">— Choisir une faculté d\'abord —</option>'; return; }
+  const filieres = optionsFiliereFacNiveau(faculte, niveau);
+  sel.innerHTML = filieres.length === 0
+    ? '<option value="">— Choisir un niveau —</option>'
+    : (filieres.length === 1
+        ? filieres.map(f => `<option value="${f}">${f}</option>`).join('')
+        : '<option value="">— Choisir une filière —</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join(''));
+}
+
+async function reinscrireNouvelEtudiantCaisse() {
+  const corps = {
+    nom: document.getElementById('reins-nom').value.trim(),
+    postnom: document.getElementById('reins-postnom').value.trim(),
+    prenom: document.getElementById('reins-prenom').value.trim(),
+    sexe: document.getElementById('reins-sexe').value,
+    date_naissance: document.getElementById('reins-ddn').value,
+    email: document.getElementById('reins-email').value.trim(),
+    telephone: document.getElementById('reins-telephone').value.trim(),
+    faculte: document.getElementById('reins-faculte').value,
+    filiere: document.getElementById('reins-filiere').value,
+    niveau: document.getElementById('reins-niveau').value,
+    annee_academique: document.getElementById('reins-annee-nouveau').value
+  };
+  if (!corps.nom || !corps.prenom || !corps.faculte || !corps.niveau || !corps.annee_academique) {
+    afficherToast('⚠️ Nom, prénom, faculté, niveau et année sont obligatoires.', 'erreur'); return;
+  }
+  try {
+    const r = await fetchCaisse(`${BASE_URL}/api/reinscriptions/nouveau`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + (d.erreur || 'Inscription impossible'), 'erreur'); return; }
+    fermerModalNouvelInscritCaisse();
+    chargerInscritsCaisse(); chargerStatsCaisse();
+    await confirmerAction(
+      `Étudiant inscrit en ${corps.niveau} (${d.coursInscrits} cours). Matricule : ${d.matricule} — Mot de passe temporaire : ${d.motDePasseTemporaire}`,
+      { titre: '✅ Inscription réussie', texteConfirmer: 'Compris' }
+    );
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+// Carte d'étudiant (identité + photo + QR) — même rendu que côté admin.
+function imprimerCarteEtudiantCaisse(id) {
+  const e = inscritsCaisse.find(x => x.id === id);
+  if (!e) { afficherToast('⚠️ Étudiant non trouvé. Actualisez.', 'erreur'); return; }
+  if (typeof qrcode === 'undefined') { afficherToast('⚠️ Générateur de QR indisponible (vérifiez la connexion).', 'erreur'); return; }
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const nomComplet = `${e.nom || ''} ${e.postnom || ''} ${e.prenom || ''}`.replace(/\s+/g, ' ').trim();
+  const ddn = e.date_naissance ? new Date(e.date_naissance).toLocaleDateString('fr-FR') : '—';
+  const payload = `UML | Matricule: ${e.id} | ${nomComplet} | ${e.faculte || ''} | ${e.promotion || ''} | ${e.annee_academique || ''}`;
+  const qr = qrcode(0, 'M'); qr.addData(payload); qr.make();
+  const qrSrc = qr.createDataURL(4, 6);
+  const initiales = `${(e.prenom || '')[0] || ''}${(e.nom || '')[0] || ''}`.toUpperCase() || 'ET';
+  const photoHTML = e.photo ? `<img class="r-photo" src="${BASE_URL}/${esc(e.photo)}" alt="Photo">` : `<div class="r-photo r-photo-vide">${esc(initiales)}</div>`;
+  const naissance = `${ddn}${e.lieu_naissance ? ' à ' + esc(e.lieu_naissance) : ''}`;
+  const prenomNom = `${e.prenom || ''} ${e.nom || ''}`.replace(/\s+/g, ' ').trim();
+  const MOIS = ['Sep', 'Oct', 'Nov', 'Déc', 'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'];
+  const cellulesMois = MOIS.map(m => `<div class="v-mois"><div class="v-case"></div><span>${m}</span></div>`).join('');
+
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Carte étudiant ${esc(e.id)}</title>
+<style>
+  :root { --bleu:#1a3a6b; --bleu2:#24508f; --jaune:#f0c020; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #e9edf2; padding: 24px; color: #1a1a1a; }
+  .barre { text-align: center; margin-bottom: 18px; }
+  .barre button { font-size: 14px; padding: 9px 20px; border: none; border-radius: 6px; background: var(--bleu); color: #fff; cursor: pointer; }
+  .carte { width: 340px; height: 214px; margin: 0 auto 22px; border-radius: 12px; overflow: hidden;
+           box-shadow: 0 6px 18px rgba(0,0,0,.18); position: relative; }
+  .recto { background: linear-gradient(135deg, #14294b 0%, var(--bleu) 55%, var(--bleu2) 100%); color: #fff; }
+  .r-annee { position: absolute; top: 0; right: 0; width: 112px; padding: 6px 10px 8px; text-align: center;
+             background: var(--jaune); color: var(--bleu); border-bottom-left-radius: 16px; }
+  .r-annee small { display: block; font-size: 7px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; }
+  .r-annee b { font-size: 11px; }
+  .r-top { display: flex; align-items: center; gap: 8px; padding: 9px 12px 4px; }
+  .r-top .u { font-size: 11px; font-weight: 800; line-height: 1.12; letter-spacing: .3px; }
+  .r-fac { padding: 2px 12px 6px; color: var(--jaune); font-size: 9.5px; font-weight: 700; }
+  .r-body { display: flex; padding: 0 12px; gap: 10px; }
+  .r-infos { flex: 1 1 auto; min-width: 0; }
+  .r-nom { font-size: 12px; font-weight: 800; text-transform: uppercase; line-height: 1.15; }
+  .r-nom span { display: block; font-size: 10px; font-weight: 600; text-transform: none; }
+  .r-sub { font-size: 8px; color: #cdd8ea; margin: 3px 0 5px; }
+  .r-infos p { font-size: 8.5px; line-height: 1.5; }
+  .r-infos p b { color: var(--jaune); font-weight: 600; }
+  .r-photo { width: 88px; height: 104px; object-fit: cover; border-radius: 4px; border: 2px solid var(--jaune); flex: 0 0 auto; }
+  .r-photo-vide { display: flex; align-items: center; justify-content: center; background: #0e1f3a; color: var(--jaune); font-size: 32px; font-weight: 800; }
+  .r-pied { position: absolute; left: 0; right: 0; bottom: 0; background: var(--jaune); color: var(--bleu);
+            font-size: 7.5px; font-weight: 600; padding: 3px 12px; display: flex; justify-content: space-between; }
+  .verso { background: linear-gradient(135deg, #f4f6f9, #e3e8ef); color: var(--bleu); }
+  .v-top { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 2px solid var(--jaune); }
+  .v-top .n { font-size: 10px; font-weight: 800; }
+  .v-top .a { font-size: 8.5px; font-weight: 700; }
+  .v-top .a small { color: #6a768a; }
+  .v-corps { display: flex; gap: 10px; padding: 9px 12px 4px; }
+  .v-qr { text-align: center; flex: 0 0 auto; }
+  .v-qr img { width: 78px; height: 78px; }
+  .v-qr span { display: block; font-size: 6.5px; color: #6a768a; margin-top: 2px; }
+  .v-grille { flex: 1 1 auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px 6px; align-content: start; }
+  .v-mois { text-align: center; }
+  .v-case { height: 24px; border: 1px solid var(--bleu); border-radius: 4px; background: rgba(240,192,32,.10); }
+  .v-mois span { font-size: 6.5px; color: var(--bleu); }
+  .v-pied { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-size: 6.5px;
+            color: #6a768a; padding: 2px; border-top: 1px solid #d4dae3; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .barre { display: none; }
+    .carte { box-shadow: none; margin: 0 auto; }
+    .verso { page-break-before: always; }
+    @page { size: auto; margin: 10mm; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style></head><body>
+  <div class="barre"><button onclick="window.print()">🖨️ Imprimer la carte (recto / verso)</button></div>
+  <div class="carte recto">
+    <div class="r-annee"><small>Année académique</small><b>${esc(e.annee_academique || '—')}</b></div>
+    <div class="r-top"><div class="u">UNIVERSITÉ MÉTHODISTE<br>DE LUBUMBASHI</div></div>
+    <div class="r-fac">${esc(e.faculte || 'Université Méthodiste de Lubumbashi')}</div>
+    <div class="r-body">
+      <div class="r-infos">
+        <div class="r-nom">${esc(`${e.nom || ''} ${e.postnom || ''}`.trim())}<span>${esc(e.prenom || '')}</span></div>
+        <div class="r-sub">Né(e) le ${naissance}</div>
+        <p>Étudiant(e)</p>
+        <p>Niveau : <b>${esc(e.niveau || '—')}</b></p>
+        <p>Matricule : <b>${esc(e.id)}</b></p>
+        <p>Classe : <b>${esc(e.promotion || '—')}</b></p>
+      </div>
+      ${photoHTML}
+    </div>
+    <div class="r-pied"><span>Lubumbashi — R.D. Congo</span><span>Carte strictement personnelle</span></div>
+  </div>
+  <div class="carte verso">
+    <div class="v-top"><span class="n">${esc(prenomNom)}</span><span class="a"><small>Année académique</small> ${esc(e.annee_academique || '—')}</span></div>
+    <div class="v-corps"><div class="v-qr"><img src="${qrSrc}" alt="QR"><span>Vérification</span></div><div class="v-grille">${cellulesMois}</div></div>
+    <div class="v-pied">En cas de perte, prière de la remettre à l'Université Méthodiste de Lubumbashi</div>
+  </div>
+<script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 500); });<\/script>
+</body></html>`;
+
+  const w = window.open('', '_blank', 'width=760,height=560');
+  if (!w) { afficherToast('⚠️ Autorisez les pop-ups pour imprimer la carte.', 'erreur'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const champPass = document.getElementById('caisse-pass');
   if (champPass) champPass.addEventListener('keypress', e => { if (e.key === 'Enter') connexionCaisse(); });
@@ -1244,6 +1568,10 @@ document.addEventListener('DOMContentLoaded', () => {
       remplirSelectFacultes('caisse-filtre-faculte');
       remplirSelectFacultes('bareme-faculte');
       remplirSelectFacultes('liste-faculte');
+      // Gérer les inscrits : filtre facultés + selects des deux modals.
+      remplirSelectFacultes('filtre-inscrits-faculte');
+      remplirSelectFacultes('inscrit-faculte');
+      remplirSelectFacultes('reins-faculte');
     });
 
     // Fermer les panneaux (cloche, menu) au clic en dehors.
