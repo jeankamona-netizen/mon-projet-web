@@ -129,7 +129,7 @@ async function trouverConflits({ date_debut, heure_debut, heure_fin, promotion, 
     const [conflitsProf] = await pool.query(sqlProf, paramsProf);
     if (conflitsProf.length > 0) {
       const c = conflitsProf[0];
-      conflits.professeur = `Conflit : ce professeur donne déjà « ${c.cours_nom} » (${c.promotion}, salle ${c.salle}) à cette date et à cette heure.`;
+      conflits.professeur = `Conflit : ce professeur donne déjà « ${c.cours_nom} » (${c.promotion}) dans une AUTRE salle (${c.salle}) à cette date et à cette heure. Pour un cours d'ensemble (plusieurs filières réunies), placez ce cours dans la MÊME salle (${c.salle}).`;
     }
   }
 
