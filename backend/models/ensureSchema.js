@@ -242,6 +242,37 @@ async function nettoyerCoursCommunEtFiliere(pool) {
   if (supprimes) console.log(`✅ Cours dupliqués (commun + filière) nettoyés : ${supprimes} copie(s) filière supprimée(s).`);
 }
 
+// Resynchronisation des inscriptions aux cours : garantit que TOUT cours
+// atteint bien tous les étudiants concernés (donc son programme annuel ET son
+// horaire, tous deux basés sur inscription_cours). Corrige les manques
+// historiques — un cours commun/multi-facultés créé alors que certains
+// étudiants n'étaient pas encore inscrits, une fusion de doublons, etc.
+// Règles (identiques à inscriptionAuto.js), pour un étudiant de même niveau + année :
+//   • cours propre à une filière  → seulement les étudiants de cette filière ;
+//   • cours commun (filiere_id NULL), de sa faculté OU inter-facultés (faculte NULL)
+//     → tous les étudiants, SAUF ceux d'une filière AUTONOME (ex. Informatique de
+//       Gestion), qui ne suivent que les cours de leur propre filière.
+// INSERT IGNORE : idempotent, n'ajoute que ce qui manque, ne retire jamais rien.
+async function resynchroniserInscriptions(pool) {
+  const [auto] = await pool.query(
+    "SELECT id FROM filiere WHERE nom IN ('Informatique de Gestion','Master Informatique de Gestion')"
+  );
+  const autoIds = auto.map(a => a.id);
+  const horsAutonomes = autoIds.length
+    ? `AND (e.filiere_id IS NULL OR e.filiere_id NOT IN (${autoIds.map(() => '?').join(',')}))`
+    : '';
+  const [r] = await pool.query(`
+    INSERT IGNORE INTO inscription_cours (etudiant_id, cours_id)
+    SELECT e.id, c.id
+    FROM etudiant e
+    JOIN cours c ON c.niveau = e.niveau AND c.annee_academique = e.annee_academique
+    WHERE
+      (c.filiere_id IS NOT NULL AND c.filiere_id = e.filiere_id)
+      OR (c.filiere_id IS NULL AND (c.faculte IS NULL OR c.faculte = e.faculte) ${horsAutonomes})
+  `, autoIds);
+  if (r.affectedRows) console.log(`✅ Inscriptions resynchronisées : ${r.affectedRows} inscription(s) manquante(s) ajoutée(s).`);
+}
+
 // Le nom de famille (étudiant/professeur.nom, agent.noms, preinscription.nom)
 // doit toujours être en MAJUSCULES. On met à niveau l'existant. La comparaison
 // « <> BINARY UPPER(...) » est sensible à la casse (sinon la collation ci
@@ -278,7 +309,11 @@ async function assurerSchema(pool) {
   // Chargement (idempotent) de la maquette Informatique de Gestion. Placé APRÈS
   // le nettoyage des cours pour ne pas être altéré par celui-ci.
   try { await seedMaquetteIG(); } catch (e) { console.error('⚠️ Seed maquette IG :', e.message); }
-  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement, presence, agent.faculte, filières, cours, noms).');
+  // Resynchronisation des inscriptions EN DERNIER : après tout nettoyage/seed de
+  // cours, pour que chaque cours (commun ou de filière) atteigne bien tous ses
+  // étudiants (programme annuel + horaire).
+  await resynchroniserInscriptions(pool);
+  console.log('✅ Schéma vérifié (frais_scolarite, journal_audit, paiement, presence, agent.faculte, filières, cours, inscriptions, noms).');
 }
 
 module.exports = { assurerSchema };
