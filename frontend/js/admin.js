@@ -139,20 +139,44 @@ function preparerEspaceDoyen() {
 // Rapport de délibération — disposition décanale : la faculté disparaît (déduite
 // de la faculté du doyen), ligne 1 = année · niveau · filière, ligne 2 =
 // période · boutons. L'admin conserve la disposition initiale.
+// Disposition décanale du « Rapport de délibération » : la faculté est celle du
+// décanat (champ retiré). On force DEUX lignes de TROIS colonnes chacune —
+//   ligne 1 : Année · Niveau · Filière
+//   ligne 2 : Période · Générer le rapport · Imprimer
+// (chaque bouton dans sa propre colonne, aligné en bas comme les sélecteurs).
 function preparerRapportDelibDoyen() {
   if (!estDoyen()) return;
   const rowA = document.getElementById('delib-rap-rowA');
   const rowB = document.getElementById('delib-rap-rowB');
   const boutons = document.getElementById('delib-rap-boutons');
   if (!rowA || !rowB || !boutons) return;
+  if (rowB.dataset.doyenPret === '1') return; // idempotent (évite de dupliquer les cellules)
   const gFac = document.getElementById('delib-rap-grp-faculte');
   const gNiv = document.getElementById('delib-rap-grp-niveau');
   const gFil = document.getElementById('delib-rap-grp-filiere');
   const gAnn = document.getElementById('delib-rap-grp-annee');
   const gPer = document.getElementById('delib-rap-grp-periode');
   if (gFac) gFac.remove();          // faculté = celle du décanat
+
+  // Ligne 1 : 3 colonnes.
+  rowA.style.gridTemplateColumns = '1fr 1fr 1fr';
   if (gAnn && gNiv && gFil) rowA.append(gAnn, gNiv, gFil);
-  if (gPer) rowB.append(gPer, boutons);
+
+  // Ligne 2 : 3 colonnes. Chaque bouton placé dans une cellule qui l'aligne en
+  // bas (flex-end) et l'étire sur toute la largeur de sa colonne.
+  rowB.style.gridTemplateColumns = '1fr 1fr 1fr';
+  boutons.querySelectorAll('button').forEach(btn => {
+    const cell = document.createElement('div');
+    cell.className = 'form-group-dash';
+    cell.style.justifyContent = 'flex-end';
+    btn.style.width = '100%';
+    btn.style.margin = '0';
+    cell.appendChild(btn);
+    rowB.appendChild(cell);
+  });
+  boutons.remove();
+  if (gPer) rowB.insertBefore(gPer, rowB.firstChild); // Période en 1re colonne
+  rowB.dataset.doyenPret = '1';
 }
 
 // =====================
