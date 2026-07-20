@@ -1252,14 +1252,22 @@ async function chargerInscritsCaisse() {
     const annee = document.getElementById('filtre-inscrits-annee')?.value || '';
     const niveau = document.getElementById('filtre-inscrits-niveau')?.value || '';
     const faculte = document.getElementById('filtre-inscrits-faculte')?.value || '';
+    const date = document.getElementById('filtre-inscrits-date')?.value || '';
     const params = new URLSearchParams();
     if (nom) params.append('nom', nom);
     if (annee) params.append('annee', annee);
     if (niveau) params.append('niveau', niveau);
     if (faculte) params.append('faculte', faculte);
+    if (date) params.append('date', date);
     const r = await fetchCaisse(`${BASE_URL}/api/etudiants?${params}`);
     inscritsCaisse = await r.json();
-    if (!inscritsCaisse.length) { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
+    if (!Array.isArray(inscritsCaisse) || !inscritsCaisse.length) { tbody.innerHTML = `<tr><td colspan="6" class="admin-vide">Aucun étudiant trouvé.</td></tr>`; return; }
+    // Affichage par défaut du plus récent au plus ancien (date d'inscription) ;
+    // les étudiants déjà promus (lignes « historique ») passent en dernier.
+    inscritsCaisse.sort((a, b) => {
+      if (!!a.historique !== !!b.historique) return a.historique ? 1 : -1;
+      return String(b.date_inscription || '').localeCompare(String(a.date_inscription || ''));
+    });
     // Niveau + Filière fusionnés en « Promotion » (ex. « L1 Théologie »).
     // ⚠️ Pas de bouton « bulletin » ni « réinitialiser le mot de passe » pour la
     // caisse — uniquement carte étudiant, modifier et supprimer.

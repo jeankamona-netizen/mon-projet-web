@@ -6,7 +6,7 @@ const helmet    = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan    = require('morgan');
 const pool      = require('./database');
-const { requireAdmin, requireAdminOuDoyen, requireAdminOuCaisse, requireInscritsLecture, faculteDuDoyen } = require('./middleware/auth');
+const { requireAdmin, requireAdminOuDoyen, requireGestionInscrits, requireInscritsLecture, faculteDuDoyen } = require('./middleware/auth');
 const { journaliserActionsAdmin } = require('./middleware/audit');
 const crypto      = require('crypto');
 const bcrypt      = require('bcryptjs');
@@ -290,7 +290,7 @@ app.get('/api/audit-log', requireAdmin, async (req, res) => {
 // réinit. mot de passe) restent réservées à l'admin (requireAdmin).
 app.get('/api/etudiants', requireInscritsLecture, async (req, res) => {
   try {
-    const { annee, promotion, nom, niveau } = req.query;
+    const { annee, promotion, nom, niveau, date } = req.query;
     // Un doyen ne peut jamais élargir au-delà de sa faculté (le filtre client
     // est ignoré au profit de sa faculté de rattachement).
     const faculte = faculteDuDoyen(req) || req.query.faculte;
@@ -322,6 +322,7 @@ app.get('/api/etudiants', requireInscritsLecture, async (req, res) => {
                  e.statut, e.photo,
                  e.faculte AS faculte_actuelle, e.promotion AS promotion_actuelle,
                  e.niveau AS niveau_actuel, e.annee_academique AS annee_academique_actuelle,
+                 e.date_inscription,
                  COALESCE(h.faculte, e.faculte)                     AS faculte,
                  COALESCE(h.promotion, e.promotion)                 AS promotion,
                  COALESCE(h.niveau, e.niveau)                       AS niveau,
@@ -357,6 +358,7 @@ app.get('/api/etudiants', requireInscritsLecture, async (req, res) => {
                e.statut, e.photo, e.faculte, e.promotion, e.niveau, e.annee_academique,
                e.faculte AS faculte_actuelle, e.promotion AS promotion_actuelle,
                e.niveau AS niveau_actuel, e.annee_academique AS annee_academique_actuelle,
+               e.date_inscription,
                FALSE AS historique
         FROM etudiant e
         LEFT JOIN filiere fil ON e.filiere_id = fil.id
@@ -381,6 +383,8 @@ app.get('/api/etudiants', requireInscritsLecture, async (req, res) => {
       sql += ' AND (LOWER(e.nom) LIKE LOWER(?) OR LOWER(e.prenom) LIKE LOWER(?) OR LOWER(e.postnom) LIKE LOWER(?) OR LOWER(e.id) LIKE LOWER(?))';
       params.push(`%${nom}%`, `%${nom}%`, `%${nom}%`, `%${nom}%`);
     }
+    // Filtre par date d'inscription (jour d'enregistrement de l'étudiant).
+    if (date) { sql += ' AND DATE(e.date_inscription) = ?'; params.push(date); }
     sql += ' ORDER BY e.nom, e.prenom';
 
     const [etudiants] = await pool.query(sql, params);
@@ -391,7 +395,7 @@ app.get('/api/etudiants', requireInscritsLecture, async (req, res) => {
   }
 });
 
-app.put('/api/etudiants/:id', requireAdminOuCaisse, async (req, res) => {
+app.put('/api/etudiants/:id', requireGestionInscrits, async (req, res) => {
   const { nom, postnom, prenom, date_naissance, sexe, email, telephone, faculte, promotion, niveau, annee_academique, statut } = req.body;
   if (!nom || !prenom) {
     return res.status(400).json({ erreur: 'Le nom et le prénom sont obligatoires.' });
@@ -429,7 +433,7 @@ app.put('/api/etudiants/:id', requireAdminOuCaisse, async (req, res) => {
 
 // Photo de l'étudiant (pour la carte) : téléversée depuis le disque par l'admin,
 // stockée dans frontend/uploads. Chemin relatif enregistré dans etudiant.photo.
-app.post('/api/etudiants/:id/photo', requireAdminOuCaisse, upload.single('photo'), upload.verifierContenuFichiers, async (req, res) => {
+app.post('/api/etudiants/:id/photo', requireGestionInscrits, upload.single('photo'), upload.verifierContenuFichiers, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ erreur: 'Aucune photo reçue.' });
     const chemin = 'uploads/' + req.file.filename;
@@ -439,7 +443,7 @@ app.post('/api/etudiants/:id/photo', requireAdminOuCaisse, upload.single('photo'
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });
 
-app.delete('/api/etudiants/:id', requireAdminOuCaisse, async (req, res) => {
+app.delete('/api/etudiants/:id', requireGestionInscrits, async (req, res) => {
   try {
     // On récupère le nom avant suppression, pour un journal d'audit lisible.
     const [[etu]] = await pool.query('SELECT nom, postnom, prenom FROM etudiant WHERE id = ?', [req.params.id]);

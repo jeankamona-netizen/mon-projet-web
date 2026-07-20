@@ -139,6 +139,22 @@ async function assurerSchemaPresence(pool) {
   `);
 }
 
+// Date d'inscription de l'étudiant (jour d'enregistrement) : permet de filtrer
+// et de trier « Gérer les inscrits » du plus récent au plus ancien. Les fiches
+// existantes prennent la date de la migration ; les nouvelles inscriptions
+// reçoivent l'horodatage réel via le DEFAULT.
+async function assurerSchemaDateInscription(pool) {
+  const [cols] = await pool.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'etudiant'`
+  );
+  if (!cols.length) return;
+  const noms = cols.map(c => c.COLUMN_NAME.toLowerCase());
+  if (!noms.includes('date_inscription')) {
+    await pool.query('ALTER TABLE etudiant ADD COLUMN date_inscription DATETIME DEFAULT CURRENT_TIMESTAMP');
+  }
+}
+
 // Rattachement d'un agent à une faculté : indispensable pour le décanat (doyen /
 // vice-doyen), dont tout l'accès est limité à SA faculté. Stocké par NOM de
 // faculté (comme cours.faculte et etudiant.faculte), pas par id, pour rester
@@ -302,6 +318,7 @@ async function assurerSchema(pool) {
   await assurerSchemaJournalAudit(pool);
   await assurerSchemaPaiement(pool);
   await assurerSchemaPresence(pool);
+  await assurerSchemaDateInscription(pool);
   await assurerSchemaAgentFaculte(pool);
   await nettoyerPrefixesNiveauFilieres(pool);
   await nettoyerCoursCommunEtFiliere(pool);

@@ -61,12 +61,13 @@ const requireBudget   = exigerRoles(['admin', 'budget'], 'Réservé à l\'admini
 // d'audit, qui restent protégés par requireAdmin strict.
 const requireAdminOuDoyen = exigerRoles(['admin', 'doyen'], 'Accès réservé à l\'administration et au décanat.');
 
-// Gestion des inscrits : la caisse peut, comme l'admin, inscrire/modifier/
-// supprimer des étudiants (mais PAS réinitialiser un mot de passe ni imprimer
-// un bulletin, qui restent en requireAdmin). Lecture de la liste ouverte à
-// l'admin, au décanat (scopé à sa faculté) et à la caisse.
-const requireAdminOuCaisse    = exigerRoles(['admin', 'caisse'], 'Accès réservé à l\'administration et à la caisse.');
-const requireInscritsLecture  = exigerRoles(['admin', 'doyen', 'caisse'], 'Accès réservé à l\'administration, au décanat et à la caisse.');
+// Gestion des inscrits : la caisse ET l'administrateur du budget peuvent, comme
+// l'admin, inscrire/modifier/supprimer des étudiants (mais PAS réinitialiser un
+// mot de passe ni imprimer un bulletin, qui restent en requireAdmin). Lecture
+// de la liste ouverte à l'admin, au décanat (scopé à sa faculté), à la caisse
+// et à l'administrateur du budget.
+const requireGestionInscrits  = exigerRoles(['admin', 'caisse', 'budget'], 'Accès réservé à l\'administration et aux finances.');
+const requireInscritsLecture  = exigerRoles(['admin', 'doyen', 'caisse', 'budget'], 'Accès réservé à l\'administration, au décanat et aux finances.');
 
 // Faculté de rattachement du demandeur SI c'est un doyen/vice-doyen (rôle
 // 'doyen'), sinon null. Les handlers ouverts au décanat s'en servent pour
@@ -78,4 +79,4 @@ function faculteDuDoyen(req) {
   return u && u.role === 'doyen' ? (u.faculte || null) : null;
 }
 
-module.exports = { requireAdmin, requireFinance, requireCaissier, requireBudget, requireAdminOuDoyen, requireAdminOuCaisse, requireInscritsLecture, faculteDuDoyen };
+module.exports = { requireAdmin, requireFinance, requireCaissier, requireBudget, requireAdminOuDoyen, requireGestionInscrits, requireInscritsLecture, faculteDuDoyen };
