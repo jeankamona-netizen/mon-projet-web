@@ -15,6 +15,22 @@ router.use(requireFinance);
 router.get('/etudiants', async (req, res) => {
   try {
     const { nom, annee, niveau, faculte } = req.query;
+    // Les versements (total, nombre, dernier motif/référence) sont rattachés à la
+    // PÉRIODE consultée : un étudiant promu qui a réglé sa scolarité en L1 ne doit
+    // PAS voir ces versements comptés dans sa promotion montante (L2). On restreint
+    // donc les paiements à l'année ET au niveau du filtre — le niveau effectif d'un
+    // versement est p.niveau s'il est renseigné (versement rattaché explicitement à
+    // un niveau), sinon le niveau courant de l'étudiant (anciens versements).
+    const condPmt = [], paramsPmt = [];
+    if (annee)  { condPmt.push('p.annee_academique = ?');                          paramsPmt.push(annee); }
+    if (niveau) { condPmt.push("COALESCE(NULLIF(p.niveau, ''), e.niveau) = ?");    paramsPmt.push(niveau); }
+    const jointurePmt = condPmt.length ? ' AND ' + condPmt.join(' AND ') : '';
+    // Même restriction pour les sous-requêtes « dernier motif / référence » (p2).
+    const condP2 = [], paramsP2 = [];
+    if (annee)  { condP2.push('p2.annee_academique = ?');                          paramsP2.push(annee); }
+    if (niveau) { condP2.push("COALESCE(NULLIF(p2.niveau, ''), e.niveau) = ?");    paramsP2.push(niveau); }
+    const filtreP2 = condP2.length ? ' AND ' + condP2.join(' AND ') : '';
+
     // montant_attendu = SOMME de toutes les rubriques du barème correspondant
     // (faculté + filière + niveau + année) — sous-requête pour ne pas multiplier
     // le total des versements par le nombre de rubriques.
@@ -26,14 +42,16 @@ router.get('/etudiants', async (req, res) => {
              (SELECT SUM(fs.montant) FROM frais_scolarite fs
                WHERE fs.faculte = e.faculte AND fs.promotion = e.promotion
                  AND fs.niveau = e.niveau AND fs.annee_academique = e.annee_academique) AS montant_attendu,
-             (SELECT p2.rubrique  FROM paiement p2 WHERE p2.etudiant_id = e.id ORDER BY p2.date_paiement DESC, p2.id DESC LIMIT 1) AS dernier_motif,
-             (SELECT p2.reference FROM paiement p2 WHERE p2.etudiant_id = e.id ORDER BY p2.date_paiement DESC, p2.id DESC LIMIT 1) AS derniere_reference
+             (SELECT p2.rubrique  FROM paiement p2 WHERE p2.etudiant_id = e.id${filtreP2} ORDER BY p2.date_paiement DESC, p2.id DESC LIMIT 1) AS dernier_motif,
+             (SELECT p2.reference FROM paiement p2 WHERE p2.etudiant_id = e.id${filtreP2} ORDER BY p2.date_paiement DESC, p2.id DESC LIMIT 1) AS derniere_reference
       FROM etudiant e
       LEFT JOIN filiere f ON e.filiere_id = f.id
-      LEFT JOIN paiement p ON p.etudiant_id = e.id
+      LEFT JOIN paiement p ON p.etudiant_id = e.id${jointurePmt}
       WHERE 1=1
     `;
-    const params = [];
+    // Ordre des paramètres = ordre d'apparition dans le SQL : sous-requête
+    // dernier_motif, sous-requête derniere_reference, jointure paiement, puis WHERE.
+    const params = [...paramsP2, ...paramsP2, ...paramsPmt];
     if (annee)   { sql += ' AND e.annee_academique = ?'; params.push(annee); }
     if (niveau)  { sql += ' AND e.niveau = ?'; params.push(niveau); }
     if (faculte) { sql += ' AND e.faculte = ?'; params.push(faculte); }
