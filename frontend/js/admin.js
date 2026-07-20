@@ -3566,6 +3566,7 @@ async function imprimerAttributionsProfesseurs(profId = null) {
       const cours = coursParProf[p.id] || [];
       if (cours.length === 0) return '';
       const vol = v => (v === null || v === undefined || v === '') ? '—' : v;
+      const num = v => Number(v) || 0;
       const lignes = cours.map((c, i) => `
         <tr>
           <td>${i + 1}</td>
@@ -3578,12 +3579,23 @@ async function imprimerAttributionsProfesseurs(profId = null) {
           <td class="g">${esc(c.faculte || '')}${(c.filiere_nom || c.promotion) ? ' / ' + esc(c.filiere_nom || c.promotion) : ''}</td>
           <td>${c.semestre || ''}</td>
         </tr>`).join('');
+      // Total des heures (CMI+TD+TP) et des crédits, sous une ligne de démarcation.
+      const totalHeures  = cours.reduce((s, c) => s + num(c.cmi) + num(c.td) + num(c.tp), 0);
+      const totalCredits = cours.reduce((s, c) => s + num(c.credits), 0);
+      const ligneTotal = `
+        <tr class="total">
+          <td colspan="2" class="g">Total</td>
+          <td colspan="3">${totalHeures} h</td>
+          <td>${totalCredits}</td>
+          <td colspan="3"></td>
+        </tr>`;
       return `
         <div class="bloc-prof">
           <h3>${esc(p.nom)} ${esc(p.prenom || '')} <span class="grade">${esc(p.grade || '')}</span></h3>
           <table class="cours-table">
             <thead><tr><th>N°</th><th>Intitulé UE</th><th>CMI</th><th>TD</th><th>TP</th><th>Crédit</th><th>Niveau</th><th>Faculté / Filière</th><th>Sem.</th></tr></thead>
             <tbody>${lignes}</tbody>
+            <tfoot>${ligneTotal}</tfoot>
           </table>
         </div>`;
     }).join('');
@@ -3617,6 +3629,8 @@ async function imprimerAttributionsProfesseurs(profId = null) {
   .cours-table td { padding:4px 6px; border:1px solid #eef1f5; text-align:center; }
   .cours-table td.g { text-align:left; }
   .cours-table td small { color:#888; }
+  .cours-table tfoot td { border-top:2px solid var(--bleu); font-weight:700; }
+  .cours-table tfoot td.g { text-align:right; }
   @media print { .barre { display:none; } body { padding:0; } @page { size:A4; margin:14mm; }
     * { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
 </style></head><body>

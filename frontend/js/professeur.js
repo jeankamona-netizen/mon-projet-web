@@ -102,9 +102,13 @@ async function chargerAttributionsProf() {
       ? `Cours qui vous sont attribués pour l'année ${anneeCourante}`
       : 'Cours qui vous sont attribués';
 
-    tbody.innerHTML = cours.length === 0
-      ? `<tr><td colspan="9" class="admin-vide">Aucun cours ne vous est attribué${anneeCourante ? ' pour ' + anneeCourante : ''}.</td></tr>`
-      : cours.map(c => `<tr>
+    if (cours.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" class="admin-vide">Aucun cours ne vous est attribué${anneeCourante ? ' pour ' + anneeCourante : ''}.</td></tr>`;
+    } else {
+      const num = v => Number(v) || 0;
+      const totalHeures  = cours.reduce((s, c) => s + num(c.cmi) + num(c.tp) + num(c.td), 0);
+      const totalCredits = cours.reduce((s, c) => s + num(c.credits), 0);
+      const lignes = cours.map(c => `<tr>
           <td><strong>${c.code || '—'}</strong></td>
           <td>${c.nom || '—'}</td>
           <td>${c.faculte || '—'}</td>
@@ -115,6 +119,15 @@ async function chargerAttributionsProf() {
           <td>${c.td ?? '—'}</td>
           <td>${c.credits ?? '—'}</td>
         </tr>`).join('');
+      // Ligne de démarcation + total des heures (CMI+TP+TD) et des crédits.
+      const bord = 'border-top:2px solid var(--bleu);font-weight:700';
+      const total = `<tr>
+          <td colspan="5" style="${bord};text-align:right">Total</td>
+          <td colspan="3" style="${bord};text-align:center">${totalHeures} h</td>
+          <td style="${bord};text-align:center">${totalCredits}</td>
+        </tr>`;
+      tbody.innerHTML = lignes + total;
+    }
   } catch { tbody.innerHTML = '<tr><td colspan="9" class="admin-vide">⚠️ Impossible de charger vos attributions.</td></tr>'; }
 }
 
