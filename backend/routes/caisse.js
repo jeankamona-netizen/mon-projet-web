@@ -302,14 +302,10 @@ router.get('/stats', async (req, res) => {
         )
       : await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement WHERE date_paiement = CURDATE()');
 
-    // « Sans aucun versement » = TOUS les étudiants inscrits (photo complète du
-    // registre) MOINS ceux qui ont déjà versé quelque chose POUR l'année
-    // académique courante. La population n'est pas filtrée sur l'année de la
-    // fiche (le champ annee_academique d'un étudiant ne suit l'année courante
-    // qu'à la réinscription) : on compte bien tout le corps étudiant.
-    const [[payeursRow]] = libelleCourant
-      ? await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement WHERE annee_academique = ?', [libelleCourant])
-      : await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement');
+    // « Sans aucun versement » = étudiants (inscrits/réinscrits) qui n'ont JAMAIS
+    // versé le moindre montant : tous les inscrits MOINS ceux ayant au moins un
+    // versement dans tout leur historique (toutes années confondues).
+    const [[payeursRow]] = await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement');
     const [[etudiants]] = await pool.query('SELECT COUNT(*) AS n FROM etudiant');
 
     // Encaissements de l'année académique courante (tableau « par année »).
