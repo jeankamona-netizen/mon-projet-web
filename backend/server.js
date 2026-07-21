@@ -626,20 +626,35 @@ app.get('/api/etudiant/:id/paiements', async (req, res) => {
     );
     const total = paiements.reduce((s, p) => s + Number(p.montant), 0);
 
-    // Solde restant = SOMME de toutes les rubriques du barème (frais_scolarite)
-    // de la faculté/filière/niveau/année de l'étudiant − ses versements de cette
-    // même année. null si aucun barème n'a encore été défini.
-    const [[bareme]] = await pool.query(
-      'SELECT SUM(montant) AS total FROM frais_scolarite WHERE faculte = ? AND promotion = ? AND niveau = ? AND annee_academique = ?',
-      [etu.faculte, etu.promotion, etu.niveau, etu.annee_academique]
-    );
-    const totalAnneeCourante = paiements
-      .filter(p => p.annee_academique === etu.annee_academique)
-      .reduce((s, p) => s + Number(p.montant), 0);
-    const montant_attendu = bareme && bareme.total !== null ? Number(bareme.total) : null;
-    const solde = montant_attendu === null ? null : Math.max(0, montant_attendu - totalAnneeCourante);
+    // Barème PAR ANNÉE : le montant dû est celui du NIVEAU réellement occupé
+    // CETTE année-là. Un étudiant promu (ou déjà diplômé) doit toujours pouvoir
+    // consulter, des années plus tard, ce qu'il devait pour chacune de ses
+    // années — pas le barème de sa promotion courante. La FILIÈRE (promotion) et
+    // la FACULTÉ sont stables ; seul le niveau change → on le récupère de son
+    // historique d'inscription aux cours, avec repli sur le profil courant.
+    const [hist] = await pool.query(
+      `SELECT c.annee_academique AS annee, MAX(c.niveau) AS niveau
+       FROM inscription_cours ic JOIN cours c ON c.id = ic.cours_id
+       WHERE ic.etudiant_id = ? GROUP BY c.annee_academique`, [req.params.id]);
+    const niveauParAnnee = {};
+    hist.forEach(h => { if (h.annee) niveauParAnnee[h.annee] = h.niveau; });
+    if (etu.annee_academique) niveauParAnnee[etu.annee_academique] = etu.niveau; // profil courant prioritaire
 
-    res.json({ paiements, total, montant_attendu, solde });
+    const annees = [...new Set([...paiements.map(p => p.annee_academique), ...Object.keys(niveauParAnnee)].filter(Boolean))];
+    const soldes = {};
+    for (const annee of annees) {
+      const niveau = niveauParAnnee[annee] || etu.niveau;
+      const [[bareme]] = await pool.query(
+        'SELECT SUM(montant) AS total FROM frais_scolarite WHERE faculte = ? AND promotion = ? AND niveau = ? AND annee_academique = ?',
+        [etu.faculte, etu.promotion, niveau, annee]);
+      const verse = paiements.filter(p => p.annee_academique === annee).reduce((s, p) => s + Number(p.montant), 0);
+      const montant_attendu = bareme && bareme.total !== null ? Number(bareme.total) : null;
+      soldes[annee] = { niveau, montant_attendu, verse, solde: montant_attendu === null ? null : Math.max(0, montant_attendu - verse) };
+    }
+
+    // Rétro-compatibilité : montant_attendu/solde de l'année COURANTE de l'étudiant.
+    const courant = soldes[etu.annee_academique] || { montant_attendu: null, solde: null };
+    res.json({ paiements, total, montant_attendu: courant.montant_attendu, solde: courant.solde, soldes });
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });
 

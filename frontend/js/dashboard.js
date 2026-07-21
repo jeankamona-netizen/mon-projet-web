@@ -587,6 +587,7 @@ function afficherProgramme() {
 // =====================
 let paiementsEtudiant = [];
 let soldeEtudiant = { montant_attendu: null, solde: null };
+let soldesParAnnee = {}; // { '2026-2027': { montant_attendu, verse, solde, niveau }, ... }
 
 async function chargerFraisDashboard(id) {
   const tbody = document.getElementById('frais-body');
@@ -594,9 +595,10 @@ async function chargerFraisDashboard(id) {
   try {
     const r = await fetch(`${BASE_URL}/api/etudiant/${id}/paiements`);
     if (!r.ok) throw new Error();
-    const { paiements, montant_attendu, solde } = await r.json();
+    const { paiements, montant_attendu, solde, soldes } = await r.json();
     paiementsEtudiant = paiements;
     soldeEtudiant = { montant_attendu, solde };
+    soldesParAnnee = soldes || {};
     afficherFrais();
   } catch {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px">⚠️ Impossible de charger vos frais.</td></tr>';
@@ -618,7 +620,10 @@ function afficherFrais() {
 
   if (totalEl) totalEl.textContent = `${total.toFixed(2)} $`;
   if (soldeEl) {
-    soldeEl.textContent = soldeEtudiant.solde === null ? 'Non défini' : `${Number(soldeEtudiant.solde).toFixed(2)} $`;
+    // Solde du barème de l'ANNÉE consultée (pas de la promotion courante) : un
+    // étudiant promu voit toujours ce qu'il devait pour l'année affichée.
+    const s = (annee && soldesParAnnee[annee]) ? soldesParAnnee[annee] : soldeEtudiant;
+    soldeEl.textContent = (s.solde === null || s.solde === undefined) ? 'Non défini' : `${Number(s.solde).toFixed(2)} $`;
   }
   tbody.innerHTML = liste.length === 0
     ? '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px">Aucun versement pour ce cursus.</td></tr>'

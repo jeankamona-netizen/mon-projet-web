@@ -3236,10 +3236,29 @@ function selectionnerEtudiantDelib(id, nomComplet, niveau, promotion, faculte, a
   // promotion se fera vers l'année suivante (voir deliberEtudiant).
   const selAnnee = document.getElementById('delib-annee');
   if (selAnnee && annee && [...selAnnee.options].some(o => o.value === annee)) selAnnee.value = annee;
-  const suite = { 'Pré-U':'L1', L1:'L2', L2:'L3', L3:'M1', M1:'M2', M2:'D1', D1:'D2' };
-  if (suite[niveau]) document.getElementById('delib-nouveau-niveau').value = suite[niveau];
+  // Progression par cycle : la fin d'un cycle (L3 = fin licence, M2 = fin master,
+  // D2 = fin doctorat) est TERMINALE → pas de promotion automatique vers le cycle
+  // supérieur. Le passage à Master/Doctorat se fait par une réinscription
+  // explicite (même matricule).
+  const suite = { 'Pré-U':'L1', L1:'L2', L2:'L3', M1:'M2', D1:'D2' };
+  delibTerminal = !suite[niveau];
+  const grp  = document.getElementById('delib-niveau-groupe');
+  const note = document.getElementById('delib-diplome-note');
+  const btn  = document.getElementById('delib-bouton');
+  if (delibTerminal) {
+    if (grp)  grp.style.display  = 'none';
+    if (note) note.style.display = 'block';
+    if (btn)  btn.textContent    = '🎓 Clôturer le cursus (diplômé)';
+  } else {
+    if (grp)  grp.style.display  = '';
+    if (note) note.style.display = 'none';
+    if (btn)  btn.textContent    = '⬆️ Promouvoir l\'étudiant';
+    document.getElementById('delib-nouveau-niveau').value = suite[niveau];
+  }
   chargerNotesDelib(id);
 }
+// Vrai si l'étudiant sélectionné est en fin de cycle (L3/M2/D2) → diplômé, pas promu.
+let delibTerminal = false;
 
 // Année académique suivante : « 2027-2028 » → « 2028-2029 ».
 function anneeSuivante(annee) {
@@ -3313,22 +3332,34 @@ async function chargerNotesDelib(id) {
 
 async function deliberEtudiant() {
   const etudiant_id = document.getElementById('delib-etudiant-id').value;
-  const nouveau_niveau = document.getElementById('delib-nouveau-niveau').value;
   const anneeDeliberee = document.getElementById('delib-annee').value;
   if (!etudiant_id) { afficherToast('⚠️ Sélectionnez d\'abord un étudiant.', 'erreur'); return; }
   if (!anneeDeliberee) { afficherToast('⚠️ Choisissez l\'année académique.', 'erreur'); return; }
-  // La promotion se fait toujours vers l'ANNÉE SUIVANTE : un L2 délibéré en
-  // 2027-2028 est promu en L3 pour 2028-2029.
-  const annee_academique = anneeSuivante(anneeDeliberee);
-  if (!await confirmerAction(`Promouvoir cet étudiant en ${nouveau_niveau} pour ${annee_academique} ?`, { titre: 'Délibération — promotion', texteConfirmer: 'Promouvoir' })) return;
+
+  let corps, confirmation;
+  if (delibTerminal) {
+    // Fin de cursus → diplômé (aucune promotion vers le cycle supérieur).
+    confirmation = `Clôturer le cursus de cet étudiant (diplômé) pour ${anneeDeliberee} ?\n\nPour le faire passer au cycle supérieur (Master, Doctorat), utilisez une réinscription — il gardera le même matricule.`;
+    corps = { etudiant_id, diplomer: true, annee_academique: anneeDeliberee };
+  } else {
+    // Promotion vers l'ANNÉE SUIVANTE : un L2 délibéré en 2027-2028 → L3 en 2028-2029.
+    const nouveau_niveau = document.getElementById('delib-nouveau-niveau').value;
+    const annee_academique = anneeSuivante(anneeDeliberee);
+    confirmation = `Promouvoir cet étudiant en ${nouveau_niveau} pour ${annee_academique} ?`;
+    corps = { etudiant_id, nouveau_niveau, annee_academique };
+  }
+  if (!await confirmerAction(confirmation, {
+    titre: delibTerminal ? 'Fin de cursus — diplômé' : 'Délibération — promotion',
+    texteConfirmer: delibTerminal ? 'Diplômer' : 'Promouvoir'
+  })) return;
   try {
     const r = await fetchAdmin(`${BASE_URL}/api/reinscriptions/promouvoir`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ etudiant_id, nouveau_niveau, annee_academique })
+      body: JSON.stringify(corps)
     });
     const d = await r.json();
     if (!r.ok) { afficherToast('❌ '+d.erreur, 'erreur'); return; }
-    afficherToast(`✅ ${d.message} (${d.coursInscrits} cours inscrit(s))`);
+    afficherToast(`✅ ${d.message}${d.diplome ? '' : ` (${d.coursInscrits} cours inscrit(s))`}`);
     document.getElementById('delib-selection').style.display = 'none';
     document.getElementById('delib-etudiant-id').value = '';
     chargerStats();

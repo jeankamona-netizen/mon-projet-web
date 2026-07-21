@@ -306,7 +306,7 @@
               <p class="form-sous-section">Relevé de l'année <span id="delib-notes-annee"></span></p>
               <div id="delib-notes" style="margin-bottom:16px"></div>
 
-              <div class="form-group-dash">
+              <div class="form-group-dash" id="delib-niveau-groupe">
                 <label>Nouveau niveau <span class="required">*</span></label>
                 <select id="delib-nouveau-niveau">
                   <option value="Pré-U">Pré-Universitaire</option>
@@ -319,7 +319,10 @@
                   <option value="D2">Doctorat 2</option>
                 </select>
               </div>
-              <button class="btn-sauvegarder" style="width:100%;margin-top:6px" onclick="deliberEtudiant()">⬆️ Promouvoir l'étudiant</button>
+              <p id="delib-diplome-note" style="display:none;font-size:12.5px;color:#5a4b00;background:#fff8e1;border:1px solid #f0d98a;border-radius:8px;padding:10px 12px;margin:2px 0 10px">
+                🎓 <b>Fin de cursus</b> : l'étudiant sera marqué <b>diplômé</b> pour cette année. Pour continuer au cycle supérieur (Master, Doctorat), faites une <b>réinscription</b> — il garde le même matricule.
+              </p>
+              <button class="btn-sauvegarder" id="delib-bouton" style="width:100%;margin-top:6px" onclick="deliberEtudiant()">⬆️ Promouvoir l'étudiant</button>
             </div>
           </div>
         </div>

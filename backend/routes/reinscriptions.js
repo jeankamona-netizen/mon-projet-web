@@ -22,8 +22,12 @@ function genererMotDePasseTemporaire() {
 // (historique) ; on met à jour son niveau + année, puis on l'inscrit aux cours
 // du nouveau niveau.
 router.post('/promouvoir', requireAdminOuDoyen, async (req, res) => {
-  const { etudiant_id, nouveau_niveau, annee_academique } = req.body;
-  if (!etudiant_id || !nouveau_niveau || !annee_academique) {
+  const { etudiant_id, nouveau_niveau, annee_academique, diplomer } = req.body;
+  // « diplomer » = fin de cursus (L3 en fin de licence, M2 en fin de master) :
+  // l'étudiant est marqué DIPLÔMÉ, sans promotion automatique vers le cycle
+  // supérieur. Le passage au cycle suivant (Master, Doctorat) se fait par une
+  // RÉINSCRIPTION explicite (même matricule).
+  if (!etudiant_id || (!diplomer && (!nouveau_niveau || !annee_academique))) {
     return res.status(400).json({ erreur: 'Étudiant, nouveau niveau et année académique sont obligatoires.' });
   }
   try {
@@ -37,6 +41,17 @@ router.post('/promouvoir', requireAdminOuDoyen, async (req, res) => {
     if (facDoyen && etu.faculte !== facDoyen) {
       return res.status(403).json({ erreur: "Cet étudiant n'appartient pas à votre faculté." });
     }
+
+    // Fin de cursus : on clôture (diplômé), on ne promeut PAS.
+    if (diplomer) {
+      await pool.query("UPDATE etudiant SET statut = 'diplome' WHERE id = ?", [etudiant_id]);
+      journaliser({ ...acteurDeReq(req), action: 'Fin de cursus (diplômé)', details: `${etu.prenom} ${etu.nom} (${etudiant_id}) · ${etu.niveau} ${annee_academique || etu.annee_academique}`, ip: ipDeRequete(req) });
+      return res.json({
+        message: `${etu.prenom} ${etu.nom} : cursus clôturé (diplômé en ${etu.niveau}). Pour continuer au cycle supérieur, faites une réinscription (même matricule).`,
+        coursInscrits: 0, diplome: true
+      });
+    }
+
     if (etu.niveau === nouveau_niveau && etu.annee_academique === annee_academique) {
       return res.status(400).json({ erreur: 'L\'étudiant est déjà dans ce niveau pour cette année.' });
     }
