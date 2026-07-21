@@ -336,4 +336,49 @@ async function envoyerEmailReponseContact(destinataire, nomDestinataire, sujetOr
   console.log(`📧 Réponse envoyée à ${destinataire}`);
 }
 
-module.exports = { envoyerEmailAcceptation, envoyerEmailReinitialisation, envoyerEmailReinitialisationCompte, envoyerEmailIdentifiantsAgent, envoyerEmailConfirmationChangementMdp, envoyerEmailRejet, envoyerEmailReponseContact };
+// Envoi en nombre (newsletter) : tous les destinataires en COPIE CACHÉE (BCC)
+// pour ne jamais exposer les adresses entre elles — un seul envoi par lot.
+async function envoyerLot(emails, subject, html) {
+  const liste = [...new Set((emails || []).filter(Boolean))];
+  if (!liste.length) return 0;
+  if (process.env.BREVO_API_KEY) {
+    const reponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({
+        sender: { name: EXPEDITEUR_NOM, email: EXPEDITEUR_EMAIL },
+        to: [{ email: EXPEDITEUR_EMAIL, name: EXPEDITEUR_NOM }],
+        bcc: liste.map(e => ({ email: e })),
+        subject, htmlContent: html,
+      }),
+    });
+    if (!reponse.ok) { const d = await reponse.text().catch(() => ''); throw new Error(`Brevo ${reponse.status} : ${d}`); }
+    return liste.length;
+  }
+  await transporter.sendMail({ from: `"${EXPEDITEUR_NOM}" <${EXPEDITEUR_EMAIL}>`, to: EXPEDITEUR_EMAIL, bcc: liste.join(','), subject, html });
+  return liste.length;
+}
+
+// Diffusion d'une annonce / d'un événement « à tous » aux abonnés de la newsletter.
+async function envoyerAnnonceNewsletter(emails, { type, titre, description, date_annonce }) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const typeLabel = ({ evenement: 'Événement', communique: 'Communiqué' })[type] || 'Annonce';
+  const dateAff = date_annonce ? new Date(date_annonce).toLocaleDateString('fr-FR') : '';
+  const html = `
+  <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;color:#1a2233">
+    <div style="background:linear-gradient(120deg,#14294b,#1a3a6b);color:#fff;padding:18px 22px;border-radius:10px 10px 0 0">
+      <div style="font-size:16px;font-weight:800">UNIVERSITÉ MÉTHODISTE DE LUBUMBASHI</div>
+      <div style="font-size:11px;opacity:.85">Scientia, Sanctitas et Veritas</div>
+    </div>
+    <div style="border:1px solid #e6e9ef;border-top:none;padding:22px;border-radius:0 0 10px 10px">
+      <span style="display:inline-block;background:#f0c020;color:#1a3a6b;font-weight:700;font-size:12px;padding:3px 10px;border-radius:6px">${esc(typeLabel)}${dateAff ? ' · ' + esc(dateAff) : ''}</span>
+      <h2 style="color:#1a3a6b;font-size:19px;margin:14px 0 8px">${esc(titre)}</h2>
+      <p style="font-size:14px;line-height:1.6;color:#333">${esc(description).replace(/\n/g, '<br>')}</p>
+      <hr style="border:none;border-top:1px solid #eef1f5;margin:18px 0">
+      <p style="font-size:11px;color:#9aa4b2">Vous recevez cet email car vous êtes abonné(e) à la newsletter de l'Université Méthodiste de Lubumbashi.</p>
+    </div>
+  </div>`;
+  return envoyerLot(emails, `${typeLabel} — ${titre}`, html);
+}
+
+module.exports = { envoyerEmailAcceptation, envoyerEmailReinitialisation, envoyerEmailReinitialisationCompte, envoyerEmailIdentifiantsAgent, envoyerEmailConfirmationChangementMdp, envoyerEmailRejet, envoyerEmailReponseContact, envoyerAnnonceNewsletter };

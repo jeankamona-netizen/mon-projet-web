@@ -5,6 +5,7 @@ const pool = require('../database');
 // l'admin ET au décanat (doyen / vice-doyen).
 const { requireAdminOuDoyen: requireAdmin, faculteDuDoyen } = require('../middleware/auth');
 const { journaliser, ipDeRequete, acteurDeReq } = require('../models/audit');
+const { envoyerAnnonceNewsletter } = require('../mailer');
 const upload = require('../upload');
 
 // Un doyen ne publie/modifie que des annonces ciblant SA faculté.
@@ -67,7 +68,25 @@ router.post('/', requireAdmin, async (req, res) => {
     );
 
     journaliser({ ...acteurDeReq(req), action: 'Publication annonce', details: `${type} · ${titre}`, ip: ipDeRequete(req) });
-    res.status(201).json({ message: "Annonce publiée avec succès.", id: resultat.insertId });
+
+    // Diffusion NEWSLETTER : une ANNONCE ou un ÉVÉNEMENT « à tous » (aucune
+    // faculté ni rôle ciblés) et actif est envoyé par email à TOUS les abonnés.
+    // (Les communiqués, internes à un rôle, ne partent PAS aux abonnés publics.)
+    // Envoi en arrière-plan (ne bloque pas la réponse) ; erreurs seulement loguées.
+    const estPublique = type === 'annonce' || type === 'evenement';
+    const versTous = actif !== false && estPublique && !cibleFaculteFinale && (!cible_role || cible_role === 'tous');
+    if (versTous) {
+      pool.query('SELECT email FROM newsletter_abonne')
+        .then(([abonnes]) => {
+          const emails = abonnes.map(a => a.email).filter(Boolean);
+          if (!emails.length) return;
+          return envoyerAnnonceNewsletter(emails, { type, titre, description, date_annonce })
+            .then(n => console.log(`📧 Newsletter : « ${titre} » envoyée à ${n} abonné(s).`));
+        })
+        .catch(err => console.error('⚠️ Envoi newsletter (annonce à tous) :', err.message));
+    }
+
+    res.status(201).json({ message: "Annonce publiée avec succès.", id: resultat.insertId, newsletter: versTous });
   } catch (erreur) {
     console.error(erreur);
     res.status(500).json({ erreur: "Erreur lors de la publication." });

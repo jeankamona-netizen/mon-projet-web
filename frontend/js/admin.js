@@ -318,6 +318,14 @@ function basculerOngletContact(idOnglet, btn) {
 
 let messagesContactListe = [];
 
+// Date + heure de soumission (ex. « 21/07/2026 à 14:30 ») — messages & newsletter.
+function formaterDateHeure(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(', ', ' à ');
+}
+
 async function chargerMessagesContact() {
   const tbody = document.getElementById('admin-contact-body');
   if (!tbody) return;
@@ -330,7 +338,7 @@ async function chargerMessagesContact() {
       ? `<tr><td colspan="6" class="admin-vide">Aucun message reçu.</td></tr>`
       : messages.map(m => `
         <tr style="${m.lu ? '' : 'font-weight:600'}">
-          <td>${new Date(m.date_envoi).toLocaleDateString('fr-FR')}</td>
+          <td>${formaterDateHeure(m.date_envoi)}</td>
           <td>${m.nom}<br><span style="font-weight:400;font-size:12px;color:#667">${m.email}</span></td>
           <td>${m.sujet || '—'}</td>
           <td style="max-width:260px;white-space:normal">${m.message}</td>
@@ -402,7 +410,7 @@ async function chargerAbonnesNewsletter() {
       : abonnes.map(a => `
         <tr>
           <td>${a.email}</td>
-          <td>${new Date(a.date_inscription).toLocaleDateString('fr-FR')}</td>
+          <td>${formaterDateHeure(a.date_inscription)}</td>
           <td class="admin-actions-cell"><button class="btn-icone danger" onclick="supprimerAbonneNewsletter(${a.id})" aria-label="Retirer">${icone('corbeille')}</button></td>
         </tr>`).join('');
   } catch { tbody.innerHTML = `<tr><td colspan="3" class="admin-vide">⚠️ Erreur.</td></tr>`; }
@@ -2478,7 +2486,7 @@ async function sauvegarderAnnonce() {
       {method:idEdit?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,titre,description,date_annonce,icone,image,actif,cible_faculte})});
     const d=await r.json();
     if (!r.ok) { afficherToast('⚠️ '+d.erreur, 'erreur'); return; }
-    afficherToast(idEdit?'✅ Modifiée !':'✅ Publiée !');
+    afficherToast(idEdit ? '✅ Modifiée !' : (d.newsletter ? '✅ Publiée ! Les abonnés de la newsletter sont notifiés par email.' : '✅ Publiée !'));
     fermerModalAnnonce(); chargerAnnonces(); chargerStats();
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
