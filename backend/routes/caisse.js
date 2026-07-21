@@ -272,33 +272,46 @@ router.get('/stats', async (req, res) => {
     // cours. L'administrateur du budget et l'admin gardent la vue globale.
     const u = req.utilisateur || {};
     const estCaissier = u.role === 'caisse';
+
+    // Année académique COURANTE : référence de toute la vue d'ensemble pour
+    // l'admin et l'administrateur du budget (« il ne voit que l'année en cours »).
+    const [[anneeCourante]] = await pool.query(
+      'SELECT libelle FROM annee_academique WHERE est_courante = 1 LIMIT 1'
+    );
+    const libelleCourant = anneeCourante ? anneeCourante.libelle : null;
+
+    // « Total encaissé » / « Versements enregistrés » :
+    //  - CAISSIER : ses propres opérations de la JOURNÉE en cours.
+    //  - Admin / budget : uniquement l'ANNÉE ACADÉMIQUE COURANTE (pas l'historique).
     const [[enc]] = estCaissier
       ? await pool.query(
           'SELECT COALESCE(SUM(montant),0) AS total, COUNT(*) AS nb FROM paiement WHERE agent_id = ? AND date_paiement = CURDATE()',
           [u.agent_id || 0]
         )
-      : await pool.query('SELECT COALESCE(SUM(montant),0) AS total, COUNT(*) AS nb FROM paiement');
+      : libelleCourant
+        ? await pool.query('SELECT COALESCE(SUM(montant),0) AS total, COUNT(*) AS nb FROM paiement WHERE annee_academique = ?', [libelleCourant])
+        : await pool.query('SELECT COALESCE(SUM(montant),0) AS total, COUNT(*) AS nb FROM paiement');
 
     // « Étudiants ayant payé » = étudiants DISTINCTS ayant versé AUJOURD'HUI
     // (le jour des opérations en cours). Pour un CAISSIER, uniquement les
     // étudiants qu'IL a encaissés aujourd'hui (pas ceux d'un collègue).
-    // « Sans aucun versement » reste une photo globale (étudiants sans le
-    // moindre paiement de leur historique).
     const [[payeursJourRow]] = estCaissier
       ? await pool.query(
           'SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement WHERE date_paiement = CURDATE() AND agent_id = ?',
           [u.agent_id || 0]
         )
       : await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement WHERE date_paiement = CURDATE()');
-    const [[payeursRow]] = await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement');
-    const [[etudiants]] = await pool.query('SELECT COUNT(*) AS n FROM etudiant');
-    // Encaissements de l'ANNÉE ACADÉMIQUE COURANTE uniquement (définie par
-    // l'admin dans « Années académiques »). Repli sur toutes les années si
-    // aucune année courante n'est encore fixée.
-    const [[anneeCourante]] = await pool.query(
-      'SELECT libelle FROM annee_academique WHERE est_courante = 1 LIMIT 1'
-    );
-    const libelleCourant = anneeCourante ? anneeCourante.libelle : null;
+
+    // Population de l'ANNÉE COURANTE : « Sans aucun versement » = étudiants
+    // inscrits cette année moins ceux qui ont déjà versé quelque chose cette année.
+    const [[payeursRow]] = libelleCourant
+      ? await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement WHERE annee_academique = ?', [libelleCourant])
+      : await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement');
+    const [[etudiants]] = libelleCourant
+      ? await pool.query('SELECT COUNT(*) AS n FROM etudiant WHERE annee_academique = ?', [libelleCourant])
+      : await pool.query('SELECT COUNT(*) AS n FROM etudiant');
+
+    // Encaissements de l'année académique courante (tableau « par année »).
     const [parAnnee] = libelleCourant
       ? await pool.query(
           `SELECT COALESCE(annee_academique, '—') AS annee, SUM(montant) AS total, COUNT(*) AS nb
@@ -331,6 +344,8 @@ router.get('/stats', async (req, res) => {
       // Indique au frontend que les deux premiers indicateurs sont « du jour »
       // (pour adapter les libellés côté caissier).
       encaisse_du_jour: estCaissier,
+      // Année académique de référence des indicateurs (admin/budget) → libellé.
+      annee_stats: libelleCourant || '',
       par_annee: parAnnee.map(a => ({ annee: a.annee, total: Number(a.total), nb: Number(a.nb) })),
       recents: recents.map(r => ({ ...r, montant: Number(r.montant) })),
     });

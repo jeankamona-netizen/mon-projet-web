@@ -179,8 +179,10 @@ async function chargerStatsCaisse() {
       if (lblTotal) lblTotal.textContent = "Total encaissé aujourd'hui ($)";
       if (lblVers)  lblVers.textContent  = "Mes versements du jour";
     } else {
-      if (lblTotal) lblTotal.textContent = 'Total encaissé ($)';
-      if (lblVers)  lblVers.textContent  = 'Versements enregistrés';
+      // Admin / budget : indicateurs de l'ANNÉE COURANTE (pas tout l'historique).
+      const an = d.annee_stats ? ` — ${d.annee_stats}` : '';
+      if (lblTotal) lblTotal.textContent = `Total encaissé${an} ($)`;
+      if (lblVers)  lblVers.textContent  = `Versements enregistrés${an}`;
     }
 
     const tbAnnee = document.getElementById('caisse-par-annee');
