@@ -169,8 +169,9 @@ async function chargerStatsCaisse() {
     document.getElementById('cpt-total').textContent = montant(d.total_encaisse);
     document.getElementById('cpt-versements').textContent = d.nb_versements;
     // « Étudiants ayant payé » = ceux ayant versé aujourd'hui (jour des opérations).
-    document.getElementById('cpt-payeurs').textContent = d.nb_payeurs_jour ?? d.nb_payeurs;
-    document.getElementById('cpt-restants').textContent = Math.max(0, (d.nb_etudiants || 0) - (d.nb_payeurs || 0));
+    document.getElementById('cpt-payeurs').textContent = d.nb_payeurs_jour ?? 0;
+    // « Sans aucun versement » = inscrits de l'année courante sans versement cette année.
+    document.getElementById('cpt-restants').textContent = d.nb_sans_versement ?? 0;
     // Caissier : les deux premiers indicateurs ne concernent que SES versements
     // du jour → on l'indique clairement dans les libellés.
     const lblTotal = document.getElementById('lbl-total');

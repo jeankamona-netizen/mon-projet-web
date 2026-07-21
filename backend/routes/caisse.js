@@ -302,13 +302,29 @@ router.get('/stats', async (req, res) => {
         )
       : await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement WHERE date_paiement = CURDATE()');
 
-    // « Sans aucun versement » = étudiants (inscrits/réinscrits) qui n'ont versé
-    // AUCUN montant POUR L'ANNÉE ACADÉMIQUE COURANTE : tous les inscrits MOINS
-    // ceux ayant au moins un versement rattaché à l'année courante.
-    const [[payeursRow]] = libelleCourant
-      ? await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement WHERE annee_academique = ?', [libelleCourant])
-      : await pool.query('SELECT COUNT(DISTINCT etudiant_id) AS payeurs FROM paiement');
-    const [[etudiants]] = await pool.query('SELECT COUNT(*) AS n FROM etudiant');
+    // « Sans aucun versement » = étudiants INSCRITS POUR L'ANNÉE COURANTE (même
+    // périmètre que « Gérer les inscrits » filtré sur l'année : profil courant OU
+    // historique d'inscription aux cours de cette année) qui n'ont AUCUN
+    // versement rattaché à cette année. Si tous les inscrits de l'année ont payé
+    // → 0. Le décompte suit automatiquement l'année courante définie par l'admin.
+    let nbSansVersement;
+    if (libelleCourant) {
+      const [[r]] = await pool.query(`
+        SELECT COUNT(*) AS n FROM (
+          SELECT e.id FROM etudiant e WHERE e.annee_academique = ?
+          UNION
+          SELECT ic.etudiant_id AS id FROM inscription_cours ic
+            JOIN cours c ON c.id = ic.cours_id WHERE c.annee_academique = ?
+        ) inscrits
+        WHERE inscrits.id NOT IN (SELECT etudiant_id FROM paiement WHERE annee_academique = ?)
+      `, [libelleCourant, libelleCourant, libelleCourant]);
+      nbSansVersement = r.n;
+    } else {
+      const [[r]] = await pool.query(
+        'SELECT COUNT(*) AS n FROM etudiant WHERE id NOT IN (SELECT etudiant_id FROM paiement)'
+      );
+      nbSansVersement = r.n;
+    }
 
     // Encaissements de l'année académique courante (tableau « par année »).
     const [parAnnee] = libelleCourant
@@ -337,9 +353,9 @@ router.get('/stats', async (req, res) => {
     res.json({
       total_encaisse: Number(enc.total),
       nb_versements: Number(enc.nb),
-      nb_payeurs: Number(payeursRow.payeurs),
       nb_payeurs_jour: Number(payeursJourRow.payeurs),
-      nb_etudiants: Number(etudiants.n),
+      // Étudiants inscrits pour l'année courante n'ayant fait aucun versement cette année.
+      nb_sans_versement: Number(nbSansVersement),
       // Indique au frontend que les deux premiers indicateurs sont « du jour »
       // (pour adapter les libellés côté caissier).
       encaisse_du_jour: estCaissier,
