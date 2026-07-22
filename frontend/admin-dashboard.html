@@ -238,7 +238,7 @@
         <div class="notes-onglet-contenu active" id="notes-onglet-gestion">
           <div class="admin-toolbar">
             <select class="admin-recherche" id="notes-filtre-faculte" style="flex:0 0 200px" onchange="chargerFilieresPourFiltreNotes(); chargerNotes()">
-              <option value="">Toutes les facultés</option>
+              <option value="">Facultés</option>
             </select>
             <select class="admin-recherche" id="notes-filtre-filiere" style="flex:0 0 200px" onchange="chargerNotes()">
               <option value="">Toutes les filières</option>
@@ -307,9 +307,9 @@
               <div id="delib-notes" style="margin-bottom:16px"></div>
 
               <div class="form-group-dash" id="delib-niveau-groupe">
-                <label>Nouveau niveau <span class="required">*</span></label>
+                <label>Nouvelle promotion <span class="required">*</span></label>
                 <select id="delib-nouveau-niveau">
-                  <option value="Pré-U">Pré-Universitaire</option>
+                  <option value="Pré-U">Pré-U Sciences</option>
                   <option value="L1">Licence 1</option>
                   <option value="L2">Licence 2</option>
                   <option value="L3">Licence 3</option>
@@ -338,9 +338,9 @@
                 <select id="delib-rap-faculte" onchange="majFilieresRapportDelib()"><option value="">— Choisir —</option></select>
               </div>
               <div class="form-group-dash" id="delib-rap-grp-niveau">
-                <label>Niveau <span class="required">*</span></label>
+                <label>Promotion <span class="required">*</span></label>
                 <select id="delib-rap-niveau" onchange="majFilieresRapportDelib()">
-                  <option value="Pré-U">Pré-Universitaire</option>
+                  <option value="Pré-U">Pré-U Sciences</option>
                   <option value="L1">Licence 1</option>
                   <option value="L2">Licence 2</option>
                   <option value="L3">Licence 3</option>
@@ -419,7 +419,7 @@
 
         <div class="admin-toolbar">
           <select class="admin-recherche" id="filtre-faculte" style="flex:0 0 175px;min-width:175px">
-            <option value="">Toutes les facultés</option>
+            <option value="">Facultés</option>
           </select>
           <select class="admin-recherche" id="filtre-annee" style="flex:0 0 150px;min-width:150px">
             <option value="">Toutes les années</option>
@@ -430,8 +430,8 @@
             <option value="2030-2031">2030-2031</option>
           </select>
           <select class="admin-recherche" id="filtre-niveau" style="flex:0 0 145px;min-width:145px">
-            <option value="">Tous les niveaux</option>
-            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="">Toutes les promotions</option>
+            <option value="Pré-U">Pré-U Sciences</option>
             <option value="L1">Licence 1</option>
             <option value="L2">Licence 2</option>
             <option value="L3">Licence 3</option>
@@ -555,8 +555,8 @@
             <option value="">Toutes les filières</option>
           </select>
           <select class="admin-recherche" id="filtre-niveau-prog" style="flex:1 1 0;min-width:0" onchange="chargerProgramme()">
-            <option value="">— Niveau —</option>
-            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="">— Promotion —</option>
+            <option value="Pré-U">Pré-U Sciences</option>
             <option value="L1">Licence 1</option>
             <option value="L2">Licence 2</option>
             <option value="L3">Licence 3</option>
@@ -568,7 +568,7 @@
 
         <!-- Message par défaut : demande de sélection -->
         <div class="dash-card" id="programme-message" style="text-align:center;padding:36px 20px;color:#888;font-size:14px">
-          Sélectionnez une <b>faculté</b>, une <b>filière</b>, une <b>année académique</b> et un <b>niveau</b> pour afficher le programme —<br>
+          Sélectionnez une <b>faculté</b>, une <b>filière</b>, une <b>année académique</b> et une <b>promotion</b> pour afficher le programme —<br>
         </div>
 
         <!-- Vue normale : une sélection précise → S1 / S2 côte à côte -->
@@ -661,8 +661,8 @@
             <option value="">Toutes les facultés</option>
           </select>
           <select class="admin-recherche" id="filtre-inscrits-niveau" style="flex:0 0 130px">
-            <option value="">Tous niveaux</option>
-            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="">Toutes les promotions</option>
+            <option value="Pré-U">Pré-U Sciences</option>
             <option value="L1">Licence 1</option>
             <option value="L2">Licence 2</option>
             <option value="L3">Licence 3</option>
@@ -760,11 +760,11 @@
              
             <div class="form-row-admin">
               <div class="form-group-dash">
-                <label>Niveau <span class="required">*</span></label>
+                <label>Promotion <span class="required">*</span></label>
                 <select id="reins-niveau" onchange="chargerFilieresPourReinscription()">
                   <option value="L2">Licence 2</option>
                   <option value="L3">Licence 3</option>
-                  <option value="Pré-U">Pré-Universitaire</option>
+                  <option value="Pré-U">Pré-U Sciences</option>
                   <option value="L1">Licence 1</option>
                   <option value="M1">Master 1</option>
                   <option value="M2">Master 2</option>
@@ -1056,7 +1056,7 @@
 
       <p class="form-aide" style="font-size:.8rem;color:#888;margin:.2rem 0 0">
         Le <b>matricule</b> et le <b>mot de passe</b> sont générés automatiquement à la création
-        (ex : K213-CAI26). Le mot de passe s'affiche et, si un email est fourni, est envoyé à l'agent.
+        (ex : K213-CAI26). Le mot de passe s'affiche et, un email est fourni, est envoyé à l'agent.
       </p>
 
       <div class="admin-modal-actions">
@@ -1109,10 +1109,10 @@
           </select>
         </div>
         <div class="form-group-dash">
-          <label>Niveau</label>
+          <label>Promotion</label>
           <select id="filtre-note-niveau" onchange="filtrerEtudiants()">
-            <option value="">Tous niveaux</option>
-            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="">Toutes les promotions</option>
+            <option value="Pré-U">Pré-U Sciences</option>
             <option value="L1">Licence 1</option>
             <option value="L2">Licence 2</option>
             <option value="L3">Licence 3</option>
@@ -1199,9 +1199,9 @@
       <input type="hidden" id="horaire-id-edit">
         <div class="form-row-admin">
           <div class="form-group-dash">
-            <label>Niveau</label>
+            <label>Promotion</label>
             <select id="horaire-niveau" onchange="rafraichirCoursHoraire()">
-              <option value="Pré-U">Pré-Universitaire</option>
+              <option value="Pré-U">Pré-U Sciences</option>
               <option value="L1">Licence 1</option>
               <option value="L2">Licence 2</option>
               <option value="L3">Licence 3</option>
@@ -1516,9 +1516,9 @@
           </select>
         </div>
         <div class="form-group-dash">
-          <label>Niveau</label>
+          <label>Promotion</label>
           <select id="prog-niveau">
-            <option value="Pré-U">Pré-Universitaire</option>
+            <option value="Pré-U">Pré-U Sciences</option>
             <option value="L1">Licence 1</option>
             <option value="L2">Licence 2</option>
             <option value="L3">Licence 3</option>
@@ -1595,9 +1595,9 @@
 
       <p class="form-sous-section" style="margin-top:0">Inscrire en masse — une ou plusieurs facultés à la fois</p>
       <div class="form-group-dash">
-        <label>Niveau</label>
-        <select id="inscriptions-niveau-masse">
-          <option value="Pré-U">Pré-Universitaire</option>
+        <label>Promotion</label>
+        <select id="inscriptions-promotion-masse">
+          <option value="Pré-U">Pré-U Sciences</option>
           <option value="L1">Licence 1</option>
           <option value="L2">Licence 2</option>
           <option value="L3">Licence 3</option>
@@ -1712,9 +1712,9 @@
             </select>
           </div>
           <div class="form-group-dash">
-            <label>Niveau / Promotion</label>
+            <label>Promotion</label>
             <select id="inscrit-promotion" onchange="chargerFilieresPourInscrit()">
-              <option value="Pré-U">Pré-Universitaire</option>
+              <option value="Pré-U">Pré-U Sciences</option>
               <option value="L1">Licence 1</option>
               <option value="L2">Licence 2</option>
               <option value="L3">Licence 3</option>
@@ -1835,7 +1835,7 @@
         <div class="form-group-dash">
           <label>Faculté</label>
           <select id="attr-faculte-select" onchange="rechargerProgrammeAttribution()">
-            <option value="">— Toutes les facultés —</option>
+            <option value="">— Choisir une faculté —</option>
           </select>
         </div>
       </div>
