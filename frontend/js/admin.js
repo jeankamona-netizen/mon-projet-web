@@ -1898,7 +1898,7 @@ async function chargerProgramme() {
   // Vue normale : nécessite une sélection précise (faculté + année + niveau).
   if (!faculte || !annee || !niveau) {
     message.style.display = 'block';
-    message.innerHTML = 'Sélectionnez une <b>faculté</b>, une <b>filière</b>, une <b>année académique</b> et un <b>niveau</b> pour afficher le programme —<br>\n          ou cliquez sur <b>« 🏛️ Toutes les facultés »</b> (une année académique reste requise).';
+    message.innerHTML = 'Sélectionnez une <b>faculté</b>, une <b>filière</b>, une <b>année académique</b> et un <b>niveau</b> pour afficher le programme <br>\n       .';
     normal.style.display = 'none';
     groupe.style.display = 'none';
     return;
