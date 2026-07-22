@@ -6,7 +6,7 @@
 // Mot de passe commun : « test1234 ». Supprimables via :
 //   DELETE FROM etudiant WHERE email LIKE '%@test.uml';
 // =====================================================================
-const bcrypt = require('bcryptjs');
+/*const bcrypt = require('bcryptjs');
 const pool = require('../database');
 const { genererMatricule } = require('./matricule');
 const { inscrireAuxCoursDuNiveau } = require('./inscriptionAuto');
@@ -65,11 +65,11 @@ async function seedEtudiantsTest() {
   for (const fa of facultes) {
     const aFiliereLicence = filieres.some(f => f.faculte === fa.nom && !/^master/i.test(f.nom));
     if (aFiliereLicence) continue;
-    const promo = fa.nom.replace(/^Facult[ée]\s+d[e']\s*/i, '').trim() || fa.nom;
+    const promo = fa.nom.replace(/^Facult[ée]\s+d[e']\s*/ /*i, '').trim() || fa.nom;
     await creerGroupe(fa.nom, null, promo, 'L1', 'fac' + fa.nom.replace(/\W+/g, ''));
   }
 
   if (crees) console.log(`✅ Étudiants fictifs de test créés : ${crees} (année ${annee}, mot de passe « test1234 », emails @test.uml).`);
 }
 
-module.exports = { seedEtudiantsTest };
+module.exports = { seedEtudiantsTest };*/
