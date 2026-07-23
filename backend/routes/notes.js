@@ -17,18 +17,29 @@ async function noteDansFaculte(noteId, facDoyen) {
   return !!r && r.faculte === facDoyen;
 }
 
-// Le contrôle continu et l'examen peuvent arriver séparément (l'un avant
-// l'autre) : la moyenne sur 20 (50 % CC + 50 % examen) n'est calculée que
-// lorsque les deux sont connus, sinon elle reste NULL en attendant.
-function moyenneSiComplete(note_cc, note_examen) {
-  if (note_cc === null || note_cc === undefined || note_examen === null || note_examen === undefined) return null;
-  // MySQL renvoie les colonnes DECIMAL sous forme de chaînes : Number() évite
-  // une concaténation de chaînes au lieu d'une addition numérique.
-  return Math.round(((Number(note_cc) + Number(note_examen)) / 2) * 100) / 100;
+// Contrôle continu « Moy/10 » = moyenne des composantes SAISIES parmi TP, TD,
+// Interro (une composante manquée n'est pas comptée : moyenne sur le nombre de
+// composantes réellement saisies). Si une valeur « Moy » est fournie
+// explicitement (saisie directe / override), on la garde telle quelle.
+function moyenneCC(tp, td, interro, ccManuel) {
+  if (ccManuel !== null && ccManuel !== undefined && ccManuel !== '') return Math.round(Number(ccManuel) * 100) / 100;
+  const parts = [tp, td, interro].filter(v => v !== null && v !== undefined && v !== '').map(Number);
+  if (!parts.length) return null;
+  return Math.round((parts.reduce((s, v) => s + v, 0) / parts.length) * 100) / 100;
 }
-
+// Total Général /20 = Moy/10 (CC) + Examen/10 — calculé seulement quand les DEUX
+// sont connus, sinon NULL (pas encore de note finale).
+function totalGeneral(cc, exam) {
+  if (cc === null || cc === undefined || cc === '' || exam === null || exam === undefined || exam === '') return null;
+  return Math.round((Number(cc) + Number(exam)) * 100) / 100;
+}
+// Normalise une valeur de composante : '' → null, sinon nombre.
+function valeurComposante(v) {
+  return (v === undefined || v === null || v === '') ? null : Number(v);
+}
+// Composantes /10 (TP, TD, Interro, Moy, Examen) : hors plage si < 0 ou > 10.
 function noteHorsPlage(valeur) {
-  return valeur !== undefined && valeur !== null && (valeur < 0 || valeur > 20);
+  return valeur !== undefined && valeur !== null && valeur !== '' && (Number(valeur) < 0 || Number(valeur) > 10);
 }
 
 const LIBELLES_MENTION = [
@@ -162,7 +173,7 @@ router.get('/', requireAdmin, async (req, res) => {
   try {
     const { faculte, filiere, annee } = req.query;
     let sql = `
-      SELECT n.id, n.note_cc, n.note_examen, n.note, c.semestre AS session, c.annee_academique,
+      SELECT n.id, n.tp, n.td, n.interro, n.note_cc, n.note_examen, n.note, c.semestre AS session, c.annee_academique,
              e.id AS etudiant_id, e.nom AS nom_etudiant, e.postnom AS postnom_etudiant, e.prenom AS prenom_etudiant,
              e.faculte, f.nom AS filiere, c.niveau, c.code, c.nom AS matiere
       FROM note n
@@ -195,52 +206,56 @@ router.get('/', requireAdmin, async (req, res) => {
 // la fois. La moyenne n'est calculée que lorsque les deux sont connus.
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { etudiant_id, cours_id, note_cc, note_examen, annee_academique } = req.body;
+    const { etudiant_id, cours_id, tp, td, interro, note_cc, note_examen, annee_academique } = req.body;
 
     if (!etudiant_id || !cours_id) {
       return res.status(400).json({ erreur: "Champs obligatoires manquants (étudiant, cours)." });
     }
-    if (note_cc === undefined && note_examen === undefined) {
-      return res.status(400).json({ erreur: "Renseignez au moins le contrôle continu ou l'examen." });
+    if ([tp, td, interro, note_cc, note_examen].every(v => v === undefined)) {
+      return res.status(400).json({ erreur: "Renseignez au moins une note (TP, TD, Interro, Moy ou Examen)." });
     }
-    if (noteHorsPlage(note_cc) || noteHorsPlage(note_examen)) {
-      return res.status(400).json({ erreur: "Les notes doivent être comprises entre 0 et 20." });
+    if ([tp, td, interro, note_cc, note_examen].some(noteHorsPlage)) {
+      return res.status(400).json({ erreur: "Chaque note doit être comprise entre 0 et 10." });
     }
     if (!await etudiantDansFaculte(etudiant_id, faculteDuDoyen(req))) {
       return res.status(403).json({ erreur: "Cet étudiant n'appartient pas à votre faculté." });
     }
 
-    // La session (semestre) d'une note est TOUJOURS celle de son cours : un
-    // cours appartient à un seul semestre, donc un étudiant n'a qu'une seule
-    // note par cours (jamais le même cours dans deux semestres différents).
+    // La session (semestre) d'une note est TOUJOURS celle de son cours.
     const [[cours]] = await pool.query('SELECT semestre FROM cours WHERE id = ?', [cours_id]);
     if (!cours) return res.status(404).json({ erreur: "Cours introuvable." });
     const session = cours.semestre;
 
-    // Une note existe déjà pour cet étudiant et ce cours ? On la complète/écrase
-    // au lieu d'en créer une deuxième (quel que soit le semestre).
+    // Note existante pour ce couple (étudiant, cours) → on complète/écrase.
     const [existante] = await pool.query(
-      'SELECT id, note_cc, note_examen FROM note WHERE etudiant_id = ? AND cours_id = ?',
+      'SELECT id, tp, td, interro, note_cc, note_examen FROM note WHERE etudiant_id = ? AND cours_id = ?',
       [etudiant_id, cours_id]
     );
-
-    const ccFinal     = note_cc     !== undefined ? note_cc     : (existante.length ? existante[0].note_cc     : null);
-    const examenFinal = note_examen !== undefined ? note_examen : (existante.length ? existante[0].note_examen : null);
-    const note = moyenneSiComplete(ccFinal, examenFinal);
+    const prec = existante.length ? existante[0] : {};
+    const tpFinal      = tp      !== undefined ? valeurComposante(tp)      : (prec.tp ?? null);
+    const tdFinal      = td      !== undefined ? valeurComposante(td)      : (prec.td ?? null);
+    const interroFinal = interro !== undefined ? valeurComposante(interro) : (prec.interro ?? null);
+    // Moy/10 (CC) : valeur directe si fournie (override), sinon moyenne des
+    // composantes TP/TD/Interro saisies.
+    const ccFinal = note_cc !== undefined && note_cc !== null && note_cc !== ''
+      ? Math.round(Number(note_cc) * 100) / 100
+      : moyenneCC(tpFinal, tdFinal, interroFinal, null);
+    const examenFinal = note_examen !== undefined ? valeurComposante(note_examen) : (prec.note_examen ?? null);
+    const note = totalGeneral(ccFinal, examenFinal);
 
     const acteur = acteurDeReq(req);
     if (existante.length > 0) {
       await pool.query(
-        'UPDATE note SET note_cc = ?, note_examen = ?, note = ?, session = ?, annee_academique = ? WHERE id = ?',
-        [ccFinal, examenFinal, note, session, annee_academique, existante[0].id]
+        'UPDATE note SET tp = ?, td = ?, interro = ?, note_cc = ?, note_examen = ?, note = ?, session = ?, annee_academique = ? WHERE id = ?',
+        [tpFinal, tdFinal, interroFinal, ccFinal, examenFinal, note, session, annee_academique, existante[0].id]
       );
       journaliser({ ...acteur, action: 'Saisie de note', details: `Étudiant ${etudiant_id} · cours ${cours_id} · ${note != null ? note + '/20' : 'partiel'} (maj)`, ip: ipDeRequete(req) });
       return res.json({ message: "Note mise à jour.", id: existante[0].id, note });
     }
 
     const [resultat] = await pool.query(
-      'INSERT INTO note (etudiant_id, cours_id, note_cc, note_examen, note, session, annee_academique) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [etudiant_id, cours_id, ccFinal, examenFinal, note, session, annee_academique]
+      'INSERT INTO note (etudiant_id, cours_id, tp, td, interro, note_cc, note_examen, note, session, annee_academique) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [etudiant_id, cours_id, tpFinal, tdFinal, interroFinal, ccFinal, examenFinal, note, session, annee_academique]
     );
 
     journaliser({ ...acteur, action: 'Saisie de note', details: `Étudiant ${etudiant_id} · cours ${cours_id} · ${note != null ? note + '/20' : 'partiel'}`, ip: ipDeRequete(req) });
@@ -257,7 +272,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
     const { note_cc, note_examen, annee_academique } = req.body;
 
     if (noteHorsPlage(note_cc) || noteHorsPlage(note_examen)) {
-      return res.status(400).json({ erreur: "Les notes doivent être comprises entre 0 et 20." });
+      return res.status(400).json({ erreur: "Chaque note doit être comprise entre 0 et 10." });
     }
     if (!await noteDansFaculte(req.params.id, faculteDuDoyen(req))) {
       return res.status(403).json({ erreur: "Cette note n'appartient pas à votre faculté." });
@@ -270,9 +285,10 @@ router.put('/:id', requireAdmin, async (req, res) => {
     );
     if (existante.length === 0) return res.status(404).json({ erreur: "Note introuvable." });
 
-    const ccFinal     = note_cc     !== undefined ? note_cc     : existante[0].note_cc;
-    const examenFinal = note_examen !== undefined ? note_examen : existante[0].note_examen;
-    const note = moyenneSiComplete(ccFinal, examenFinal);
+    // L'admin/décanat édite directement la Moy (CC) et l'Examen → Total = Moy + Exam.
+    const ccFinal     = note_cc     !== undefined ? valeurComposante(note_cc)     : existante[0].note_cc;
+    const examenFinal = note_examen !== undefined ? valeurComposante(note_examen) : existante[0].note_examen;
+    const note = totalGeneral(ccFinal, examenFinal);
 
     await pool.query(
       'UPDATE note SET note_cc = ?, note_examen = ?, note = ?, session = ?, annee_academique = ? WHERE id = ?',

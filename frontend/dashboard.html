@@ -198,24 +198,25 @@
           <button class="filtre-btn" data-session="S2" onclick="filtrerSession('S2', this)">Semestre 2</button>
         </div>
 
-        <div class="dash-card" style="margin-top:20px">
+        <div class="dash-card" style="margin-top:20px;overflow-x:auto">
           <table class="dash-table" id="table-notes">
             <thead>
               <tr>
-                <th>Code</th>
+                <th style="width:40px">N°</th>
                 <th>Matière</th>
-                <th>CMI</th>
-                <th>TP</th>
-                <th>TD</th>
-                <th>Crédits</th>
-                <th>CC /20</th>
-                <th>Examen /20</th>
-                <th>Moyenne /20</th>
+                <th>Nbre H</th>
+                <th>Cr</th>
+                <th>TP/10</th>
+                <th>TD/10</th>
+                <th>Interro/10</th>
+                <th>Moy/10</th>
+                <th>Exam/10</th>
+                <th>Total G. /20</th>
                 <th>Statut</th>
               </tr>
             </thead>
             <tbody id="notes-body">
-              <tr><td colspan="10" style="text-align:center;color:#999;padding:20px">Chargement...</td></tr>
+              <tr><td colspan="11" style="text-align:center;color:#999;padding:20px">Chargement...</td></tr>
             </tbody>
           </table>
         </div>

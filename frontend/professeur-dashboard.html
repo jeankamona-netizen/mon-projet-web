@@ -158,19 +158,24 @@
           <button class="btn-ajouter" onclick="sauvegarderToutesLesNotesProf()">✅ Enregistrer toutes les notes</button>
         </div>
 
-        <div class="dash-card">
+        <p style="font-size:12px;color:#888;margin:-4px 0 10px">Moy/10 = moyenne de TP, TD et Interro (composantes manquées non comptées) — modifiable directement. Total Général /20 = Moy + Examen.</p>
+        <div class="dash-card" style="overflow-x:auto">
           <table class="dash-table">
             <thead>
               <tr>
+                <th style="width:44px">N°</th>
                 <th>Étudiant</th>
-                <th>Moyenne actuelle</th>
-                <th>Contrôle continu /20</th>
-                <th>Examen /20</th>
+                <th>TP/10</th>
+                <th>TD/10</th>
+                <th>Interro/10</th>
+                <th>Moy/10</th>
+                <th>Exam/10</th>
+                <th>Total G. /20</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="prof-etudiants-body">
-              <tr><td colspan="5" class="admin-vide">Choisissez un cours pour afficher la liste des étudiants.</td></tr>
+              <tr><td colspan="9" class="admin-vide">Choisissez un cours pour afficher la liste des étudiants.</td></tr>
             </tbody>
           </table>
         </div>

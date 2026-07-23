@@ -567,7 +567,8 @@ app.get('/api/etudiant/:id/notes', async (req, res) => {
     // session/niveau/année viennent du cours : garantit le bon semestre et
     // permet de séparer les cursus (L1 2025-2026 vs L2 2026-2027) après promotion.
     const [notes] = await pool.query(`
-      SELECT n.id, n.note_cc, n.note_examen, n.note, n.modifie_le, c.semestre AS session,
+      SELECT n.id, n.tp AS note_tp, n.td AS note_td, n.interro AS note_interro,
+             n.note_cc, n.note_examen, n.note, n.modifie_le, c.semestre AS session,
              c.annee_academique, c.niveau, c.id AS cours_id,
              c.nom AS matiere, c.code, c.credits, c.cmi, c.td, c.tp
       FROM inscription_cours ic
@@ -810,7 +811,7 @@ app.get('/api/professeur/:id/cours/:coursId/etudiants', async (req, res) => {
     // ceux dont la promotion correspond — gère cours partagés et rattrapages.
     const [etudiants] = await pool.query(`
       SELECT e.id, e.nom, e.postnom, e.prenom,
-             n.id AS note_id, n.note_cc, n.note_examen, n.note, n.session
+             n.id AS note_id, n.tp, n.td, n.interro, n.note_cc, n.note_examen, n.note, n.session
       FROM inscription_cours ic
       JOIN etudiant e ON e.id = ic.etudiant_id
       LEFT JOIN note n ON n.etudiant_id = e.id AND n.cours_id = ?
@@ -825,20 +826,20 @@ app.get('/api/professeur/:id/cours/:coursId/etudiants', async (req, res) => {
 // SAISIE / MODIFICATION D'UNE NOTE PAR LE PROFESSEUR (uniquement ses propres cours)
 // =====================
 app.post('/api/professeur/:id/notes', async (req, res) => {
-  const { etudiant_id, cours_id, note_cc, note_examen, annee_academique } = req.body;
+  const { etudiant_id, cours_id, tp, td, interro, note_cc, note_examen, annee_academique } = req.body;
   if (!etudiant_id || !cours_id) {
     return res.status(400).json({ erreur: 'Champs obligatoires manquants (étudiant, cours).' });
   }
-  if (note_cc === undefined && note_examen === undefined) {
-    return res.status(400).json({ erreur: "Renseignez au moins le contrôle continu ou l'examen." });
+  if ([tp, td, interro, note_cc, note_examen].every(v => v === undefined)) {
+    return res.status(400).json({ erreur: "Renseignez au moins une note (TP, TD, Interro, Moy ou Examen)." });
   }
-  const horsPlage = v => v !== undefined && v !== null && (v < 0 || v > 20);
-  if (horsPlage(note_cc) || horsPlage(note_examen)) {
-    return res.status(400).json({ erreur: 'Le contrôle continu et l\'examen doivent être compris entre 0 et 20.' });
+  // Composantes /10.
+  const horsPlage = v => v !== undefined && v !== null && v !== '' && (Number(v) < 0 || Number(v) > 10);
+  if ([tp, td, interro, note_cc, note_examen].some(horsPlage)) {
+    return res.status(400).json({ erreur: 'Chaque note (TP, TD, Interro, Moy, Examen) doit être comprise entre 0 et 10.' });
   }
+  const val = v => (v === undefined || v === null || v === '') ? null : Number(v);
   try {
-    // La session est TOUJOURS le semestre du cours : un cours = un seul
-    // semestre, donc une seule note par étudiant/cours (pas de doublon S1/S2).
     const [[cours]] = await pool.query(
       'SELECT semestre FROM cours WHERE id = ? AND professeur_id = ?',
       [cours_id, req.params.id]
@@ -846,28 +847,35 @@ app.post('/api/professeur/:id/notes', async (req, res) => {
     if (!cours) return res.status(403).json({ erreur: "Vous n'enseignez pas ce cours." });
     const session = cours.semestre;
 
-    // Le CC et l'examen peuvent arriver séparément : on fusionne avec la note
-    // déjà enregistrée pour cet étudiant/cours au lieu de l'écraser.
     const [existante] = await pool.query(
-      'SELECT id, note_cc, note_examen FROM note WHERE etudiant_id = ? AND cours_id = ?',
+      'SELECT id, tp, td, interro, note_cc, note_examen FROM note WHERE etudiant_id = ? AND cours_id = ?',
       [etudiant_id, cours_id]
     );
-
-    const ccFinal     = note_cc     !== undefined ? note_cc     : (existante.length ? existante[0].note_cc     : null);
-    const examenFinal = note_examen !== undefined ? note_examen : (existante.length ? existante[0].note_examen : null);
-    // Moyenne sur 20 (50 % CC + 50 % examen) seulement quand les deux sont connus.
-    // MySQL renvoie les colonnes DECIMAL sous forme de chaînes : Number() évite
-    // une concaténation de chaînes au lieu d'une addition numérique.
-    const note = (ccFinal === null || examenFinal === null) ? null : Math.round(((Number(ccFinal) + Number(examenFinal)) / 2) * 100) / 100;
+    const prec = existante.length ? existante[0] : {};
+    const tpFinal      = tp      !== undefined ? val(tp)      : (prec.tp ?? null);
+    const tdFinal      = td      !== undefined ? val(td)      : (prec.td ?? null);
+    const interroFinal = interro !== undefined ? val(interro) : (prec.interro ?? null);
+    // Moy/10 (CC) : override si fournie, sinon moyenne des composantes saisies.
+    let ccFinal;
+    if (note_cc !== undefined && note_cc !== null && note_cc !== '') {
+      ccFinal = Math.round(Number(note_cc) * 100) / 100;
+    } else {
+      const parts = [tpFinal, tdFinal, interroFinal].filter(v => v !== null && v !== undefined).map(Number);
+      ccFinal = parts.length ? Math.round((parts.reduce((s, v) => s + v, 0) / parts.length) * 100) / 100 : null;
+    }
+    const examenFinal = note_examen !== undefined ? val(note_examen) : (prec.note_examen ?? null);
+    // Total Général /20 = Moy + Examen (quand les deux sont connus).
+    const note = (ccFinal === null || examenFinal === null) ? null : Math.round((Number(ccFinal) + Number(examenFinal)) * 100) / 100;
 
     if (existante.length > 0) {
-      await pool.query('UPDATE note SET note_cc = ?, note_examen = ?, note = ?, session = ? WHERE id = ?', [ccFinal, examenFinal, note, session, existante[0].id]);
+      await pool.query('UPDATE note SET tp = ?, td = ?, interro = ?, note_cc = ?, note_examen = ?, note = ?, session = ? WHERE id = ?',
+        [tpFinal, tdFinal, interroFinal, ccFinal, examenFinal, note, session, existante[0].id]);
       return res.json({ message: 'Note mise à jour.', id: existante[0].id, note });
     }
 
     const [r] = await pool.query(
-      'INSERT INTO note (etudiant_id, cours_id, note_cc, note_examen, note, session, annee_academique) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [etudiant_id, cours_id, ccFinal, examenFinal, note, session, annee_academique]
+      'INSERT INTO note (etudiant_id, cours_id, tp, td, interro, note_cc, note_examen, note, session, annee_academique) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [etudiant_id, cours_id, tpFinal, tdFinal, interroFinal, ccFinal, examenFinal, note, session, annee_academique]
     );
     res.status(201).json({ message: 'Note enregistrée.', id: r.insertId, note });
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }

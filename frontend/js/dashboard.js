@@ -282,22 +282,29 @@ function afficherNotesTableau(session = '') {
   const liste = session ? base.filter(n => n.session === session) : base;
 
   if (liste.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#999;padding:20px">Aucune note disponible${session?' pour ce semestre':''}.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:#999;padding:20px">Aucune note disponible${session?' pour ce semestre':''}.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = liste.map(n => `<tr>
-      <td>${n.code}</td>
+  // Nbre H = volume horaire total du cours (CMI + TP + TD, en heures). TP/TD/Interro
+  // sont ici les NOTES /10 (n.note_tp/note_td/note_interro), à ne pas confondre.
+  const g = x => (x !== null && x !== undefined && x !== '') ? x : '—';
+  tbody.innerHTML = liste.map((n, i) => {
+    const nbreH = (Number(n.cmi) || 0) + (Number(n.tp) || 0) + (Number(n.td) || 0);
+    return `<tr>
+      <td>${i + 1}</td>
       <td>${n.matiere}</td>
-      <td>${n.cmi ?? '—'}</td>
-      <td>${n.tp ?? '—'}</td>
-      <td>${n.td ?? '—'}</td>
-      <td>${n.credits}</td>
-      <td>${n.note_cc ?? '—'}</td>
-      <td>${n.note_examen ?? '—'}</td>
-      <td>${n.note !== null ? n.note+'/20' : '—'}</td>
+      <td>${nbreH || '—'}</td>
+      <td>${n.credits ?? '—'}</td>
+      <td>${g(n.note_tp)}</td>
+      <td>${g(n.note_td)}</td>
+      <td>${g(n.note_interro)}</td>
+      <td>${g(n.note_cc)}</td>
+      <td>${g(n.note_examen)}</td>
+      <td>${n.note !== null && n.note !== undefined ? n.note + '/20' : '—'}</td>
       <td>${badgeStatutNote(n.note)}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function afficherDernieresNotes() {

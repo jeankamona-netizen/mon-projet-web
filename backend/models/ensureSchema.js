@@ -121,6 +121,21 @@ async function assurerSchemaPaiement(pool) {
   }
 }
 
+// Notes détaillées : composantes du contrôle continu (TP, TD, Interro, chacune
+// /10) dont la moyenne donne « Moy/10 » (note_cc), puis Moy + Examen = Total
+// Général /20 (note). Colonnes ajoutées de façon idempotente sur une base
+// ancienne. Aucune conversion des anciennes notes (redéfinition volontaire du
+// barème de notation vers des composantes sur 10).
+async function assurerSchemaNoteComposantes(pool) {
+  const [cols] = await pool.query(
+    "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'note'"
+  );
+  const noms = cols.map(c => c.COLUMN_NAME.toLowerCase());
+  for (const col of ['tp', 'td', 'interro']) {
+    if (!noms.includes(col)) await pool.query(`ALTER TABLE note ADD COLUMN ${col} DECIMAL(5,2) NULL`);
+  }
+}
+
 // Présences : feuille de présence par créneau d'horaire et par séance
 // (present / retard / absent). La table peut manquer sur une base de production
 // créée avant l'ajout de la fonctionnalité → sans elle, la saisie des présences
@@ -398,6 +413,7 @@ async function assurerSchema(pool) {
   await assurerSchemaJournalAudit(pool);
   await assurerSchemaPaiement(pool);
   await assurerSchemaPresence(pool);
+  await assurerSchemaNoteComposantes(pool);
   await assurerSchemaPromotionLongue(pool);
   await assurerSchemaDateInscription(pool);
   await assurerSchemaAgentFaculte(pool);

@@ -335,13 +335,12 @@ async function chargerMessagesContact() {
     const messages = await r.json();
     messagesContactListe = messages;
     tbody.innerHTML = messages.length === 0
-      ? `<tr><td colspan="6" class="admin-vide">Aucun message reçu.</td></tr>`
+      ? `<tr><td colspan="5" class="admin-vide">Aucun message reçu.</td></tr>`
       : messages.map(m => `
         <tr style="${m.lu ? '' : 'font-weight:600'}">
           <td>${formaterDateHeure(m.date_envoi)}</td>
           <td>${m.nom}<br><span style="font-weight:400;font-size:12px;color:#667">${m.email}</span></td>
-          <td>${m.sujet || '—'}</td>
-          <td style="max-width:260px;white-space:normal">${m.message}</td>
+          <td style="max-width:360px;white-space:normal">${m.sujet ? `<strong>${m.sujet}</strong><br>` : ''}${m.message}</td>
           <td>${m.repondu ? '<span class="badge reussi">Répondu</span>' : (m.lu ? '<span class="badge attente">Lu</span>' : '<span class="badge reussi">Nouveau</span>')}</td>
           <td class="admin-actions-cell">
             <button class="btn-icone" onclick="ouvrirModalRepondreMessage(${m.id})" aria-label="Répondre" title="Répondre">${icone('repondre')}</button>
@@ -1108,16 +1107,17 @@ async function chargerNotes() {
 function afficherTableauNotes(liste = notesAdmin) {
   const tbody = document.getElementById('admin-notes-body');
   if (!tbody) return;
-  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="7" class="admin-vide">Aucune note enregistrée.</td></tr>`; return; }
-  tbody.innerHTML = liste.map(n => `
+  if (liste.length === 0) { tbody.innerHTML = `<tr><td colspan="8" class="admin-vide">Aucune note enregistrée.</td></tr>`; return; }
+  const g = x => (x !== null && x !== undefined && x !== '') ? x : '—';
+  tbody.innerHTML = liste.map((n, i) => `
     <tr>
+      <td>${i + 1}</td>
       <td>${n.nom_etudiant} ${n.prenom_etudiant}<br><span style="font-size:11px;color:#999">${n.etudiant_id}</span></td>
       <td>${n.matiere}</td>
-      <td>${n.note_cc ?? '—'}</td>
-      <td>${n.note_examen ?? '—'}</td>
+      <td>${g(n.note_cc)}</td>
+      <td>${g(n.note_examen)}</td>
       <td>${n.note !== null && n.note !== undefined ? n.note+'/20' : '—'}</td>
       <td>${n.session === 'S1' ? 'Semestre 1' : 'Semestre 2'}</td>
-      <td>${n.note === null || n.note === undefined ? '<span class="badge attente">En attente</span>' : n.note >= 10 ? '<span class="badge reussi">Réussi</span>' : '<span class="badge echec">Échec</span>'}</td>
       <td class="admin-actions-cell">
         <button class="btn-icone" onclick="modifierNote(${n.id})" aria-label="Modifier">${icone('crayon')}</button>
         <button class="btn-icone danger" onclick="supprimerNote(${n.id})" aria-label="Supprimer">${icone('corbeille')}</button>
@@ -1350,7 +1350,8 @@ function previsualiserMoyenneNote() {
   const examen = parseFloat(document.getElementById('note-examen')?.value);
   const apercu = document.getElementById('note-moyenne-apercu');
   if (!apercu) return;
-  apercu.value = (isNaN(cc) || isNaN(examen)) ? '' : (Math.round(((cc + examen) / 2) * 100) / 100);
+  // Total Général /20 = Moy/10 + Examen/10.
+  apercu.value = (isNaN(cc) || isNaN(examen)) ? '' : (Math.round((cc + examen) * 100) / 100);
 }
 
 async function ouvrirModalNote() {
@@ -1422,9 +1423,9 @@ async function sauvegarderNote() {
     ? (document.getElementById('note-ctx-annee')?.value || '')
     : (document.getElementById('filtre-note-annee')?.value || '2025-2026');
 
-  if (!idEdit && note_cc === undefined && note_examen === undefined) { afficherToast('⚠️ Renseignez au moins le contrôle continu ou l\'examen.', 'erreur'); return; }
-  if (note_cc     !== undefined && note_cc     !== null && (isNaN(note_cc)     || note_cc     < 0 || note_cc     > 20)) { afficherToast('⚠️ Contrôle continu entre 0 et 20.', 'erreur'); return; }
-  if (note_examen !== undefined && note_examen !== null && (isNaN(note_examen) || note_examen < 0 || note_examen > 20)) { afficherToast('⚠️ Examen entre 0 et 20.', 'erreur'); return; }
+  if (!idEdit && note_cc === undefined && note_examen === undefined) { afficherToast('⚠️ Renseignez au moins la Moy ou l\'examen.', 'erreur'); return; }
+  if (note_cc     !== undefined && note_cc     !== null && (isNaN(note_cc)     || note_cc     < 0 || note_cc     > 10)) { afficherToast('⚠️ Moy entre 0 et 10.', 'erreur'); return; }
+  if (note_examen !== undefined && note_examen !== null && (isNaN(note_examen) || note_examen < 0 || note_examen > 10)) { afficherToast('⚠️ Examen entre 0 et 10.', 'erreur'); return; }
   if (!idEdit && !etudiant_id) { afficherToast('⚠️ Sélectionnez un étudiant.', 'erreur'); return; }
   if (!idEdit && !coursIdChoisi) { afficherToast('⚠️ Sélectionnez une matière.', 'erreur'); return; }
 

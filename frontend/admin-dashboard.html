@@ -256,17 +256,17 @@
             <button class="btn-ajouter" onclick="ouvrirModalNote()">+ Ajouter une note</button>
           </div>
 
-          <div class="dash-card">
+          <div class="dash-card" style="overflow-x:auto">
             <table class="dash-table">
               <thead>
                 <tr>
+                  <th style="width:40px">N°</th>
                   <th>Étudiant</th>
                   <th>Matière</th>
-                  <th>CC /20</th>
-                  <th>Examen /20</th>
-                  <th>Moyenne /20</th>
+                  <th>Moy/10</th>
+                  <th>Exam/10</th>
+                  <th>Total G. /20</th>
                   <th>Session</th>
-                  <th>Statut</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -982,9 +982,9 @@
           <div class="dash-card">
             <table class="dash-table">
               <thead>
-                <tr><th>Date</th><th>Nom &amp; e-mail</th><th>Sujet</th><th>Message</th><th>Statut</th><th>Actions</th></tr>
+                <tr><th>Date</th><th>Nom &amp; e-mail</th><th>Message</th><th>Statut</th><th>Actions</th></tr>
               </thead>
-              <tbody id="admin-contact-body"><tr><td colspan="6" class="admin-vide">Chargement...</td></tr></tbody>
+              <tbody id="admin-contact-body"><tr><td colspan="5" class="admin-vide">Chargement...</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1161,18 +1161,18 @@
 
       <div class="form-row-admin">
         <div class="form-group-dash">
-          <label>Contrôle continu (/20) </label>
-          <input type="number" id="note-cc" min="0" max="20" step="0.5" placeholder="ex: 14" oninput="previsualiserMoyenneNote()">
+          <label>Moy /10 <span style="color:#888;font-weight:400">(contrôle continu)</span></label>
+          <input type="number" id="note-cc" min="0" max="10" step="0.25" placeholder="ex: 7" oninput="previsualiserMoyenneNote()">
         </div>
         <div class="form-group-dash">
-          <label>Examen (/20) </label>
-          <input type="number" id="note-examen" min="0" max="20" step="0.5" placeholder="ex: 15" oninput="previsualiserMoyenneNote()">
+          <label>Examen /10 </label>
+          <input type="number" id="note-examen" min="0" max="10" step="0.25" placeholder="ex: 8" oninput="previsualiserMoyenneNote()">
         </div>
       </div>
 
       <div class="form-row-admin">
         <div class="form-group-dash">
-          <label>Moyenne (/20)</label>
+          <label>Total Général (/20)</label>
           <input type="text" id="note-moyenne-apercu" readonly placeholder="—" style="background:#f5f5f5">
         </div>
         <div class="form-group-dash">

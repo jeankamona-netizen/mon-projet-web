@@ -492,23 +492,44 @@ async function chargerEtudiantsCours() {
     if (!r.ok) throw new Error();
     const etudiants = await r.json();
 
+    const v = x => (x !== null && x !== undefined && x !== '') ? x : '';
+    const champ = (pref, id, val, extra = '') => `<input type="number" min="0" max="10" step="0.25" id="${pref}-${id}" value="${val}" oninput="${extra}" style="width:62px;padding:5px 6px;border:1.5px solid #ddd;border-radius:6px" placeholder="0-10">`;
     tbody.innerHTML = etudiants.length === 0
-      ? '<tr><td colspan="5" class="admin-vide">Aucun étudiant dans cette promotion.</td></tr>'
-      : etudiants.map(e => {
-          // Un cours = un seul semestre → une seule note par étudiant pour ce
-          // cours : on préremplit toujours la note existante (plus de filtre par session).
-          const noteActuelle = e.note;
+      ? '<tr><td colspan="9" class="admin-vide">Aucun étudiant dans cette promotion.</td></tr>'
+      : etudiants.map((e, i) => {
+          const total = (e.note !== null && e.note !== undefined) ? e.note + '/20' : '—';
           return `<tr data-etudiant-id="${e.id}">
+            <td>${i + 1}</td>
             <td>${e.nom} ${e.postnom || ''} ${e.prenom}</td>
-            <td>${noteActuelle !== null && noteActuelle !== undefined ? noteActuelle + '/20' : '—'}</td>
-            <td><input type="number" min="0" max="20" step="0.5" id="note-cc-${e.id}" value="${e.note_cc !== null && e.note_cc !== undefined ? e.note_cc : ''}" style="width:80px;padding:6px 8px;border:1.5px solid #ddd;border-radius:6px" placeholder="0-20"></td>
-            <td><input type="number" min="0" max="20" step="0.5" id="note-examen-${e.id}" value="${e.note_examen !== null && e.note_examen !== undefined ? e.note_examen : ''}" style="width:80px;padding:6px 8px;border:1.5px solid #ddd;border-radius:6px" placeholder="0-20"></td>
+            <td>${champ('note-tp', e.id, v(e.tp), `recalcNoteProf('${e.id}')`)}</td>
+            <td>${champ('note-td', e.id, v(e.td), `recalcNoteProf('${e.id}')`)}</td>
+            <td>${champ('note-interro', e.id, v(e.interro), `recalcNoteProf('${e.id}')`)}</td>
+            <td><input type="number" min="0" max="10" step="0.25" id="note-moy-${e.id}" value="${v(e.note_cc)}" oninput="recalcTotalProf('${e.id}')" title="Moyenne du contrôle continu — calculée depuis TP/TD/Interro, modifiable" style="width:62px;padding:5px 6px;border:1.5px solid #c7d2e0;border-radius:6px;background:#f6f9fc;font-weight:600" placeholder="auto"></td>
+            <td>${champ('note-exam', e.id, v(e.note_examen), `recalcTotalProf('${e.id}')`)}</td>
+            <td><strong id="note-total-${e.id}">${total}</strong></td>
             <td><button class="btn-icone" onclick="sauvegarderNoteProf('${e.id}', ${coursId})" aria-label="Enregistrer">${icone('coche')}</button></td>
           </tr>`;
         }).join('');
   } catch {
-    tbody.innerHTML = '<tr><td colspan="5" class="admin-vide">⚠️ Erreur de chargement.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="admin-vide">⚠️ Erreur de chargement.</td></tr>';
   }
+}
+
+// Moy/10 = moyenne des composantes TP/TD/Interro réellement saisies (une
+// composante vide n'est pas comptée), puis on recalcule le Total Général.
+function recalcNoteProf(id) {
+  const lire = x => { const val = document.getElementById(`note-${x}-${id}`)?.value; return (val === '' || val === undefined) ? null : parseFloat(val); };
+  const parts = ['tp', 'td', 'interro'].map(lire).filter(x => x !== null && !isNaN(x));
+  const moyEl = document.getElementById(`note-moy-${id}`);
+  if (moyEl) moyEl.value = parts.length ? Math.round((parts.reduce((s, x) => s + x, 0) / parts.length) * 100) / 100 : '';
+  recalcTotalProf(id);
+}
+// Total Général /20 = Moy/10 + Exam/10 (affiché seulement si les deux sont saisis).
+function recalcTotalProf(id) {
+  const lire = x => { const val = document.getElementById(`note-${x}-${id}`)?.value; return (val === '' || val === undefined) ? null : parseFloat(val); };
+  const moy = lire('moy'), exam = lire('exam');
+  const el = document.getElementById(`note-total-${id}`);
+  if (el) el.textContent = (moy !== null && exam !== null && !isNaN(moy) && !isNaN(exam)) ? Math.round((moy + exam) * 100) / 100 + '/20' : '—';
 }
 
 // Le contrôle continu et l'examen peuvent être saisis séparément (l'un
@@ -519,27 +540,22 @@ async function sauvegarderNoteProf(etudiantId, coursId, options = {}) {
   const professeur = getProfesseurConnecte();
   if (!professeur) return { ok: false };
   const annee   = document.querySelector(`#prof-select-cours option[value="${coursId}"]`)?.dataset.annee || '';
-  const ccValeur     = document.getElementById(`note-cc-${etudiantId}`)?.value ?? '';
-  const examenValeur = document.getElementById(`note-examen-${etudiantId}`)?.value ?? '';
-  const note_cc     = ccValeur     === '' ? undefined : parseFloat(ccValeur);
-  const note_examen = examenValeur === '' ? undefined : parseFloat(examenValeur);
+  const lire = x => { const v = document.getElementById(`note-${x}-${etudiantId}`)?.value ?? ''; return v === '' ? undefined : parseFloat(v); };
+  const composantes = { tp: lire('tp'), td: lire('td'), interro: lire('interro'), note_cc: lire('moy'), note_examen: lire('exam') };
 
-  if (note_cc === undefined && note_examen === undefined) {
-    if (!options.silencieux) afficherToast('⚠️ Renseignez au moins le contrôle continu ou l\'examen.', 'erreur');
+  if (Object.values(composantes).every(v => v === undefined)) {
+    if (!options.silencieux) afficherToast('⚠️ Renseignez au moins une note (TP, TD, Interro, Moy ou Examen).', 'erreur');
     return { ok: false, ignore: true };
   }
-  if (note_cc !== undefined && (isNaN(note_cc) || note_cc < 0 || note_cc > 20)) {
-    if (!options.silencieux) afficherToast('⚠️ Entrez un contrôle continu entre 0 et 20.', 'erreur');
-    return { ok: false };
-  }
-  if (note_examen !== undefined && (isNaN(note_examen) || note_examen < 0 || note_examen > 20)) {
-    if (!options.silencieux) afficherToast('⚠️ Entrez un examen entre 0 et 20.', 'erreur');
-    return { ok: false };
+  for (const v of Object.values(composantes)) {
+    if (v !== undefined && (isNaN(v) || v < 0 || v > 10)) {
+      if (!options.silencieux) afficherToast('⚠️ Chaque note doit être comprise entre 0 et 10.', 'erreur');
+      return { ok: false };
+    }
   }
 
   const corps = { etudiant_id: etudiantId, cours_id: coursId, annee_academique: annee };
-  if (note_cc !== undefined) corps.note_cc = note_cc;
-  if (note_examen !== undefined) corps.note_examen = note_examen;
+  for (const [k, v] of Object.entries(composantes)) if (v !== undefined) corps[k] = v;
 
   try {
     const r = await fetch(`${BASE_URL}/api/professeur/${professeur.id}/notes`, {
