@@ -13,6 +13,7 @@ const bcrypt      = require('bcryptjs');
 const { genererBulletinPDF } = require('./bulletin');
 const { envoyerEmailReinitialisation } = require('./mailer');
 const { inscrireAuxCoursDuNiveau } = require('./models/inscriptionAuto');
+const { recomputeMoyCours } = require('./models/notesCalcul');
 const { journaliser, ipDeRequete, acteurDeReq } = require('./models/audit');
 const { nomMajuscule } = require('./nom');
 const upload    = require('./upload');
@@ -848,36 +849,32 @@ app.post('/api/professeur/:id/notes', async (req, res) => {
     const session = cours.semestre;
 
     const [existante] = await pool.query(
-      'SELECT id, tp, td, interro, note_cc, note_examen FROM note WHERE etudiant_id = ? AND cours_id = ?',
+      'SELECT id, tp, td, interro, note_examen FROM note WHERE etudiant_id = ? AND cours_id = ?',
       [etudiant_id, cours_id]
     );
     const prec = existante.length ? existante[0] : {};
     const tpFinal      = tp      !== undefined ? val(tp)      : (prec.tp ?? null);
     const tdFinal      = td      !== undefined ? val(td)      : (prec.td ?? null);
     const interroFinal = interro !== undefined ? val(interro) : (prec.interro ?? null);
-    // Moy/10 (CC) : override si fournie, sinon moyenne des composantes saisies.
-    let ccFinal;
-    if (note_cc !== undefined && note_cc !== null && note_cc !== '') {
-      ccFinal = Math.round(Number(note_cc) * 100) / 100;
-    } else {
-      const parts = [tpFinal, tdFinal, interroFinal].filter(v => v !== null && v !== undefined).map(Number);
-      ccFinal = parts.length ? Math.round((parts.reduce((s, v) => s + v, 0) / parts.length) * 100) / 100 : null;
-    }
-    const examenFinal = note_examen !== undefined ? val(note_examen) : (prec.note_examen ?? null);
-    // Total Général /20 = Moy + Examen (quand les deux sont connus).
-    const note = (ccFinal === null || examenFinal === null) ? null : Math.round((Number(ccFinal) + Number(examenFinal)) * 100) / 100;
+    const examenFinal  = note_examen !== undefined ? val(note_examen) : (prec.note_examen ?? null);
 
+    let noteId;
     if (existante.length > 0) {
-      await pool.query('UPDATE note SET tp = ?, td = ?, interro = ?, note_cc = ?, note_examen = ?, note = ?, session = ? WHERE id = ?',
-        [tpFinal, tdFinal, interroFinal, ccFinal, examenFinal, note, session, existante[0].id]);
-      return res.json({ message: 'Note mise à jour.', id: existante[0].id, note });
+      await pool.query('UPDATE note SET tp = ?, td = ?, interro = ?, note_examen = ?, session = ? WHERE id = ?',
+        [tpFinal, tdFinal, interroFinal, examenFinal, session, existante[0].id]);
+      noteId = existante[0].id;
+    } else {
+      const [r] = await pool.query(
+        'INSERT INTO note (etudiant_id, cours_id, tp, td, interro, note_examen, session, annee_academique) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [etudiant_id, cours_id, tpFinal, tdFinal, interroFinal, examenFinal, session, annee_academique]
+      );
+      noteId = r.insertId;
     }
-
-    const [r] = await pool.query(
-      'INSERT INTO note (etudiant_id, cours_id, tp, td, interro, note_cc, note_examen, note, session, annee_academique) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [etudiant_id, cours_id, tpFinal, tdFinal, interroFinal, ccFinal, examenFinal, note, session, annee_academique]
-    );
-    res.status(201).json({ message: 'Note enregistrée.', id: r.insertId, note });
+    // Recalcule la Moy (note_cc) et le Total (note) de TOUT le cours : le diviseur
+    // dépend du nombre de composantes utilisées pour ce cours (2 ou 3).
+    await recomputeMoyCours(cours_id);
+    const [[maj]] = await pool.query('SELECT note FROM note WHERE id = ?', [noteId]);
+    res.status(existante.length ? 200 : 201).json({ message: existante.length ? 'Note mise à jour.' : 'Note enregistrée.', id: noteId, note: maj ? maj.note : null });
   } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
 });
 

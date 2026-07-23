@@ -493,7 +493,7 @@ async function chargerEtudiantsCours() {
     const etudiants = await r.json();
 
     const v = x => (x !== null && x !== undefined && x !== '') ? x : '';
-    const champ = (pref, id, val, extra = '') => `<input type="number" min="0" max="10" step="0.25" id="${pref}-${id}" value="${val}" oninput="${extra}" style="width:62px;padding:5px 6px;border:1.5px solid #ddd;border-radius:6px" placeholder="0-10">`;
+    const champ = (pref, id, val) => `<input type="number" min="0" max="10" step="0.25" id="${pref}-${id}" value="${val}" oninput="recalcTousProf()" style="width:62px;padding:5px 6px;border:1.5px solid #ddd;border-radius:6px" placeholder="0-10">`;
     tbody.innerHTML = etudiants.length === 0
       ? '<tr><td colspan="9" class="admin-vide">Aucun étudiant dans cette promotion.</td></tr>'
       : etudiants.map((e, i) => {
@@ -501,30 +501,44 @@ async function chargerEtudiantsCours() {
           return `<tr data-etudiant-id="${e.id}">
             <td>${i + 1}</td>
             <td>${e.nom} ${e.postnom || ''} ${e.prenom}</td>
-            <td>${champ('note-tp', e.id, v(e.tp), `recalcNoteProf('${e.id}')`)}</td>
-            <td>${champ('note-td', e.id, v(e.td), `recalcNoteProf('${e.id}')`)}</td>
-            <td>${champ('note-interro', e.id, v(e.interro), `recalcNoteProf('${e.id}')`)}</td>
-            <td><input type="number" min="0" max="10" step="0.25" id="note-moy-${e.id}" value="${v(e.note_cc)}" oninput="recalcTotalProf('${e.id}')" title="Moyenne du contrôle continu — calculée depuis TP/TD/Interro, modifiable" style="width:62px;padding:5px 6px;border:1.5px solid #c7d2e0;border-radius:6px;background:#f6f9fc;font-weight:600" placeholder="auto"></td>
-            <td>${champ('note-exam', e.id, v(e.note_examen), `recalcTotalProf('${e.id}')`)}</td>
+            <td>${champ('note-tp', e.id, v(e.tp))}</td>
+            <td>${champ('note-td', e.id, v(e.td))}</td>
+            <td>${champ('note-interro', e.id, v(e.interro))}</td>
+            <td><input type="number" id="note-moy-${e.id}" value="${v(e.note_cc)}" readonly title="Moy = somme des composantes ÷ nombre de composantes cotées pour ce cours (2 ou 3)" style="width:62px;padding:5px 6px;border:1.5px solid #c7d2e0;border-radius:6px;background:#eef2f8;font-weight:700;color:var(--bleu)" placeholder="auto"></td>
+            <td>${champ('note-exam', e.id, v(e.note_examen))}</td>
             <td><strong id="note-total-${e.id}">${total}</strong></td>
             <td><button class="btn-icone" onclick="sauvegarderNoteProf('${e.id}', ${coursId})" aria-label="Enregistrer">${icone('coche')}</button></td>
           </tr>`;
         }).join('');
+    recalcTousProf();
   } catch {
     tbody.innerHTML = '<tr><td colspan="9" class="admin-vide">⚠️ Erreur de chargement.</td></tr>';
   }
 }
 
-// Moy/10 = moyenne des composantes TP/TD/Interro réellement saisies (une
-// composante vide n'est pas comptée), puis on recalcule le Total Général.
-function recalcNoteProf(id) {
-  const lire = x => { const val = document.getElementById(`note-${x}-${id}`)?.value; return (val === '' || val === undefined) ? null : parseFloat(val); };
-  const parts = ['tp', 'td', 'interro'].map(lire).filter(x => x !== null && !isNaN(x));
-  const moyEl = document.getElementById(`note-moy-${id}`);
-  if (moyEl) moyEl.value = parts.length ? Math.round((parts.reduce((s, x) => s + x, 0) / parts.length) * 100) / 100 : '';
-  recalcTotalProf(id);
+// Recalcule la Moy de TOUTES les lignes selon le nombre de composantes cotées
+// POUR LE COURS : diviseur = nombre de colonnes (TP/TD/Interro) ayant au moins
+// une valeur sur l'ensemble des étudiants. Moy d'un étudiant = somme de SES
+// composantes (une manquée comptant 0) ÷ diviseur.
+function recalcTousProf() {
+  const lignes = document.querySelectorAll('#prof-etudiants-body tr[data-etudiant-id]');
+  const lire = (comp, id) => { const val = document.getElementById(`note-${comp}-${id}`)?.value; return (val === '' || val === undefined || isNaN(parseFloat(val))) ? null : parseFloat(val); };
+  const COMP = ['tp', 'td', 'interro'];
+  const actives = COMP.filter(c => [...lignes].some(r => lire(c, r.dataset.etudiantId) !== null));
+  const diviseur = actives.length;
+  lignes.forEach(r => {
+    const id = r.dataset.etudiantId;
+    const moyEl = document.getElementById(`note-moy-${id}`);
+    const aUne = actives.some(c => lire(c, id) !== null);
+    if (moyEl) {
+      moyEl.value = (diviseur > 0 && aUne)
+        ? Math.round((actives.reduce((s, c) => s + (lire(c, id) ?? 0), 0) / diviseur) * 100) / 100
+        : '';
+    }
+    recalcTotalProf(id);
+  });
 }
-// Total Général /20 = Moy/10 + Exam/10 (affiché seulement si les deux sont saisis).
+// Total Général /20 = Moy/10 + Exam/10 (affiché seulement si les deux sont là).
 function recalcTotalProf(id) {
   const lire = x => { const val = document.getElementById(`note-${x}-${id}`)?.value; return (val === '' || val === undefined) ? null : parseFloat(val); };
   const moy = lire('moy'), exam = lire('exam');
@@ -541,10 +555,12 @@ async function sauvegarderNoteProf(etudiantId, coursId, options = {}) {
   if (!professeur) return { ok: false };
   const annee   = document.querySelector(`#prof-select-cours option[value="${coursId}"]`)?.dataset.annee || '';
   const lire = x => { const v = document.getElementById(`note-${x}-${etudiantId}`)?.value ?? ''; return v === '' ? undefined : parseFloat(v); };
-  const composantes = { tp: lire('tp'), td: lire('td'), interro: lire('interro'), note_cc: lire('moy'), note_examen: lire('exam') };
+  // La Moy est calculée côté serveur (règle du diviseur par cours) : on n'envoie
+  // que les composantes TP/TD/Interro et l'examen.
+  const composantes = { tp: lire('tp'), td: lire('td'), interro: lire('interro'), note_examen: lire('exam') };
 
   if (Object.values(composantes).every(v => v === undefined)) {
-    if (!options.silencieux) afficherToast('⚠️ Renseignez au moins une note (TP, TD, Interro, Moy ou Examen).', 'erreur');
+    if (!options.silencieux) afficherToast('⚠️ Renseignez au moins une note (TP, TD, Interro ou Examen).', 'erreur');
     return { ok: false, ignore: true };
   }
   for (const v of Object.values(composantes)) {
