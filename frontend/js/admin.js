@@ -1197,7 +1197,7 @@ function afficherTableauBulletins() {
     const promo = `${niv ? `<span class="annee-badge">${niv}</span> ` : ''}${fil}`.trim() || '—';
     return `
     <tr${e.annee_academique !== courante ? ' class="bulletin-autre-annee"' : ''}>
-      <td><input type="checkbox" class="note-select" data-etudiant-id="${e.etudiant_id}"></td>
+      <td><input type="checkbox" class="note-select" data-etudiant-id="${e.etudiant_id}" data-annee="${e.annee_academique || ''}"></td>
       <td>${e.nom} ${e.postnom || ''} ${e.prenom}<br><span style="font-size:11px;color:#999">${e.etudiant_id}</span></td>
       <td>${promo}</td>
       <td>${e.faculte || '—'}</td>
@@ -1213,22 +1213,25 @@ function basculerSelectionToutesNotes(caseTout) {
   document.querySelectorAll('#bulletins-notes-body .note-select').forEach(c => { c.checked = caseTout.checked; });
 }
 
-// Imprime (télécharge en PDF) le bulletin de chaque étudiant coché — un seul
-// bulletin par étudiant même si plusieurs de ses notes sont sélectionnées.
+// Imprime (télécharge en PDF) le bulletin de chaque LIGNE cochée : chaque ligne
+// est un couple (étudiant, année académique). Un étudiant réinscrit sélectionné
+// sur plusieurs années (L1, L2, L3…) reçoit donc UN bulletin distinct par année.
 async function imprimerBulletinsSelectionnes() {
-  const etudiantIds = [...new Set(
-    Array.from(document.querySelectorAll('#bulletins-notes-body .note-select:checked')).map(c => c.dataset.etudiantId)
-  )];
-  if (etudiantIds.length === 0) { afficherToast('⚠️ Sélectionnez au moins un étudiant.', 'erreur'); return; }
-  afficherToast(`⏳ Génération de ${etudiantIds.length} bulletin(s)...`);
+  const cochees = Array.from(document.querySelectorAll('#bulletins-notes-body .note-select:checked'));
+  // Dédoublonnage par couple (étudiant + année), pas par étudiant seul.
+  const paires = [...new Map(
+    cochees.map(c => [`${c.dataset.etudiantId}|${c.dataset.annee || ''}`, { id: c.dataset.etudiantId, annee: c.dataset.annee || '' }])
+  ).values()];
+  if (paires.length === 0) { afficherToast('⚠️ Sélectionnez au moins un bulletin.', 'erreur'); return; }
+  afficherToast(`⏳ Génération de ${paires.length} bulletin(s)...`);
   let reussis = 0;
-  for (const etudiantId of etudiantIds) {
-    const ok = await telechargerBulletin(etudiantId);
+  for (const { id, annee } of paires) {
+    const ok = await telechargerBulletin(id, annee);
     if (ok) reussis++;
     // Petite pause entre chaque téléchargement pour éviter que le navigateur ne bloque les téléchargements multiples.
     await new Promise(resolve => setTimeout(resolve, 400));
   }
-  afficherToast(reussis === etudiantIds.length ? `✅ ${reussis} bulletin(s) téléchargé(s) !` : `⚠️ ${reussis}/${etudiantIds.length} bulletin(s) téléchargé(s).`);
+  afficherToast(reussis === paires.length ? `✅ ${reussis} bulletin(s) téléchargé(s) !` : `⚠️ ${reussis}/${paires.length} bulletin(s) téléchargé(s).`);
 }
 
 function filtrerEtudiantsParFaculte() {
@@ -2811,15 +2814,16 @@ async function chargerInscrits() {
 // Le bulletin est réservé à l'administrateur (l'étudiant n'a pas le droit de
 // l'imprimer) : la route backend exige un token admin, donc le téléchargement
 // doit passer par fetchAdmin() plutôt qu'un simple lien <a href>.
-async function telechargerBulletin(etudiantId) {
+async function telechargerBulletin(etudiantId, annee = '') {
   try {
-    const r = await fetchAdmin(`${BASE_URL}/api/etudiant/${etudiantId}/bulletin`);
+    const qs = annee ? `?annee=${encodeURIComponent(annee)}` : '';
+    const r = await fetchAdmin(`${BASE_URL}/api/etudiant/${etudiantId}/bulletin${qs}`);
     if (!r.ok) { afficherToast('❌ Impossible de générer le bulletin.', 'erreur'); return false; }
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `bulletin-${etudiantId}.pdf`;
+    a.download = `bulletin-${etudiantId}${annee ? '-' + annee : ''}.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();

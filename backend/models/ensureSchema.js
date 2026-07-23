@@ -410,7 +410,7 @@ async function assurerSchema(pool) {
   // Correction des Pré-U illégitimes (hors SI/GL/IA/Design) → L1, avant la resync.
   try { await corrigerPreUErrones(pool); } catch (e) { console.error('⚠️ Correction Pré-U :', e.message); }
   // Données de test : 5 étudiants fictifs par filière (idempotent).
-  try { await seedEtudiantsTest(); } catch (e) { console.error('⚠️ Seed étudiants test :', e.message); }
+  try { if (typeof seedEtudiantsTest === 'function') await seedEtudiantsTest(); } catch (e) { console.error('⚠️ Seed étudiants test :', e.message); }
   // Resynchronisation des inscriptions EN DERNIER : après tout nettoyage/seed de
   // cours, pour que chaque cours (commun ou de filière) atteigne bien tous ses
   // étudiants (programme annuel + horaire).

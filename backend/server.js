@@ -675,15 +675,23 @@ app.get('/api/etudiant/:id/bulletin', requireAdminOuDoyen, async (req, res) => {
       return res.status(403).json({ erreur: "Cet étudiant n'appartient pas à votre faculté." });
     }
 
-    // Bulletin = année académique COURANTE de l'étudiant uniquement. Sans ce
-    // filtre, un étudiant réinscrit (ex. L1 2026-2027 puis L2 2027-2028) verrait
-    // les notes des deux années mélangées sur le même bulletin.
+    // Bulletin d'UNE année académique précise : paramètre ?annee= (pour imprimer
+    // séparément chaque année d'un étudiant réinscrit — L1, L2, L3…), à défaut
+    // l'année courante de l'étudiant. Sans ce filtre, les notes de plusieurs
+    // années seraient mélangées sur le même bulletin.
+    const anneeBulletin = String(req.query.annee || '').trim() || etudiants[0].annee_academique;
     const [notes] = await pool.query(`
-      SELECT n.note, n.note_cc, n.note_examen, n.session, c.id AS cours_id, c.nom AS matiere, c.code, c.credits, n.annee_academique
+      SELECT n.note, n.note_cc, n.note_examen, n.session, c.id AS cours_id, c.nom AS matiere, c.code, c.credits, c.niveau AS cours_niveau, n.annee_academique
       FROM note n JOIN cours c ON n.cours_id = c.id
       WHERE n.etudiant_id = ? AND n.annee_academique = ?
       ORDER BY n.session, c.code
-    `, [req.params.id, etudiants[0].annee_academique]);
+    `, [req.params.id, anneeBulletin]);
+    // En-tête du bulletin ALIGNÉ sur l'année demandée : niveau réel de cette
+    // année (dérivé des cours notés) et année affichée = celle du bulletin. La
+    // filière/faculté sont stables (ne changent pas à la promotion).
+    const niveauAnnee = notes.reduce((n, x) => n || x.cours_niveau, null) || etudiants[0].niveau;
+    etudiants[0].niveau = niveauAnnee;
+    etudiants[0].annee_academique = anneeBulletin;
 
     // Assiduité par cours, agrégée pour être répartie ensuite par semestre
     // (chaque note connaît déjà son cours_id et sa session S1/S2).
