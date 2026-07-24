@@ -60,6 +60,11 @@ router.post('/', requireAdmin, async (req, res) => {
     // Un doyen ne peut cibler que sa faculté (le ciblage est forcé, quel que
     // soit ce que le client envoie).
     const facDoyen = faculteDuDoyen(req);
+    // Le décanat ne publie PAS d'annonces/événements publics : uniquement des
+    // communiqués internes (réservé à l'administration côté public).
+    if (facDoyen && type !== 'communique') {
+      return res.status(403).json({ erreur: "Le décanat ne peut publier que des communiqués internes." });
+    }
     const cibleFaculteFinale = facDoyen || cible_faculte || null;
 
     const [resultat] = await pool.query(
@@ -98,8 +103,14 @@ router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const { type, titre, description, date_annonce, icone, image, actif, cible_faculte, cible_role } = req.body;
     const facDoyen = faculteDuDoyen(req);
+    // Décanat : uniquement des communiqués de SA faculté (les siens et ceux de
+    // son binôme doyen/vice-doyen). Pas d'annonces publiques, pas les communiqués
+    // de l'admin (cible_faculte NULL) ni ceux d'une autre faculté.
+    if (facDoyen && type !== 'communique') {
+      return res.status(403).json({ erreur: "Le décanat ne peut modifier que des communiqués internes." });
+    }
     if (!await annonceDansFaculte(req.params.id, facDoyen)) {
-      return res.status(403).json({ erreur: "Cette annonce ne concerne pas votre faculté." });
+      return res.status(403).json({ erreur: "Ce communiqué ne relève pas de votre faculté." });
     }
     const cibleFaculteFinale = facDoyen || cible_faculte || null;
 

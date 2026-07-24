@@ -630,8 +630,10 @@ function marquerUneNotificationAdminLue(id) {
 function ouvrirNotificationAdmin(idEncode, categorie) {
   if (idEncode != null) marquerUneNotificationAdminLue(decodeURIComponent(idEncode));
   document.getElementById('admin-notif-panneau')?.classList.remove('ouvert');
-  if (estDoyen() || categorie === 'annonce') {
-    // Décanat : la cloche mène à « Partager des informations » (annonces).
+  if (estDoyen()) {
+    // Décanat : pas d'annonces publiques → la cloche mène aux communiqués.
+    afficherOngletAnnonces('annonces-onglet-communiques');
+  } else if (categorie === 'annonce') {
     afficherOngletAnnonces('annonces-onglet-public');
   } else if (categorie === 'preinscription') {
     // Sous-onglet de « Gérer les inscrits » : ouvre le groupe et l'onglet.
@@ -2746,18 +2748,33 @@ function afficherTableauCommuniques(liste = communiquesAdmin) {
   const tbody = document.getElementById('admin-communiques-body');
   if (!tbody) return;
   if (!liste.length) { tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Aucun communiqué.</td></tr>`; return; }
-  tbody.innerHTML = liste.map(c => `
+  const facDoyen = faculteDoyenCourant(); // '' pour l'admin
+  tbody.innerHTML = liste.map(c => {
+    // Un doyen/vice-doyen ne peut modifier QUE les communiqués de SA faculté
+    // (les siens et ceux de son binôme doyen/vice-doyen). Ceux de l'admin
+    // (cible_faculte NULL) ou d'une autre faculté restent en lecture seule.
+    const editable = !estDoyen() || (!!c.cible_faculte && c.cible_faculte === facDoyen);
+    // Provenance affichée au décanat pour lever l'ambiguïté (Administration /
+    // autre faculté). Rien à afficher pour ses propres communiqués ni pour l'admin.
+    let provenance = '';
+    if (estDoyen() && !editable) {
+      const libel = c.cible_faculte ? c.cible_faculte : 'Administration';
+      provenance = ` <span class="annee-badge" style="background:#eef1f5;color:#667" title="Émetteur">${libel}</span>`;
+    }
+    const actions = editable
+      ? `<button class="btn-icone" onclick="toggleActifAnnonce(${c.id}); setTimeout(chargerCommuniques,150)" aria-label="${c.actif?'Masquer':'Afficher'}">${icone(c.actif?'oeil':'oeil-barre')}</button>
+         <button class="btn-icone" onclick="modifierCommunique(${c.id})" aria-label="Modifier">${icone('crayon')}</button>
+         <button class="btn-icone danger" onclick="supprimerCommunique(${c.id})" aria-label="Supprimer">${icone('corbeille')}</button>`
+      : `<span title="Communiqué d'une autre entité — lecture seule" style="color:#aaa;font-size:12px;white-space:nowrap">🔒 Lecture seule</span>`;
+    return `
     <tr>
-      <td>📣 ${c.titre}</td>
+      <td>📣 ${c.titre}${provenance}</td>
       <td><span class="annee-badge">${LIBELLE_ROLE[c.cible_role] || 'Étudiants'}</span></td>
       <td>${formatDateAffichage(c.date_annonce)}</td>
       <td><span class="badge ${c.actif?'actif':'inactif'}">${c.actif?'Actif':'Masqué'}</span></td>
-      <td class="admin-actions-cell">
-        <button class="btn-icone" onclick="toggleActifAnnonce(${c.id}); setTimeout(chargerCommuniques,150)" aria-label="${c.actif?'Masquer':'Afficher'}">${icone(c.actif?'oeil':'oeil-barre')}</button>
-        <button class="btn-icone" onclick="modifierCommunique(${c.id})" aria-label="Modifier">${icone('crayon')}</button>
-        <button class="btn-icone danger" onclick="supprimerCommunique(${c.id})" aria-label="Supprimer">${icone('corbeille')}</button>
-      </td>
-    </tr>`).join('');
+      <td class="admin-actions-cell">${actions}</td>
+    </tr>`;
+  }).join('');
 }
 
 function ouvrirModalCommunique() {
