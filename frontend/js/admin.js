@@ -1083,6 +1083,120 @@ async function chargerGraphiqueFacultes() {
 let graphiqueSondage = null;
 let graphiqueReussite = null;
 
+// ADMIN — sondage « comment les inscrits ont connu l'UML » (canal de découverte).
+function rendreSondageCanal(canvas, sondage) {
+  const titre = document.getElementById('titre-carte-sondage');
+  const sousTitre = document.getElementById('soustitre-carte-sondage');
+  const champDate = document.getElementById('participation-date');
+  if (titre) titre.textContent = "Comment les inscrits ont connu l'UML";
+  if (sousTitre) sousTitre.textContent = 'Sondage de la pré-inscription — canal de découverte';
+  if (champDate) champDate.style.display = 'none';
+
+  const wrapS = document.getElementById('wrap-sondage');
+  if (wrapS) wrapS.style.height = '240px';
+  const COULEURS_CANAL = ['#1877f2','#25d366','#e1306c','#f0c020','#7a2d7a',
+                          '#00838f','#ff6d00','#5c6bc0','#8d6e63','#607d8b'];
+  if (graphiqueSondage) graphiqueSondage.destroy();
+
+  if (!sondage.length) {
+    graphiqueSondage = new Chart(canvas, {
+      type: 'doughnut',
+      data: { labels: ['Aucune donnée'], datasets: [{ data: [1], backgroundColor: ['#e3e8ef'] }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+    });
+    return;
+  }
+  const total = sondage.reduce((s, x) => s + x.total, 0);
+  graphiqueSondage = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: sondage.map(x => x.canal),
+      datasets: [{
+        data: sondage.map(x => x.total),
+        backgroundColor: sondage.map((_, i) => COULEURS_CANAL[i % COULEURS_CANAL.length]),
+        borderColor: '#fff', borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '58%',
+      plugins: {
+        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, padding: 8 } },
+        tooltip: { callbacks: { label: ctx => {
+          const v = ctx.parsed; const pct = total ? Math.round((v / total) * 100) : 0;
+          return ` ${ctx.label} : ${v} (${pct}%)`;
+        } } }
+      }
+    }
+  });
+}
+
+// DÉCANAT — participations aux cours d'une journée : pour tous les cours alignés
+// ce jour dans la faculté, barres empilées Présents / En retard / Absents.
+function rendreParticipationsJour(canvas, participations, date, champDate) {
+  const titre = document.getElementById('titre-carte-sondage');
+  const sousTitre = document.getElementById('soustitre-carte-sondage');
+  if (champDate) {
+    champDate.style.display = '';
+    if (!champDate.value && date) champDate.value = date;
+  }
+  const dateLisible = date ? new Date(date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) : '';
+  if (titre) titre.textContent = 'Participations aux cours du jour';
+  if (sousTitre) sousTitre.textContent = participations.length
+    ? `Présences par cours — ${dateLisible} (votre faculté)`
+    : `Aucun cours aligné ${dateLisible ? 'le ' + dateLisible : 'ce jour'}.`;
+
+  const wrapS = document.getElementById('wrap-sondage');
+  if (wrapS) wrapS.style.height = Math.max(200, participations.length * 34 + 54) + 'px';
+  if (graphiqueSondage) graphiqueSondage.destroy();
+
+  const labels = participations.map(p => p.cours);
+  // Plugin : total « participants » (présents + retards) au bout de chaque barre.
+  const pluginTotalPart = {
+    id: 'totalParticipants',
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      const metaAbs = chart.getDatasetMeta(2); // dernière pile (absents) → bord droit
+      ctx.save();
+      ctx.font = '700 11px Segoe UI, Arial'; ctx.fillStyle = '#555';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      metaAbs.data.forEach((bar, i) => {
+        const p = participations[i];
+        const part = p.present + p.retard;
+        ctx.fillText(`${part}/${p.total || 0}`, bar.x + 6, bar.y);
+      });
+      ctx.restore();
+    }
+  };
+
+  graphiqueSondage = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Présents',  data: participations.map(p => p.present), backgroundColor: '#2d7a2d', stack: 'p', borderRadius: 3 },
+        { label: 'En retard', data: participations.map(p => p.retard),  backgroundColor: '#f0a020', stack: 'p', borderRadius: 3 },
+        { label: 'Absents',   data: participations.map(p => p.absent),  backgroundColor: '#cc4400', stack: 'p', borderRadius: 3 },
+      ]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      layout: { padding: { right: 46 } },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, padding: 8 } },
+        tooltip: { callbacks: { title: items => {
+          const p = participations[items[0].dataIndex];
+          return `${p.cours}${p.promotion ? ' — ' + p.promotion : ''}`;
+        } } }
+      },
+      scales: {
+        x: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#eef1f5' } },
+        y: { stacked: true, ticks: { font: { size: 11 } }, grid: { display: false } }
+      }
+    },
+    plugins: [pluginTotalPart]
+  });
+}
+
 async function chargerStatistiquesAvancees() {
   const canvasSondage  = document.getElementById('graphique-sondage');
   const canvasReussite = document.getElementById('graphique-reussite');
@@ -1091,61 +1205,23 @@ async function chargerStatistiquesAvancees() {
   try {
     // Taux de réussite conforme à l'année académique en cours.
     const annee = anneeCourante || '';
-    const r = await fetchAdmin(`${BASE_URL}/api/stats/avancees${annee ? '?annee=' + encodeURIComponent(annee) : ''}`);
-    const { sondageCanal, tauxReussiteParFaculte, parFiliere } = await r.json();
+    // Décanat : la carte du bas montre les participations aux cours d'un jour →
+    // on transmet la date choisie (par défaut aujourd'hui, gérée plus bas).
+    const champDate = document.getElementById('participation-date');
+    const dateSel = estDoyen() ? (champDate?.value || '') : '';
+    const params = new URLSearchParams();
+    if (annee) params.append('annee', annee);
+    if (dateSel) params.append('date', dateSel);
+    const r = await fetchAdmin(`${BASE_URL}/api/stats/avancees${params.toString() ? '?' + params : ''}`);
+    const { sondageCanal, participationsJour, dateParticipations, tauxReussiteParFaculte, parFiliere } = await r.json();
     // Décanat (une seule faculté) : le taux de réussite est ventilé par filière.
     const titreReussite = document.getElementById('titre-graphique-reussite');
     if (titreReussite) titreReussite.textContent =
       (parFiliere ? 'Taux de réussite par filière' : 'Taux de réussite par faculté') + (annee ? ` (${annee})` : '');
 
     if (canvasSondage) {
-      const sondage = sondageCanal || [];
-      const wrapS = document.getElementById('wrap-sondage');
-      // Palette dédiée au sondage (canaux de découverte), teintes distinctes.
-      const COULEURS_CANAL = ['#1877f2','#25d366','#e1306c','#f0c020','#7a2d7a',
-                              '#00838f','#ff6d00','#5c6bc0','#8d6e63','#607d8b'];
-      if (graphiqueSondage) graphiqueSondage.destroy();
-
-      if (!sondage.length) {
-        if (wrapS) wrapS.style.height = '240px';
-        graphiqueSondage = new Chart(canvasSondage, {
-          type: 'doughnut',
-          data: { labels: ['Aucune donnée'], datasets: [{ data: [1], backgroundColor: ['#e3e8ef'] }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } } }
-        });
-      } else {
-        const total = sondage.reduce((s, x) => s + x.total, 0);
-        if (wrapS) wrapS.style.height = '240px';
-        graphiqueSondage = new Chart(canvasSondage, {
-          type: 'doughnut',
-          data: {
-            labels: sondage.map(x => x.canal),
-            datasets: [{
-              data: sondage.map(x => x.total),
-              backgroundColor: sondage.map((_, i) => COULEURS_CANAL[i % COULEURS_CANAL.length]),
-              borderColor: '#fff',
-              borderWidth: 2,
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '58%',
-            plugins: {
-              legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, padding: 8 } },
-              tooltip: {
-                callbacks: {
-                  label: ctx => {
-                    const v = ctx.parsed;
-                    const pct = total ? Math.round((v / total) * 100) : 0;
-                    return ` ${ctx.label} : ${v} (${pct}%)`;
-                  }
-                }
-              }
-            }
-          }
-        });
-      }
+      if (estDoyen()) rendreParticipationsJour(canvasSondage, participationsJour || [], dateParticipations, champDate);
+      else            rendreSondageCanal(canvasSondage, sondageCanal || []);
     }
 
     if (canvasReussite) {

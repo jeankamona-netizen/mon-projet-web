@@ -216,8 +216,13 @@
 
         <div class="dash-row" style="margin-top:20px">
           <div class="dash-card">
-            <h3>Comment les inscrits ont connu l'UML</h3>
-            <p class="dash-sous-titre" style="margin:-4px 0 10px">Sondage de la pré-inscription — canal de découverte</p>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+              <div>
+                <h3 id="titre-carte-sondage">Comment les inscrits ont connu l'UML</h3>
+                <p class="dash-sous-titre" id="soustitre-carte-sondage" style="margin:-4px 0 10px">Sondage de la pré-inscription — canal de découverte</p>
+              </div>
+              <input type="date" id="participation-date" class="admin-recherche" style="display:none;flex:0 0 160px" onchange="chargerStatistiquesAvancees()" title="Jour des participations">
+            </div>
             <div id="wrap-sondage" class="chart-wrap" style="position:relative;min-height:240px">
               <canvas id="graphique-sondage"></canvas>
             </div>

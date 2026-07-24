@@ -256,21 +256,61 @@ app.get('/api/stats/avancees', requireAdminOuDoyen, async (req, res) => {
           annee ? [annee] : []
         );
 
-    // Sondage : comment les candidats ont connu l'UML (canal de découverte),
-    // renseigné à la pré-inscription. Restreint à la faculté du doyen le cas échéant.
-    const [sondage] = await pool.query(
-      `SELECT COALESCE(NULLIF(TRIM(canal_decouverte), ''), 'Non précisé') AS canal,
-              COUNT(*) AS total
-       FROM preinscription
-       ${facDoyen ? `WHERE (specialite = ? OR specialite IN (
-         SELECT f.nom FROM filiere f JOIN faculte fa ON f.faculte_id = fa.id WHERE fa.nom = ?))` : ''}
-       GROUP BY canal ORDER BY total DESC`,
-      facDoyen ? [facDoyen, facDoyen] : []
-    );
+    // --- Carte contextuelle (bas de la vue d'ensemble) ---
+    // ADMIN : sondage « comment les inscrits ont connu l'UML » (canal de découverte).
+    // DÉCANAT : participations aux cours d'une journée (tous les cours alignés ce
+    // jour dans sa faculté), à partir des feuilles de présence.
+    let sondageCanal = null;
+    let participationsJour = null;
+    let dateParticipations = null;
+
+    if (facDoyen) {
+      // Jour choisi (par défaut aujourd'hui) → nom du jour en français pour
+      // retrouver les créneaux d'horaire alignés ce jour-là.
+      const dateJour = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || '')
+        ? req.query.date : new Date().toISOString().slice(0, 10);
+      dateParticipations = dateJour;
+      const joursFr = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+      const jourFr = joursFr[new Date(dateJour + 'T00:00:00').getDay()];
+
+      const paramsPart = [dateJour, jourFr, facDoyen];
+      const condAnneePart = annee ? ' AND (h.annee_academique = ? OR h.annee_academique IS NULL)' : '';
+      if (annee) paramsPart.push(annee);
+      const [rows] = await pool.query(
+        `SELECT c.id AS cours_id, c.nom AS cours, c.promotion, c.niveau,
+                COUNT(p.id) AS total,
+                SUM(CASE WHEN p.statut='present' THEN 1 ELSE 0 END) AS present,
+                SUM(CASE WHEN p.statut='retard'  THEN 1 ELSE 0 END) AS retard,
+                SUM(CASE WHEN p.statut='absent'  THEN 1 ELSE 0 END) AS absent
+         FROM horaire h
+         JOIN cours c ON c.id = h.cours_id
+         LEFT JOIN presence p ON p.horaire_id = h.id AND p.date_seance = ?
+         WHERE h.jour = ? AND (c.faculte = ? OR c.faculte IS NULL)${condAnneePart}
+         GROUP BY c.id, c.nom, c.promotion, c.niveau
+         ORDER BY (SUM(CASE WHEN p.statut='present' THEN 1 ELSE 0 END)
+                 + SUM(CASE WHEN p.statut='retard' THEN 1 ELSE 0 END)) DESC, c.nom`,
+        paramsPart
+      );
+      participationsJour = rows.map(r => ({
+        cours: r.cours, promotion: r.promotion, niveau: r.niveau,
+        present: Number(r.present) || 0, retard: Number(r.retard) || 0,
+        absent: Number(r.absent) || 0, total: Number(r.total) || 0
+      }));
+    } else {
+      const [sondage] = await pool.query(
+        `SELECT COALESCE(NULLIF(TRIM(canal_decouverte), ''), 'Non précisé') AS canal,
+                COUNT(*) AS total
+         FROM preinscription
+         GROUP BY canal ORDER BY total DESC`
+      );
+      sondageCanal = sondage.map(s => ({ canal: s.canal, total: Number(s.total) }));
+    }
 
     res.json({
       evolutionPreinscriptions: evolution,
-      sondageCanal: sondage.map(s => ({ canal: s.canal, total: Number(s.total) })),
+      sondageCanal,
+      participationsJour,
+      dateParticipations,
       // Indique au frontend que le découpage est par filière (titre du graphique).
       parFiliere: !!facDoyen,
       tauxReussiteParFaculte: reussite.map(r => ({
