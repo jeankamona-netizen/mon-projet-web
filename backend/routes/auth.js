@@ -5,7 +5,7 @@ const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const pool = require('../database');
 const { journaliser, ipDeRequete } = require('../models/audit');
-const { requireFinance } = require('../middleware/auth');
+const { requireFinance, requireCompteAgent } = require('../middleware/auth');
 const { envoyerEmailConfirmationChangementMdp } = require('../mailer');
 const { nomMajuscule } = require('../nom');
 
@@ -390,7 +390,7 @@ function memeAgent(req, res, next) {
 }
 
 // Consultation de son propre profil (pré-remplissage du formulaire).
-router.get('/agent/:id/profil', requireFinance, memeAgent, async (req, res) => {
+router.get('/agent/:id/profil', requireCompteAgent, memeAgent, async (req, res) => {
   try {
     const [agents] = await pool.query(
       'SELECT id, matricule, noms, prenom, email, telephone, fonction FROM agent WHERE id = ?',
@@ -406,7 +406,7 @@ router.get('/agent/:id/profil', requireFinance, memeAgent, async (req, res) => {
 
 // Modification de son identité (nom, prénom, email, téléphone). Le matricule
 // reste géré par l'administration (identifiant de connexion).
-router.put('/agent/:id/profil', requireFinance, memeAgent, async (req, res) => {
+router.put('/agent/:id/profil', requireCompteAgent, memeAgent, async (req, res) => {
   const { noms, prenom, email, telephone } = req.body;
   if (!noms || !noms.trim()) return res.status(400).json({ erreur: 'Le nom est obligatoire.' });
   try {
@@ -427,7 +427,7 @@ router.put('/agent/:id/profil', requireFinance, memeAgent, async (req, res) => {
 });
 
 // Changement de son mot de passe (vérifie l'ancien).
-router.put('/agent/:id/password', requireFinance, memeAgent, async (req, res) => {
+router.put('/agent/:id/password', requireCompteAgent, memeAgent, async (req, res) => {
   const { mot_de_passe_actuel, nouveau_mot_de_passe } = req.body;
   if (!mot_de_passe_actuel || !nouveau_mot_de_passe)
     return res.status(400).json({ erreur: 'Tous les champs sont requis.' });

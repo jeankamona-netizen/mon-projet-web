@@ -45,6 +45,10 @@
           <div class="menu-compte-titre">Fonction</div>
           <div class="menu-compte-item" style="cursor:default">Administration</div>
           <div class="menu-compte-sep"></div>
+          <a href="#" class="menu-compte-item" id="doyen-infos-item" onclick="ouvrirInfosDoyen(event)" style="display:none;align-items:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Informations personnelles
+          </a>
           <a href="#" class="menu-compte-item" onclick="deconnecterAdmin(); return false" style="display:flex;align-items:center;gap:8px">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
             Se déconnecter
@@ -1874,6 +1878,46 @@
       </div>
     </div>
   </div>
+
+  <!-- MODAL INFORMATIONS PERSONNELLES DU DOYEN / VICE-DOYEN -->
+  <div class="admin-modal-overlay" id="modal-infos-doyen">
+    <div class="admin-modal" style="max-width:520px">
+      <div class="admin-modal-header">
+        <h3>Informations personnelles</h3>
+        <button class="admin-modal-close" onclick="fermerInfosDoyen()" aria-label="Fermer">✕</button>
+      </div>
+
+      <p class="form-sous-section">Identité</p>
+      <div class="form-row-admin">
+        <div class="form-group-dash"><label>Nom(s)</label><input type="text" id="doyen-noms" style="text-transform:uppercase"></div>
+        <div class="form-group-dash"><label>Prénom</label><input type="text" id="doyen-prenom"></div>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-dash"><label>Email</label><input type="email" id="doyen-email"></div>
+        <div class="form-group-dash"><label>Téléphone</label><input type="text" id="doyen-telephone"></div>
+      </div>
+      <div class="form-group-dash">
+        <label>Matricule (identifiant de connexion — géré par l'administration)</label>
+        <input type="text" id="doyen-matricule" disabled>
+      </div>
+      <div class="admin-modal-actions">
+        <button class="btn-sauvegarder" onclick="sauverProfilDoyen()">💾 Enregistrer</button>
+      </div>
+
+      <div class="menu-compte-sep" style="margin:18px 0"></div>
+
+      <p class="form-sous-section">Changer le mot de passe</p>
+      <div class="form-group-dash"><label>Mot de passe actuel</label><input type="password" id="doyen-pass-actuel"></div>
+      <div class="form-row-admin">
+        <div class="form-group-dash"><label>Nouveau mot de passe</label><input type="password" id="doyen-pass-nouveau"></div>
+        <div class="form-group-dash"><label>Confirmer</label><input type="password" id="doyen-pass-confirmer"></div>
+      </div>
+      <div class="admin-modal-actions">
+        <button class="btn-sauvegarder" onclick="changerMotDePasseDoyen()">🔒 Changer le mot de passe</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/config.js"></script>
   <script src="js/icons.js"></script>
   <script src="js/ui.js"></script>

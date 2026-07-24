@@ -191,13 +191,15 @@ app.get('/api/stats', requireAdminOuDoyen, async (req, res) => {
     coursSql += ' WHERE ' + coursCond.join(' AND ');
     const [[{ cours }]] = await pool.query(coursSql, coursParams);
 
-    // Annonces actives : global pour l'admin ; pour un doyen, celles ciblant sa
-    // faculté ou diffusées à tous (cible_faculte NULL).
+    // Annonces actives : uniquement les annonces/événements PUBLICS actifs (les
+    // communiqués internes destinés aux comptes ont leur propre onglet et ne sont
+    // pas comptés ici, pour refléter exactement l'onglet « Annonces & événements »).
+    // Global pour l'admin ; pour un doyen, celles ciblant sa faculté ou tous.
     let annonces;
     if (facDoyen) {
-      [[{ annonces }]] = await pool.query('SELECT COUNT(*) AS annonces FROM annonce WHERE actif = 1 AND (cible_faculte = ? OR cible_faculte IS NULL)', [facDoyen]);
+      [[{ annonces }]] = await pool.query("SELECT COUNT(*) AS annonces FROM annonce WHERE actif = 1 AND type <> 'communique' AND (cible_faculte = ? OR cible_faculte IS NULL)", [facDoyen]);
     } else {
-      [[{ annonces }]] = await pool.query('SELECT COUNT(*) AS annonces FROM annonce WHERE actif = 1');
+      [[{ annonces }]] = await pool.query("SELECT COUNT(*) AS annonces FROM annonce WHERE actif = 1 AND type <> 'communique'");
     }
 
     res.json({ etudiants, preinscriptions, cours, annonces });

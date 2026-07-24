@@ -69,6 +69,11 @@ const requireAdminOuDoyen = exigerRoles(['admin', 'doyen'], 'Accès réservé à
 const requireGestionInscrits  = exigerRoles(['admin', 'caisse', 'budget'], 'Accès réservé à l\'administration et aux finances.');
 const requireInscritsLecture  = exigerRoles(['admin', 'doyen', 'caisse', 'budget'], 'Accès réservé à l\'administration, au décanat et aux finances.');
 
+// Libre-service d'un compte agent (profil / mot de passe) : tout agent connecté
+// — caissier, administrateur du budget OU doyen/vice-doyen — sur SON PROPRE
+// compte (borné en aval par le contrôle memeAgent).
+const requireCompteAgent = exigerRoles(['admin', 'caisse', 'budget', 'doyen'], 'Authentification requise.');
+
 // Faculté de rattachement du demandeur SI c'est un doyen/vice-doyen (rôle
 // 'doyen'), sinon null. Les handlers ouverts au décanat s'en servent pour
 // restreindre lecture ET écriture à la seule faculté du doyen. L'admin (rôle
@@ -79,4 +84,4 @@ function faculteDuDoyen(req) {
   return u && u.role === 'doyen' ? (u.faculte || null) : null;
 }
 
-module.exports = { requireAdmin, requireFinance, requireCaissier, requireBudget, requireAdminOuDoyen, requireGestionInscrits, requireInscritsLecture, faculteDuDoyen };
+module.exports = { requireAdmin, requireFinance, requireCaissier, requireBudget, requireAdminOuDoyen, requireGestionInscrits, requireInscritsLecture, requireCompteAgent, faculteDuDoyen };

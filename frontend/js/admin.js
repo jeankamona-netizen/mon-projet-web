@@ -128,12 +128,101 @@ function preparerEspaceDoyen() {
   if (bonjour) bonjour.textContent = nomComplet;
   const fonctionItem = document.querySelector('#admin-menu-compte .menu-compte-item');
   if (fonctionItem) fonctionItem.textContent = fonction;
+  // Le décanat peut modifier ses informations personnelles (comme les agents).
+  const infosItem = document.getElementById('doyen-infos-item');
+  if (infosItem) infosItem.style.display = 'flex';
   // En-tête de la cloche : le décanat reçoit des « Informations » (annonces /
   // communiqués), pas les « Messages & Newsletter » de l'admin.
   const enteteCloche = document.getElementById('admin-notif-entete');
   if (enteteCloche) enteteCloche.textContent = 'Informations';
   document.title = `Décanat — Tableau de bord`;
   preparerRapportDelibDoyen();
+}
+
+// =====================
+// INFORMATIONS PERSONNELLES DU DOYEN / VICE-DOYEN
+// Le décanat est un compte agent : on réutilise les endpoints self-service
+// /api/auth/agent/:id/{profil,password} (bornés au propre compte du doyen).
+// =====================
+function getAgentDoyen() {
+  try { return JSON.parse(sessionStorage.getItem('espace_agent') || '{}'); } catch { return {}; }
+}
+
+async function ouvrirInfosDoyen(event) {
+  if (event) event.preventDefault();
+  document.getElementById('admin-menu-compte')?.classList.remove('ouvert');
+  const a = getAgentDoyen();
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  // Pré-remplissage immédiat depuis la session, complété par le serveur.
+  set('doyen-noms', a.noms); set('doyen-prenom', a.prenom); set('doyen-matricule', a.matricule);
+  set('doyen-email', ''); set('doyen-telephone', '');
+  ['doyen-pass-actuel', 'doyen-pass-nouveau', 'doyen-pass-confirmer'].forEach(id => set(id, ''));
+  document.getElementById('modal-infos-doyen')?.classList.add('active');
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/auth/agent/${a.id}/profil`);
+    if (r.ok) {
+      const ag = (await r.json()).agent || {};
+      set('doyen-noms', ag.noms); set('doyen-prenom', ag.prenom);
+      set('doyen-email', ag.email); set('doyen-telephone', ag.telephone);
+      set('doyen-matricule', ag.matricule);
+    }
+  } catch { /* la session suffit au pré-remplissage */ }
+}
+
+function fermerInfosDoyen() { document.getElementById('modal-infos-doyen')?.classList.remove('active'); }
+
+// Rafraîchit le nom affiché (avatar + carte profil + menu) après modification.
+function majAffichageDoyen(agent) {
+  const nomComplet = `${agent.prenom || ''} ${agent.noms || ''}`.trim();
+  const initiales = (nomComplet.split(/\s+/).map(m => m[0]).join('').slice(0, 2) || 'DY').toUpperCase();
+  const avatar = document.querySelector('.admin-sidebar-profil .profil-avatar');
+  if (avatar) avatar.textContent = initiales;
+  const nom = document.querySelector('.admin-sidebar-profil .profil-nom');
+  if (nom) nom.textContent = nomComplet;
+  const bonjour = document.querySelector('#admin-menu-compte .menu-compte-entete b');
+  if (bonjour) bonjour.textContent = nomComplet;
+}
+
+async function sauverProfilDoyen() {
+  const a = getAgentDoyen();
+  const noms = document.getElementById('doyen-noms').value.trim();
+  const prenom = document.getElementById('doyen-prenom').value.trim();
+  const email = document.getElementById('doyen-email').value.trim();
+  const telephone = document.getElementById('doyen-telephone').value.trim();
+  if (!noms) { afficherToast('⚠️ Le nom est obligatoire.', 'erreur'); return; }
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/auth/agent/${a.id}/profil`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ noms, prenom, email, telephone })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    // Met à jour la session (conserve token, rôle, faculté) + l'affichage.
+    const maj = { ...a, noms, prenom, email, telephone };
+    sessionStorage.setItem('espace_agent', JSON.stringify(maj));
+    majAffichageDoyen(maj);
+    afficherToast('✅ Informations mises à jour.');
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function changerMotDePasseDoyen() {
+  const a = getAgentDoyen();
+  const actuel = document.getElementById('doyen-pass-actuel').value;
+  const nouveau = document.getElementById('doyen-pass-nouveau').value;
+  const confirmer = document.getElementById('doyen-pass-confirmer').value;
+  if (!actuel || !nouveau) { afficherToast('⚠️ Remplissez tous les champs.', 'erreur'); return; }
+  if (nouveau.length < 6) { afficherToast('⚠️ Le nouveau mot de passe doit contenir au moins 6 caractères.', 'erreur'); return; }
+  if (nouveau !== confirmer) { afficherToast('⚠️ La confirmation ne correspond pas.', 'erreur'); return; }
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/auth/agent/${a.id}/password`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mot_de_passe_actuel: actuel, nouveau_mot_de_passe: nouveau })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; }
+    afficherToast('✅ Mot de passe mis à jour.');
+    ['doyen-pass-actuel', 'doyen-pass-nouveau', 'doyen-pass-confirmer'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
 // Rapport de délibération — disposition décanale : la faculté disparaît (déduite
