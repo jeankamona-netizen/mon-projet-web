@@ -254,8 +254,21 @@ app.get('/api/stats/avancees', requireAdminOuDoyen, async (req, res) => {
           annee ? [annee] : []
         );
 
+    // Sondage : comment les candidats ont connu l'UML (canal de découverte),
+    // renseigné à la pré-inscription. Restreint à la faculté du doyen le cas échéant.
+    const [sondage] = await pool.query(
+      `SELECT COALESCE(NULLIF(TRIM(canal_decouverte), ''), 'Non précisé') AS canal,
+              COUNT(*) AS total
+       FROM preinscription
+       ${facDoyen ? `WHERE (specialite = ? OR specialite IN (
+         SELECT f.nom FROM filiere f JOIN faculte fa ON f.faculte_id = fa.id WHERE fa.nom = ?))` : ''}
+       GROUP BY canal ORDER BY total DESC`,
+      facDoyen ? [facDoyen, facDoyen] : []
+    );
+
     res.json({
       evolutionPreinscriptions: evolution,
+      sondageCanal: sondage.map(s => ({ canal: s.canal, total: Number(s.total) })),
       // Indique au frontend que le découpage est par filière (titre du graphique).
       parFiliere: !!facDoyen,
       tauxReussiteParFaculte: reussite.map(r => ({

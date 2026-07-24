@@ -860,6 +860,27 @@ let graphiqueFacultes = null;
 const PALETTE_FAC = ['#1a3a6b','#2d7a2d','#cc4400','#7a2d7a','#00838f','#b8860b',
                      '#c2185b','#3949ab','#00695c','#5d4037','#455a64','#6a1b9a'];
 
+// Couleur de BASE stable pour une faculté, identique partout (répartition ET
+// taux de réussite) → harmonie : ex. Théologie toujours en bleu. L'index vient
+// de l'ordre stable du référentiel facultesDB ; une faculté hors référentiel
+// reçoit une couleur déterministe par hachage de son nom.
+function couleurFaculte(nom) {
+  const noms = (typeof facultesDB !== 'undefined' ? facultesDB : []).map(f => f.nom);
+  let idx = noms.indexOf(nom);
+  if (idx === -1) {
+    let h = 0;
+    for (const c of String(nom || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    idx = h;
+  }
+  return PALETTE_FAC[idx % PALETTE_FAC.length];
+}
+
+// Libellé d'affichage d'une filière : la filière Pré-U « Sciences » est affichée
+// « Pré-U Sciences » (elle regroupe les préinscrits du tronc scientifique).
+function libelleFiliereAff(fil) {
+  return fil === 'Sciences' ? 'Pré-U Sciences' : fil;
+}
+
 // Éclaircit une couleur hex vers le blanc (f : 0 = couleur pleine, 1 = blanc).
 function eclaircirCouleur(hex, f) {
   const n = parseInt(hex.slice(1), 16);
@@ -919,11 +940,11 @@ async function chargerGraphiqueFacultes() {
     // Liste plate ordonnée par faculté puis effectif décroissant : chaque barre
     // = une filière, teinte de sa faculté, éclaircie selon son rang dans la faculté.
     const labels = [], data = [], couleurs = [], facParBarre = [];
-    facultes.forEach((fac, fi) => {
-      const base = PALETTE_FAC[fi % PALETTE_FAC.length];
+    facultes.forEach(fac => {
+      const base = couleurFaculte(fac);
       const filieres = Object.entries(parFacFil[fac]).sort((a, b) => b[1] - a[1]);
       filieres.forEach(([fil, n], j) => {
-        labels.push(fil);
+        labels.push(libelleFiliereAff(fil));
         data.push(n);
         couleurs.push(eclaircirCouleur(base, Math.min(0.62, j * 0.15)));
         facParBarre.push(fac);
@@ -936,8 +957,8 @@ async function chargerGraphiqueFacultes() {
 
     // Légende : une pastille de couleur (teinte de base) par faculté.
     const legende = document.getElementById('legende-facultes');
-    if (legende) legende.innerHTML = facultes.map((fac, fi) =>
-      `<span class="chart-legende-item"><span class="chart-puce" style="background:${PALETTE_FAC[fi % PALETTE_FAC.length]}"></span>${fac}</span>`
+    if (legende) legende.innerHTML = facultes.map(fac =>
+      `<span class="chart-legende-item"><span class="chart-puce" style="background:${couleurFaculte(fac)}"></span>${fac}</span>`
     ).join('');
 
     if (graphiqueFacultes) graphiqueFacultes.destroy();
@@ -970,56 +991,83 @@ async function chargerGraphiqueFacultes() {
   }
 }
 
-let graphiqueEvolution = null;
+let graphiqueSondage = null;
 let graphiqueReussite = null;
 
 async function chargerStatistiquesAvancees() {
-  const canvasEvolution = document.getElementById('graphique-evolution');
-  const canvasReussite  = document.getElementById('graphique-reussite');
-  if ((!canvasEvolution && !canvasReussite) || typeof Chart === 'undefined') return;
+  const canvasSondage  = document.getElementById('graphique-sondage');
+  const canvasReussite = document.getElementById('graphique-reussite');
+  if ((!canvasSondage && !canvasReussite) || typeof Chart === 'undefined') return;
 
   try {
     // Taux de réussite conforme à l'année académique en cours.
     const annee = anneeCourante || '';
     const r = await fetchAdmin(`${BASE_URL}/api/stats/avancees${annee ? '?annee=' + encodeURIComponent(annee) : ''}`);
-    const { evolutionPreinscriptions, tauxReussiteParFaculte, parFiliere } = await r.json();
+    const { sondageCanal, tauxReussiteParFaculte, parFiliere } = await r.json();
     // Décanat (une seule faculté) : le taux de réussite est ventilé par filière.
     const titreReussite = document.getElementById('titre-graphique-reussite');
     if (titreReussite) titreReussite.textContent =
       (parFiliere ? 'Taux de réussite par filière' : 'Taux de réussite par faculté') + (annee ? ` (${annee})` : '');
 
-    if (canvasEvolution) {
-      if (graphiqueEvolution) graphiqueEvolution.destroy();
-      graphiqueEvolution = new Chart(canvasEvolution, {
-        type: 'line',
-        data: {
-          labels: evolutionPreinscriptions.map(e => e.mois),
-          datasets: [{
-            label: 'Pré-inscriptions',
-            data: evolutionPreinscriptions.map(e => e.total),
-            borderColor: '#1a3a6b',
-            backgroundColor: 'rgba(26,58,107,0.1)',
-            tension: 0.3,
-            fill: true,
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-        }
-      });
+    if (canvasSondage) {
+      const sondage = sondageCanal || [];
+      const wrapS = document.getElementById('wrap-sondage');
+      // Palette dédiée au sondage (canaux de découverte), teintes distinctes.
+      const COULEURS_CANAL = ['#1877f2','#25d366','#e1306c','#f0c020','#7a2d7a',
+                              '#00838f','#ff6d00','#5c6bc0','#8d6e63','#607d8b'];
+      if (graphiqueSondage) graphiqueSondage.destroy();
+
+      if (!sondage.length) {
+        if (wrapS) wrapS.style.height = '240px';
+        graphiqueSondage = new Chart(canvasSondage, {
+          type: 'doughnut',
+          data: { labels: ['Aucune donnée'], datasets: [{ data: [1], backgroundColor: ['#e3e8ef'] }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+        });
+      } else {
+        const total = sondage.reduce((s, x) => s + x.total, 0);
+        if (wrapS) wrapS.style.height = '240px';
+        graphiqueSondage = new Chart(canvasSondage, {
+          type: 'doughnut',
+          data: {
+            labels: sondage.map(x => x.canal),
+            datasets: [{
+              data: sondage.map(x => x.total),
+              backgroundColor: sondage.map((_, i) => COULEURS_CANAL[i % COULEURS_CANAL.length]),
+              borderColor: '#fff',
+              borderWidth: 2,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '58%',
+            plugins: {
+              legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 }, padding: 8 } },
+              tooltip: {
+                callbacks: {
+                  label: ctx => {
+                    const v = ctx.parsed;
+                    const pct = total ? Math.round((v / total) * 100) : 0;
+                    return ` ${ctx.label} : ${v} (${pct}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
     }
 
     if (canvasReussite) {
       const labelsR = tauxReussiteParFaculte.map(f => f.faculte);
       const dataR = tauxReussiteParFaculte.map(f => f.tauxReussite);
-      // Décanat (parFiliere) : une seule faculté ventilée par filière → une même
-      // teinte de base éclaircie par filière (dégradé). Vue globale (par faculté) :
-      // une teinte distincte par faculté.
+      // Couleurs harmonisées avec la répartition : chaque faculté garde sa teinte
+      // de base (couleurFaculte). En décanat (parFiliere) → une seule faculté
+      // ventilée par filière : teinte de base de cette faculté, éclaircie par filière.
       const couleursR = parFiliere
-        ? dataR.map((_, j) => eclaircirCouleur(PALETTE_FAC[0], Math.min(0.62, j * 0.15)))
-        : dataR.map((_, i) => PALETTE_FAC[i % PALETTE_FAC.length]);
+        ? (() => { const base = couleurFaculte((facultesDB && facultesDB[0]) ? facultesDB[0].nom : ''); return dataR.map((_, j) => eclaircirCouleur(base, Math.min(0.62, j * 0.15))); })()
+        : labelsR.map(fac => couleurFaculte(fac));
 
       const wrapR = document.getElementById('wrap-reussite');
       if (wrapR) wrapR.style.height = Math.max(180, labelsR.length * 42 + 44) + 'px';
