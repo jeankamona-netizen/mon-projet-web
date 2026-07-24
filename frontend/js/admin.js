@@ -855,6 +855,44 @@ async function chargerStats() {
 // =====================
 let graphiqueFacultes = null;
 
+// Palette de base : une teinte distincte par faculté. Les filières d'une même
+// faculté reprennent cette teinte, éclaircie progressivement (dégradé).
+const PALETTE_FAC = ['#1a3a6b','#2d7a2d','#cc4400','#7a2d7a','#00838f','#b8860b',
+                     '#c2185b','#3949ab','#00695c','#5d4037','#455a64','#6a1b9a'];
+
+// Éclaircit une couleur hex vers le blanc (f : 0 = couleur pleine, 1 = blanc).
+function eclaircirCouleur(hex, f) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  r = Math.round(r + (255 - r) * f);
+  g = Math.round(g + (255 - g) * f);
+  b = Math.round(b + (255 - b) * f);
+  return `rgb(${r},${g},${b})`;
+}
+
+// Plugin inline : écrit la valeur au bout de chaque barre horizontale.
+function pluginValeursBarres(suffixe = '') {
+  return {
+    id: 'valeursBarres' + suffixe,
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      ctx.save();
+      ctx.font = '700 11px Segoe UI, Arial';
+      ctx.fillStyle = '#555';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const meta = chart.getDatasetMeta(0);
+      meta.data.forEach((bar, i) => {
+        const v = chart.data.datasets[0].data[i];
+        if (v === null || v === undefined) return;
+        const txt = suffixe === '%' ? `${v}%` : `${v}`;
+        ctx.fillText(txt, bar.x + 6, bar.y);
+      });
+      ctx.restore();
+    }
+  };
+}
+
 async function chargerGraphiqueFacultes() {
   const canvas = document.getElementById('graphique-facultes');
   if (!canvas || typeof Chart === 'undefined') return;
@@ -866,8 +904,7 @@ async function chargerGraphiqueFacultes() {
 
     // Regroupe par (faculté → filière) selon la promotion ACTUELLE de chaque
     // étudiant : un étudiant déjà promu (L1 → L2 …) est compté dans sa promotion
-    // courante (« promu »), pas dans le niveau qu'il occupait auparavant. On
-    // retombe sur le libellé historique si le profil courant est absent.
+    // courante (« promu »), pas dans le niveau qu'il occupait auparavant.
     const facDe = e => e.faculte_actuelle || e.faculte || 'Non renseignée';
     const filDe = e => e.promotion_actuelle || e.promotion || 'Sans filière';
     const parFacFil = {};
@@ -877,117 +914,60 @@ async function chargerGraphiqueFacultes() {
       (parFacFil[fac] = parFacFil[fac] || {})[fil] = (parFacFil[fac][fil] || 0) + 1;
     });
 
-    const facultes = Object.keys(parFacFil);
-    // Seules les filières où des étudiants sont réellement inscrits apparaissent.
-    const filieres = [...new Set(etudiants.map(filDe))];
+    const facultes = Object.keys(parFacFil).sort();
 
-    const palette = ['#1a3a6b','#f0c020','#2d7a2d','#cc2200','#2D6FE0','#8a6d00','#7a2d7a',
-                     '#00897b','#e07b00','#5c6bc0','#c2185b','#558b2f','#00838f','#6d4c41','#455a64'];
+    // Liste plate ordonnée par faculté puis effectif décroissant : chaque barre
+    // = une filière, teinte de sa faculté, éclaircie selon son rang dans la faculté.
+    const labels = [], data = [], couleurs = [], facParBarre = [];
+    facultes.forEach((fac, fi) => {
+      const base = PALETTE_FAC[fi % PALETTE_FAC.length];
+      const filieres = Object.entries(parFacFil[fac]).sort((a, b) => b[1] - a[1]);
+      filieres.forEach(([fil, n], j) => {
+        labels.push(fil);
+        data.push(n);
+        couleurs.push(eclaircirCouleur(base, Math.min(0.62, j * 0.15)));
+        facParBarre.push(fac);
+      });
+    });
 
-    // Un dataset par filière → segments empilés dans la colonne de sa faculté.
-    const datasets = filieres.map((fil, i) => ({
-      label: fil,
-      data: facultes.map(fac => parFacFil[fac][fil] || 0),
-      backgroundColor: palette[i % palette.length],
-      borderRadius: 4,
-      stack: 'etudiants',
-    }));
+    // Hauteur du graphique proportionnelle au nombre de barres.
+    const wrap = document.getElementById('wrap-facultes');
+    if (wrap) wrap.style.height = Math.max(200, labels.length * 30 + 44) + 'px';
 
-    // Totaux par faculté (affichés en chiffres au-dessus de chaque colonne).
-    const totauxFac = facultes.map(fac => Object.values(parFacFil[fac]).reduce((s, n) => s + n, 0));
-    const totalGeneral = totauxFac.reduce((s, n) => s + n, 0);
-
-    // Plugin inline : écrit le total de chaque faculté au sommet de sa barre,
-    // et le nombre de chaque segment de filière (si assez de place).
-    const pluginChiffres = {
-      id: 'chiffresFacultes',
-      afterDatasetsDraw(chart) {
-        const { ctx } = chart;
-        ctx.save();
-        ctx.textAlign = 'center';
-        // Nombre par segment de filière.
-        ctx.font = '600 10px Segoe UI, Arial';
-        chart.data.datasets.forEach((ds, di) => {
-          const meta = chart.getDatasetMeta(di);
-          meta.data.forEach((bar, i) => {
-            const v = ds.data[i];
-            if (!v) return;
-            const h = Math.abs(bar.base - bar.y);
-            if (h < 14) return; // segment trop fin pour un chiffre lisible
-            ctx.fillStyle = '#fff';
-            ctx.fillText(v, bar.x, (bar.y + bar.base) / 2 + 3);
-          });
-        });
-        // Total de la faculté au-dessus de la colonne.
-        ctx.font = '800 12px Segoe UI, Arial';
-        ctx.fillStyle = '#1a3a6b';
-        const meta0 = chart.getDatasetMeta(0);
-        meta0.data.forEach((bar, i) => {
-          const yTop = chart.scales.y.getPixelForValue(totauxFac[i]);
-          ctx.fillText(totauxFac[i], bar.x, yTop - 5);
-        });
-        ctx.restore();
-      }
-    };
+    // Légende : une pastille de couleur (teinte de base) par faculté.
+    const legende = document.getElementById('legende-facultes');
+    if (legende) legende.innerHTML = facultes.map((fac, fi) =>
+      `<span class="chart-legende-item"><span class="chart-puce" style="background:${PALETTE_FAC[fi % PALETTE_FAC.length]}"></span>${fac}</span>`
+    ).join('');
 
     if (graphiqueFacultes) graphiqueFacultes.destroy();
     graphiqueFacultes = new Chart(canvas, {
       type: 'bar',
-      data: { labels: facultes, datasets },
+      data: { labels, datasets: [{ data, backgroundColor: couleurs, borderRadius: 4, maxBarThickness: 22 }] },
       options: {
+        indexAxis: 'y',
         responsive: true,
-        layout: { padding: { top: 18 } },
+        maintainAspectRatio: false,
+        layout: { padding: { right: 38 } },
         plugins: {
-          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 }, padding: 8 } },
-          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label} : ${ctx.parsed.y} étudiant(s)` } }
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: items => facParBarre[items[0].dataIndex] || '',
+              label: ctx => `${ctx.label} : ${ctx.parsed.x} étudiant(s)`
+            }
+          }
         },
         scales: {
-          x: { stacked: true, ticks: { font: { size: 10 } } },
-          y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
+          x: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#eef1f5' } },
+          y: { ticks: { font: { size: 11 } }, grid: { display: false } }
         }
       },
-      plugins: [pluginChiffres]
+      plugins: [pluginValeursBarres()]
     });
-
-    // Tableau de statistiques (chiffres) sous le graphique.
-    afficherStatsFacultes(parFacFil, facultes, totauxFac, totalGeneral, filieres.length);
   } catch (erreur) {
     console.error('chargerGraphiqueFacultes:', erreur);
   }
-}
-
-// Tableau récapitulatif : nombre d'étudiants par filière au sein de chaque
-// faculté, sous-total par faculté, et total général.
-function afficherStatsFacultes(parFacFil, facultes, totauxFac, totalGeneral, nbFilieres) {
-  const zone = document.getElementById('stats-facultes');
-  if (!zone) return;
-  if (!totalGeneral) { zone.innerHTML = '<p class="admin-vide" style="margin-top:12px">Aucun étudiant inscrit.</p>'; return; }
-
-  const blocs = facultes.map((fac, i) => {
-    const filieres = Object.entries(parFacFil[fac]).sort((a, b) => b[1] - a[1]);
-    const lignes = filieres.map(([fil, n]) => {
-      const pct = Math.round((n / totalGeneral) * 100);
-      return `<tr><td style="padding-left:22px">${fil}</td><td style="text-align:right">${n}</td><td style="text-align:right;color:#888">${pct}%</td></tr>`;
-    }).join('');
-    return `
-      <tr style="background:var(--gris,#f2f4f7)">
-        <td><strong>${fac}</strong></td>
-        <td style="text-align:right"><strong>${totauxFac[i]}</strong></td>
-        <td style="text-align:right;color:#888">${Math.round((totauxFac[i] / totalGeneral) * 100)}%</td>
-      </tr>${lignes}`;
-  }).join('');
-
-  zone.innerHTML = `
-    <p class="dash-sous-titre" style="margin:16px 0 8px">
-      ${totalGeneral} étudiant(s) inscrits · ${facultes.length} faculté(s) · ${nbFilieres} filière(s)
-    </p>
-    <table class="dash-table">
-      <thead><tr><th>Faculté / Filière</th><th style="text-align:right">Étudiants</th><th style="text-align:right">%</th></tr></thead>
-      <tbody>
-        ${blocs}
-        <tr style="border-top:2px solid var(--bleu)"><td><strong>Total général</strong></td><td style="text-align:right"><strong>${totalGeneral}</strong></td><td style="text-align:right">100%</td></tr>
-      </tbody>
-    </table>`;
 }
 
 let graphiqueEvolution = null;
@@ -1032,25 +1012,43 @@ async function chargerStatistiquesAvancees() {
     }
 
     if (canvasReussite) {
+      const labelsR = tauxReussiteParFaculte.map(f => f.faculte);
+      const dataR = tauxReussiteParFaculte.map(f => f.tauxReussite);
+      // Décanat (parFiliere) : une seule faculté ventilée par filière → une même
+      // teinte de base éclaircie par filière (dégradé). Vue globale (par faculté) :
+      // une teinte distincte par faculté.
+      const couleursR = parFiliere
+        ? dataR.map((_, j) => eclaircirCouleur(PALETTE_FAC[0], Math.min(0.62, j * 0.15)))
+        : dataR.map((_, i) => PALETTE_FAC[i % PALETTE_FAC.length]);
+
+      const wrapR = document.getElementById('wrap-reussite');
+      if (wrapR) wrapR.style.height = Math.max(180, labelsR.length * 42 + 44) + 'px';
+
       if (graphiqueReussite) graphiqueReussite.destroy();
       graphiqueReussite = new Chart(canvasReussite, {
         type: 'bar',
         data: {
-          labels: tauxReussiteParFaculte.map(f => f.faculte),
+          labels: labelsR,
           datasets: [{
             label: 'Taux de réussite (%)',
-            data: tauxReussiteParFaculte.map(f => f.tauxReussite),
-            backgroundColor: '#2d7a2d',
+            data: dataR,
+            backgroundColor: couleursR,
             borderRadius: 6,
-            maxBarThickness: 56,
+            maxBarThickness: 34,
           }]
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           indexAxis: 'y',
+          layout: { padding: { right: 40 } },
           plugins: { legend: { display: false } },
-          scales: { x: { beginAtZero: true, max: 100 } }
-        }
+          scales: {
+            x: { beginAtZero: true, max: 100, grid: { color: '#eef1f5' } },
+            y: { ticks: { font: { size: 11 } }, grid: { display: false } }
+          }
+        },
+        plugins: [pluginValeursBarres('%')]
       });
     }
   } catch (erreur) {

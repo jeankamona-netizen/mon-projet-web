@@ -204,8 +204,10 @@
 
         <div class="dash-card" style="margin-top:20px">
           <h3>Répartition des étudiants par faculté et filière</h3>
-          <canvas id="graphique-facultes" height="110"></canvas>
-          <div id="stats-facultes"></div>
+          <div id="legende-facultes" class="chart-legende"></div>
+          <div id="wrap-facultes" class="chart-wrap" style="position:relative;min-height:200px">
+            <canvas id="graphique-facultes"></canvas>
+          </div>
         </div>
 
         <div class="dash-row" style="margin-top:20px">
@@ -215,7 +217,9 @@
           </div>
           <div class="dash-card">
             <h3 id="titre-graphique-reussite">Taux de réussite par faculté</h3>
-            <canvas id="graphique-reussite" height="140"></canvas>
+            <div id="wrap-reussite" class="chart-wrap" style="position:relative;min-height:180px">
+              <canvas id="graphique-reussite"></canvas>
+            </div>
           </div>
         </div>
 
