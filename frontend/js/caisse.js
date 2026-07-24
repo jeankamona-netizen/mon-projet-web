@@ -50,6 +50,19 @@ function estLectureSeule() { return false; }
 // À l'inverse, le barème est fixé par l'administrateur du budget (et l'admin) ;
 // le caissier ne peut que le consulter.
 function peutEditerBareme() { const r = (getAgentCaisse() || {}).role; return r === 'budget' || r === 'admin'; }
+// L'export Excel / PDF des listes et rapports est réservé à l'administrateur du
+// budget (le caissier n'exporte pas de synthèse globale).
+function estAdminBudget() { const r = (getAgentCaisse() || {}).role; return r === 'budget' || r === 'admin'; }
+// Affiche/masque les boutons d'export (classe .export-budget) selon le rôle.
+function appliquerVisibiliteBudget() {
+  const visible = estAdminBudget();
+  document.querySelectorAll('.export-budget').forEach(el => {
+    // Les boutons d'export de rapport restent cachés tant qu'aucun rapport n'est
+    // généré : leur affichage est piloté par genererRapport().
+    if (el.classList.contains('rapport-export')) { if (!visible) el.style.display = 'none'; return; }
+    el.style.display = visible ? '' : 'none';
+  });
+}
 function nomCaissier() {
   const a = getAgentCaisse();
   return a ? `${a.prenom || ''} ${a.noms || ''}`.trim() : '—';
@@ -395,6 +408,86 @@ function imprimerListe() {
   const w = window.open('', '_blank', 'width=1000,height=700');
   if (!w) { afficherToast('⚠️ Autorisez les pop-ups pour imprimer.', 'erreur'); return; }
   w.document.open(); w.document.write(html); w.document.close();
+}
+
+// =====================
+// EXPORT EXCEL (administrateur du budget)
+// Génère un classeur Excel à partir d'un tableau HTML (Excel ouvre nativement
+// un HTML enregistré en .xls, accents et colonnes préservés). Chaque « section »
+// = un sous-titre + une ligne d'en-têtes + les lignes de données.
+// =====================
+function telechargerExcelUML(nomFichier, titre, sousTitre, sections) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const blocs = sections.map(sec => {
+    const entetes = `<tr>${sec.entetes.map(h => `<th style="background:#1a3a6b;color:#fff;border:1px solid #7f8fb0;padding:5px 8px;text-align:left">${esc(h)}</th>`).join('')}</tr>`;
+    const corps = sec.lignes.map(ligne => `<tr>${ligne.map(c => {
+      const num = typeof c === 'number';
+      return `<td style="border:1px solid #cfd6e4;padding:4px 8px${num ? ';mso-number-format:\\@' : ''}">${esc(c)}</td>`;
+    }).join('')}</tr>`).join('');
+    const soustitre = sec.titre ? `<tr><td colspan="${sec.entetes.length}" style="font-weight:bold;color:#1a3a6b;padding:8px 0 2px">${esc(sec.titre)}</td></tr>` : '';
+    return `<table border="0" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt;margin-bottom:14px">${soustitre}${entetes}${corps}</table>`;
+  }).join('');
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+<x:Name>UML</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+<body><div style="font-weight:bold;font-size:14pt;color:#1a3a6b">UNIVERSITÉ MÉTHODISTE DE LUBUMBASHI</div>
+<div style="font-size:12pt;color:#1a3a6b">${esc(titre)}</div>
+<div style="font-size:9pt;color:#666;margin-bottom:10px">${esc(sousTitre)}</div>${blocs}</body></html>`;
+  const blob = new Blob(['﻿', html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${nomFichier}.xls`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+// Export Excel de la liste des étudiants (frais versés par rubrique).
+function exporterListeExcel() {
+  const d = derniereListe;
+  if (!d || !(d.etudiants || []).length) { afficherToast('⚠️ Aucune donnée à exporter.', 'erreur'); return; }
+  const rubriques = d.rubriques || [];
+  const totaux = {}; let totalGeneral = 0;
+  d.etudiants.forEach(e => { rubriques.forEach(x => { totaux[x] = (totaux[x] || 0) + (Number(e.par_rubrique[x]) || 0); }); totalGeneral += Number(e.total) || 0; });
+
+  const entetes = ['N°', 'Matricule', 'Étudiant', 'Promotion', ...rubriques.map(x => `${x} ($)`), 'Total versé ($)'];
+  const lignes = d.etudiants.map((e, i) => [
+    i + 1, e.id, `${e.nom} ${e.postnom || ''} ${e.prenom}`.replace(/\s+/g, ' ').trim(),
+    libelleFiliere(e.niveau, e.filiere || e.promotion),
+    ...rubriques.map(x => Number(e.par_rubrique[x]) || 0),
+    Number(e.total) || 0
+  ]);
+  lignes.push(['', '', `Total général (${d.etudiants.length})`, '', ...rubriques.map(x => totaux[x] || 0), totalGeneral]);
+
+  const facLib = d.faculte || 'Toutes les facultés';
+  const nivLib = d.niveau || 'Tous niveaux';
+  const dateLib = d.date ? new Date(d.date).toLocaleDateString('fr-FR') : 'Toutes les dates';
+  const sousTitre = `Liste des étudiants — frais versés · Année : ${d.annee || '—'} · Faculté : ${facLib} · Niveau : ${nivLib} · Date : ${dateLib} · Édité le ${new Date().toLocaleDateString('fr-FR')} par ${titreAvantNom()} ${nomCaissier()}`.trim();
+  telechargerExcelUML(`liste-etudiants-${(d.annee || 'toutes').replace(/\W+/g, '-')}`, 'Liste des étudiants — frais versés', sousTitre, [{ titre: '', entetes, lignes }]);
+}
+
+// Export Excel du rapport d'encaissement (répartition + détail).
+function exporterRapportExcel() {
+  const d = dernierRapport;
+  if (!d) { afficherToast('⚠️ Générez d\'abord un rapport.', 'erreur'); return; }
+  const repartition = {
+    titre: 'Répartition par rubrique',
+    entetes: ['Rubrique', 'Nombre', 'Total ($)'],
+    lignes: (d.par_rubrique || []).map(r => [r.rubrique, Number(r.nb) || 0, Number(r.total) || 0])
+  };
+  repartition.lignes.push(['TOTAL', Number(d.nb) || 0, Number(d.total) || 0]);
+
+  const detail = {
+    titre: 'Détail des versements',
+    entetes: ['Date', 'Étudiant', 'Niveau', 'Rubrique', 'Référence', 'Montant ($)'],
+    lignes: (d.lignes || []).map(l => [
+      formaterDateCaisse(l.date_paiement),
+      `${l.nom} ${l.postnom || ''} ${l.prenom}`.replace(/\s+/g, ' ').trim(),
+      libelleFiliere(l.niveau, l.filiere || l.promotion),
+      l.rubrique || '—', l.reference || '—', Number(l.montant) || 0
+    ])
+  };
+  const sousTitre = `Rapport ${d.libelleType || ''} · ${d.periode || ''} · Total : ${montant(d.total)} $ (${d.nb} versement${d.nb > 1 ? 's' : ''}) · Édité le ${new Date().toLocaleDateString('fr-FR')} par ${titreAvantNom()} ${nomCaissier()}`.trim();
+  telechargerExcelUML(`rapport-${(d.libelleType || 'caisse').toLowerCase()}-${(d.periode || '').replace(/\W+/g, '-')}`, `Rapport d'encaissement — ${d.libelleType || ''}`, sousTitre, [repartition, detail]);
 }
 
 // =====================
@@ -998,6 +1091,9 @@ async function genererRapport() {
     dernierRapport = { ...d, libelleType: LIBELLE_TYPE_RAPPORT[type], periode: periodeLisible(type, valeur) };
     afficherRapport(dernierRapport);
     document.getElementById('btn-imprimer-rapport').style.display = d.nb ? '' : 'none';
+    // Export Excel / PDF : uniquement l'administrateur du budget, une fois un
+    // rapport non vide généré.
+    document.querySelectorAll('.rapport-export').forEach(b => { b.style.display = (d.nb && estAdminBudget()) ? '' : 'none'; });
   } catch { zone.innerHTML = '<div class="dash-card"><p class="admin-vide">⚠️ Erreur.</p></div>'; }
 }
 
@@ -1611,6 +1707,7 @@ document.addEventListener('DOMContentLoaded', () => {
       set('caisse-menu-prenom', agent.prenom || nomComplet);
       set('caisse-menu-fonction', fct);
     }
+    appliquerVisibiliteBudget();
     chargerAnneesCaisse();
     chargerStatsCaisse();
     chargerCommuniquesCaisse();

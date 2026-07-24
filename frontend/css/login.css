@@ -1,20 +1,128 @@
-/* ===== LOGIN PAGE ===== */
+/* ===== LOGIN PAGE — panneau divisé ===== */
+.login-page {
+  background: linear-gradient(135deg, #eef2f7 0%, #dfe7f1 100%);
+}
+
 .login-main {
-  min-height: calc(100vh - 73px);
-  background: linear-gradient(135deg, #1a3a6b 0%, #2d5aa0 100%);
+  min-height: 100vh;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   padding: 40px 20px;
 }
 
 .login-box {
   background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  border-radius: 20px;
+  box-shadow: 0 30px 80px rgba(15, 35, 80, 0.22);
   width: 100%;
-  max-width: 680px;
+  max-width: 1040px;
   overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 560px;
+}
+
+/* ---- Lien retour flottant ---- */
+.retour-flottant {
+  position: fixed;
+  top: 22px;
+  left: 26px;
+  z-index: 10;
+  color: var(--bleu);
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(15,35,80,0.12);
+  padding: 8px 16px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(15,35,80,0.1);
+  transition: all 0.2s;
+}
+.retour-flottant:hover { background: #fff; color: #122d57; transform: translateX(-2px); }
+
+/* ---- PANNEAU GAUCHE (visuel) ---- */
+.login-visuel {
+  position: relative;
+  background: linear-gradient(160deg, #0f2350 0%, #17346f 55%, #1e438c 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 40px;
+}
+
+/* Grille de points décorative (coin supérieur droit) */
+.visuel-points {
+  position: absolute;
+  top: 26px;
+  right: 26px;
+  width: 190px;
+  height: 150px;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.55) 2.2px, transparent 2.6px);
+  background-size: 26px 26px;
+  opacity: 0.9;
+  pointer-events: none;
+}
+/* Quelques accents jaunes/cyan discrets */
+.login-visuel::before {
+  content: "";
+  position: absolute;
+  top: 52px; right: 78px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--jaune, #f2c200);
+  box-shadow: 78px 26px 0 var(--jaune, #f2c200),
+              -26px 78px 0 #35c4d8,
+              52px 104px 0 #35c4d8;
+}
+/* Halo décoratif */
+.login-visuel::after {
+  content: "";
+  position: absolute;
+  bottom: -90px; left: -90px;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.10) 0%, transparent 70%);
+}
+
+.visuel-contenu {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  color: #fff;
+}
+.visuel-logo {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 30px rgba(0,0,0,0.35));
+  margin-bottom: 22px;
+}
+.visuel-nom {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 1.4;
+  max-width: 300px;
+  margin: 0 auto 8px;
+}
+.visuel-devise {
+  display: block;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--jaune, #f2c200);
+  letter-spacing: 0.5px;
+}
+
+/* ---- PANNEAU DROIT (formulaire) ---- */
+.login-formulaire {
+  padding: 54px 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 /* ONGLETS */
@@ -62,8 +170,16 @@
 }
 
 .admin-box-header {
-  text-align: center;
-  margin-bottom: 22px;
+  text-align: left;
+  margin-bottom: 26px;
+}
+
+.admin-box-header h2 {
+  font-size: 26px;
+  color: #0f2350;
+  margin-bottom: 8px;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .connexion-icone {
@@ -350,10 +466,42 @@ input[type="file"] {
 /* =====================
    RESPONSIVE — mobile
    ===================== */
+/* Tablette : le visuel se réduit */
+@media (max-width: 900px) {
+  .login-box {
+    grid-template-columns: 1fr;
+    max-width: 480px;
+    min-height: 0;
+  }
+  .login-visuel {
+    padding: 32px;
+  }
+  .visuel-logo {
+    width: 120px;
+    height: 120px;
+    margin-bottom: 14px;
+  }
+  .visuel-nom { font-size: 16px; }
+  .login-formulaire {
+    padding: 40px 34px;
+  }
+}
+
 @media (max-width: 640px) {
   .login-main {
     padding: 20px 12px;
   }
+
+  .retour-flottant {
+    top: 12px;
+    left: 12px;
+  }
+
+  .login-formulaire {
+    padding: 32px 22px;
+  }
+
+  .admin-box-header h2 { font-size: 22px; }
 
   .tab-content {
     padding: 22px 18px;

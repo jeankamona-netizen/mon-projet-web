@@ -14,45 +14,41 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/login.css">
 </head>
-<body>
+<body class="login-page">
 
-  <!-- NAVBAR -->
-  <nav class="navbar">
-    <div class="nav-container">
-      <div class="nav-brand">
-        <img src="img/logo.png" alt="Logo UML" class="nav-logo">
-        <div>
-          <span class="brand-name">Université Méthodiste de Lubumbashi</span>
-          <span class="brand-devise">Scientia, Sanctitas et Veritas</span>
-        </div>
-      </div>
-      <a href="index.html" class="btn-retour">← Retour à l'accueil</a>
-    </div>
-  </nav>
+  <a href="index.html" class="retour-flottant">← Retour à l'accueil</a>
 
   <!-- CONTENU PRINCIPAL -->
   <main class="login-main">
 
     <div class="login-box">
 
-      <div class="tab-content active" style="padding:28px 32px">
+      <!-- PANNEAU GAUCHE — identité visuelle UML -->
+      <aside class="login-visuel" aria-hidden="true">
+        <span class="visuel-points" aria-hidden="true"></span>
+        <div class="visuel-contenu">
+          <img src="img/logo.png" alt="" class="visuel-logo">
+          <span class="visuel-nom">Université Méthodiste de Lubumbashi</span>
+          <span class="visuel-devise">Scientia, Sanctitas et Veritas</span>
+        </div>
+      </aside>
+
+      <!-- PANNEAU DROIT — formulaire -->
+      <div class="login-formulaire">
 
         <div class="admin-box-header">
-          <div class="connexion-icone" aria-hidden="true">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-          </div>
-          <h2>Espace Connexion</h2>
-          <p class="form-sous-titre">Accédez à votre portail universitaire UML</p>
+          <h2>Bienvenue sur votre plateforme</h2>
+          <p class="form-sous-titre">Connectez-vous à votre portail universitaire UML</p>
         </div>
 
         <form autocomplete="on" onsubmit="return false">
           <div class="form-group">
-            <label for="identifiant-connexion" id="label-identifiant">Identifiant</label>
+            <label for="identifiant-connexion" id="label-identifiant">Identifiant <span class="required">*</span></label>
             <input type="text" id="identifiant-connexion" placeholder="Matricule, e-mail ou identifiant" autocomplete="username">
           </div>
 
           <div class="form-group">
-            <label for="mot-de-passe">Mot de passe</label>
+            <label for="mot-de-passe">Mot de passe <span class="required">*</span></label>
             <div class="input-password">
               <input type="password" id="mot-de-passe" placeholder="••••••••"
                      autocomplete="current-password">

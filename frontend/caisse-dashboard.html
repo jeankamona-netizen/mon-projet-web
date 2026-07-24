@@ -202,6 +202,8 @@
           <select class="admin-recherche" id="rapport-annee" style="flex:0 0 140px;display:none"></select>
           <button class="btn-ajouter" onclick="genererRapport()">Générer</button>
           <button class="btn-ajouter" id="btn-imprimer-rapport" style="background:var(--bleu);display:none" onclick="imprimerRapport()">🖨️ Imprimer</button>
+          <button class="btn-ajouter export-budget rapport-export" style="background:var(--vert);display:none" onclick="exporterRapportExcel()" title="Exporter vers Excel">📊 Export Excel</button>
+          <button class="btn-ajouter export-budget rapport-export" style="background:#c0392b;display:none" onclick="imprimerRapport()" title="Exporter en PDF (via l'aperçu d'impression → Enregistrer au format PDF)">📄 Export PDF</button>
         </div>
 
         <div id="rapport-resultat"></div>
@@ -225,6 +227,8 @@
           </select>
           <input type="date" class="admin-recherche" id="liste-date" onchange="chargerListes()" style="flex:0 0 160px" title="Date de paiement (laisser vide = toutes les dates)">
           <button class="btn-ajouter" style="background:var(--bleu)" onclick="imprimerListe()">🖨️ Imprimer la liste</button>
+          <button class="btn-ajouter export-budget" style="background:var(--vert);display:none" onclick="exporterListeExcel()" title="Exporter vers Excel">📊 Export Excel</button>
+          <button class="btn-ajouter export-budget" style="background:#c0392b;display:none" onclick="imprimerListe()" title="Exporter en PDF (via l'aperçu d'impression → Enregistrer au format PDF)">📄 Export PDF</button>
         </div>
 
         <div class="dash-card" style="overflow-x:auto">
