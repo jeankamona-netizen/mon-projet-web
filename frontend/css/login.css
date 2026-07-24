@@ -16,11 +16,11 @@
   border-radius: 20px;
   box-shadow: 0 30px 80px rgba(15, 35, 80, 0.22);
   width: 100%;
-  max-width: 1040px;
+  max-width: 900px;
   overflow: hidden;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  min-height: 560px;
+  min-height: 500px;
 }
 
 /* ---- Lien retour flottant ---- */
@@ -94,11 +94,11 @@
   color: #fff;
 }
 .visuel-logo {
-  width: 200px;
-  height: 200px;
+  width: 130px;
+  height: 130px;
   object-fit: contain;
-  filter: drop-shadow(0 12px 30px rgba(0,0,0,0.35));
-  margin-bottom: 22px;
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,0.35));
+  margin-bottom: 18px;
 }
 .visuel-nom {
   display: block;
@@ -119,11 +119,33 @@
 
 /* ---- PANNEAU DROIT (formulaire) ---- */
 .login-formulaire {
-  padding: 54px 56px;
+  padding: 40px 48px;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
+
+/* Contenu du formulaire resserré et centré dans le panneau */
+.login-formulaire .admin-box-header,
+.login-formulaire form,
+.login-formulaire .form-footer {
+  width: 100%;
+  max-width: 340px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.login-formulaire form { margin-top: 4px; }
+
+/* Champs plus compacts sur la page de connexion */
+.login-formulaire .form-group { margin-bottom: 14px; }
+.login-formulaire .form-group input {
+  padding: 9px 12px;
+  font-size: 13.5px;
+}
+.login-formulaire .admin-box-header { margin-bottom: 20px; }
+.login-formulaire .form-sous-titre { margin-bottom: 0; }
+.login-formulaire .form-options { margin: 14px 0 18px; }
+.login-formulaire .btn-submit { padding: 11px; font-size: 15px; }
 
 /* ONGLETS */
 .login-tabs {
