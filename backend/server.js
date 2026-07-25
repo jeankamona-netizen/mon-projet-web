@@ -240,7 +240,10 @@ app.get('/api/stats/avancees', requireAdminOuDoyen, async (req, res) => {
     const condAnnee = annee ? ' AND n.annee_academique = ?' : '';
     const [reussite] = facDoyen
       ? await pool.query(
-          `SELECT COALESCE(f.nom, 'Sans filière') AS libelle,
+          // Sans filiere_id (ex. étudiants Pré-U dont la filière n'est pas une
+          // ligne du référentiel), on retombe sur la promotion (ex. « Sciences »
+          // → affichée « Pré-U Sciences » côté client), jamais « Sans filière ».
+          `SELECT COALESCE(f.nom, NULLIF(TRIM(e.promotion), ''), 'Sans filière') AS libelle,
                   COUNT(*) AS total_notes,
                   SUM(CASE WHEN n.note >= 10 THEN 1 ELSE 0 END) AS reussies
            FROM note n
@@ -538,6 +541,10 @@ app.put('/api/etudiants/:id', requireGestionInscrits, async (req, res) => {
   const { nom, postnom, prenom, date_naissance, sexe, email, telephone, faculte, promotion, niveau, annee_academique, statut } = req.body;
   if (!nom || !prenom) {
     return res.status(400).json({ erreur: 'Le nom et le prénom sont obligatoires.' });
+  }
+  // Master (M1/M2) : la filière (promotion) doit être une filière de master.
+  if (/^M/i.test(niveau || '') && (!promotion || !/^master/i.test(promotion))) {
+    return res.status(400).json({ erreur: 'Pour un Master, une filière de master doit être choisie.' });
   }
   try {
     // Recalcule filiere_id à partir du couple (faculté, promotion) à chaque

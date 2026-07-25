@@ -114,6 +114,17 @@ function optionsFiliereFacNiveau(nomFaculte, niveau) {
   return cibles.length ? cibles : [nomFiliereGenerique(nomFaculte, niveau)];
 }
 
+// Libellé D'AFFICHAGE d'une filière : la filière Pré-U générique « Sciences »
+// s'affiche « Pré-U Sciences » (la VALEUR stockée reste « Sciences », pour rester
+// cohérente avec le barème et l'historique). Les autres filières sont inchangées.
+function afficherNomFiliere(fil) {
+  return fil === 'Sciences' ? 'Pré-U Sciences' : String(fil == null ? '' : fil);
+}
+
+// Vrai si le niveau relève du cycle Master (M1/M2) : la filière devient alors
+// obligatoire (aucune inscription Master sans filière de master choisie).
+function niveauEstMaster(niveau) { return /^M/i.test(String(niveau || '')); }
+
 function afficherToast(message, type = 'succes') {
   let toast = document.getElementById('toast');
   if (!toast) {

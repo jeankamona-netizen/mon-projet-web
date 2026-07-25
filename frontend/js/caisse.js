@@ -1430,8 +1430,8 @@ function chargerFilieresPourInscrit() {
   sel.innerHTML = fl.length === 0
     ? '<option value="">— Choisir un niveau —</option>'
     : (fl.length === 1
-        ? fl.map(x => `<option value="${x}">${x}</option>`).join('')
-        : '<option value="">— Choisir une filière —</option>' + fl.map(x => `<option value="${x}">${x}</option>`).join(''));
+        ? fl.map(x => `<option value="${x}">${afficherNomFiliere(x)}</option>`).join('')
+        : '<option value="">— Choisir une filière —</option>' + fl.map(x => `<option value="${x}">${afficherNomFiliere(x)}</option>`).join(''));
 }
 
 function modifierInscritCaisse(id) {
@@ -1505,6 +1505,9 @@ async function sauvegarderInscritCaisse() {
     annee_academique: document.getElementById('inscrit-annee').value,
     statut: document.getElementById('inscrit-statut').value
   };
+  if (niveauEstMaster(corps.niveau) && !corps.promotion) {
+    afficherToast('⚠️ Pour un Master, veuillez choisir une filière de master.', 'erreur'); return;
+  }
   try {
     const r = await fetchCaisse(`${BASE_URL}/api/etudiants/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
     const d = await r.json();
@@ -1549,8 +1552,8 @@ function chargerFilieresPourReinscription() {
   sel.innerHTML = filieres.length === 0
     ? '<option value="">— Choisir un niveau —</option>'
     : (filieres.length === 1
-        ? filieres.map(f => `<option value="${f}">${f}</option>`).join('')
-        : '<option value="">— Choisir une filière —</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join(''));
+        ? filieres.map(f => `<option value="${f}">${afficherNomFiliere(f)}</option>`).join('')
+        : '<option value="">— Choisir une filière —</option>' + filieres.map(f => `<option value="${f}">${afficherNomFiliere(f)}</option>`).join(''));
 }
 
 async function reinscrireNouvelEtudiantCaisse() {
@@ -1569,6 +1572,9 @@ async function reinscrireNouvelEtudiantCaisse() {
   };
   if (!corps.nom || !corps.prenom || !corps.faculte || !corps.niveau || !corps.annee_academique) {
     afficherToast('⚠️ Nom, prénom, faculté, niveau et année sont obligatoires.', 'erreur'); return;
+  }
+  if (niveauEstMaster(corps.niveau) && !corps.filiere) {
+    afficherToast('⚠️ Pour un Master, veuillez choisir une filière de master.', 'erreur'); return;
   }
   try {
     const r = await fetchCaisse(`${BASE_URL}/api/reinscriptions/nouveau`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });

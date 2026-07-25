@@ -1162,18 +1162,34 @@ function rendreParticipationsJour(canvas, participations, date, champDate) {
   if (wrapS) wrapS.style.height = Math.max(220, participations.length * 62 + 60) + 'px';
   if (graphiqueSondage) graphiqueSondage.destroy();
 
-  // Intitulé de cours coupé en plusieurs lignes s'il est long (reste lisible).
-  const couperLibelle = (nom, max = 22) => {
-    const mots = String(nom || '').split(' ');
+  // Intitulé de cours sur 1 ligne si court, 2 lignes maximum si long
+  // (au-delà, la 2ᵉ ligne est tronquée avec « … »).
+  const couperLibelle = (nom, max = 24) => {
+    const texte = String(nom || '').trim();
+    if (texte.length <= max) return [texte];
+    const mots = texte.split(' ');
     const lignes = []; let cur = '';
     for (const m of mots) {
-      if ((cur + ' ' + m).trim().length > max) { if (cur) lignes.push(cur); cur = m; }
+      if ((cur + ' ' + m).trim().length > max && cur) { lignes.push(cur); cur = m; }
       else cur = (cur + ' ' + m).trim();
+      if (lignes.length === 2) break; // on ne garde que 2 lignes
     }
-    if (cur) lignes.push(cur);
-    return lignes.length ? lignes : [String(nom || '')];
+    if (lignes.length < 2 && cur) lignes.push(cur);
+    // Tronque la 2ᵉ ligne si le nom déborde encore.
+    const total = lignes.join(' ').length;
+    if (total < texte.length && lignes[1]) lignes[1] = lignes[1].slice(0, max - 1).trimEnd() + '…';
+    return lignes.slice(0, 2);
   };
   const labels = participations.map(p => couperLibelle(p.cours));
+
+  // Partage 50/50 : la zone des intitulés occupe la moitié gauche, les barres la moitié droite.
+  const pluginDemiLargeur = {
+    id: 'demiLargeurY',
+    beforeInit(chart) {
+      const yScale = chart.options.scales.y;
+      yScale.afterFit = (scale) => { scale.width = scale.chart.width * 0.5; };
+    }
+  };
 
   // Plugin : valeur au bout de CHAQUE barre non nulle.
   const pluginValeurs3 = {
@@ -1218,10 +1234,10 @@ function rendreParticipationsJour(canvas, participations, date, champDate) {
       // Barres groupées (non empilées) : 3 barres côte à côte par cours.
       scales: {
         x: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#eef1f5' } },
-        y: { ticks: { autoSkip: false, font: { size: 11 } }, grid: { display: false } }
+        y: { ticks: { autoSkip: false, font: { size: 11 }, crossAlign: 'far' }, grid: { display: false } }
       }
     },
-    plugins: [pluginValeurs3]
+    plugins: [pluginValeurs3, pluginDemiLargeur]
   });
 }
 
@@ -1253,7 +1269,9 @@ async function chargerStatistiquesAvancees() {
     }
 
     if (canvasReussite) {
-      const labelsR = tauxReussiteParFaculte.map(f => f.faculte);
+      // « Sciences » (Pré-U) s'affiche « Pré-U Sciences » ; les noms de faculté
+      // (vue admin) ne sont pas affectés.
+      const labelsR = tauxReussiteParFaculte.map(f => libelleFiliereAff(f.faculte));
       const dataR = tauxReussiteParFaculte.map(f => f.tauxReussite);
       // Couleurs harmonisées avec la répartition : chaque faculté garde sa teinte
       // de base (couleurFaculte). En décanat (parFiliere) → une seule faculté
@@ -2787,17 +2805,16 @@ function afficherTableauCommuniques(liste = communiquesAdmin) {
       const libel = c.cible_faculte ? c.cible_faculte : 'Administration';
       provenance = ` <span class="annee-badge" style="background:#eef1f5;color:#667" title="Émetteur">${libel}</span>`;
     }
-    // Lire le communiqué en intégralité (disponible pour tous, y compris ceux
-    // d'une autre entité en lecture seule).
-    const btnLire = `<button class="btn-icone" onclick="lireCommunique(${c.id})" aria-label="Lire" title="Lire le communiqué en entier">${icone('livre')}</button>`;
+    // Clic sur la LIGNE → lecture intégrale du communiqué (zone dédiée), pour
+    // tous, y compris ceux d'une autre entité en lecture seule. Les boutons
+    // d'action stoppent la propagation pour ne pas déclencher la lecture.
     const actions = editable
-      ? `${btnLire}
-         <button class="btn-icone" onclick="toggleActifAnnonce(${c.id}); setTimeout(chargerCommuniques,150)" aria-label="${c.actif?'Masquer':'Afficher'}" title="${c.actif?'Masquer':'Afficher'}">${icone(c.actif?'oeil':'oeil-barre')}</button>
-         <button class="btn-icone" onclick="modifierCommunique(${c.id})" aria-label="Modifier" title="Modifier">${icone('crayon')}</button>
-         <button class="btn-icone danger" onclick="supprimerCommunique(${c.id})" aria-label="Supprimer" title="Supprimer">${icone('corbeille')}</button>`
-      : `${btnLire}<span title="Communiqué d'une autre entité — lecture seule" style="color:#aaa;font-size:12px;white-space:nowrap;margin-left:4px">🔒 Lecture seule</span>`;
+      ? `<button class="btn-icone" onclick="event.stopPropagation();toggleActifAnnonce(${c.id}); setTimeout(chargerCommuniques,150)" aria-label="${c.actif?'Masquer':'Afficher'}" title="${c.actif?'Masquer':'Afficher'}">${icone(c.actif?'oeil':'oeil-barre')}</button>
+         <button class="btn-icone" onclick="event.stopPropagation();modifierCommunique(${c.id})" aria-label="Modifier" title="Modifier">${icone('crayon')}</button>
+         <button class="btn-icone danger" onclick="event.stopPropagation();supprimerCommunique(${c.id})" aria-label="Supprimer" title="Supprimer">${icone('corbeille')}</button>`
+      : `<span title="Communiqué d'une autre entité — lecture seule" style="color:#aaa;font-size:12px;white-space:nowrap">🔒 Lecture seule</span>`;
     return `
-    <tr>
+    <tr style="cursor:pointer" onclick="lireCommunique(${c.id})" title="Cliquer pour lire le communiqué en entier">
       <td>📣 ${c.titre}${provenance}</td>
       <td><span class="annee-badge">${LIBELLE_ROLE[c.cible_role] || 'Étudiants'}</span></td>
       <td>${formatDateAffichage(c.date_annonce)}</td>
@@ -3026,8 +3043,8 @@ function chargerFilieresPourInscrit() {
   sel.innerHTML = fl.length===0
     ? '<option value="">— Choisir un niveau —</option>'
     : (fl.length===1
-        ? fl.map(x=>`<option value="${x}">${x}</option>`).join('')
-        : '<option value="">— Choisir une filière —</option>'+fl.map(x=>`<option value="${x}">${x}</option>`).join(''));
+        ? fl.map(x=>`<option value="${x}">${afficherNomFiliere(x)}</option>`).join('')
+        : '<option value="">— Choisir une filière —</option>'+fl.map(x=>`<option value="${x}">${afficherNomFiliere(x)}</option>`).join(''));
 }
 
 // « promotion » (colonne texte) et « filière » (via filiere_id) désignent la
@@ -3327,6 +3344,9 @@ async function sauvegarderInscrit() {
     annee_academique:document.getElementById('inscrit-annee').value,
     statut:document.getElementById('inscrit-statut').value
   };
+  if (niveauEstMaster(niveau) && !filiere) {
+    afficherToast('⚠️ Pour un Master, veuillez choisir une filière de master.', 'erreur'); return;
+  }
   try {
     const r=await fetchAdmin(`${BASE_URL}/api/etudiants/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(corps)});
     const d=await r.json();
@@ -3772,8 +3792,8 @@ function chargerFilieresPourReinscription() {
   sel.innerHTML = filieres.length === 0
     ? `<option value="">— Choisir un niveau —</option>`
     : (filieres.length === 1
-        ? filieres.map(f => `<option value="${f}">${f}</option>`).join('')
-        : '<option value="">— Choisir une filière —</option>' + filieres.map(f => `<option value="${f}">${f}</option>`).join(''));
+        ? filieres.map(f => `<option value="${f}">${afficherNomFiliere(f)}</option>`).join('')
+        : '<option value="">— Choisir une filière —</option>' + filieres.map(f => `<option value="${f}">${afficherNomFiliere(f)}</option>`).join(''));
 }
 
 async function reinscrireNouvelEtudiant() {
@@ -3792,6 +3812,11 @@ async function reinscrireNouvelEtudiant() {
   };
   if (!corps.nom || !corps.prenom || !corps.faculte || !corps.niveau) {
     afficherToast('⚠️ Nom, prénom, faculté et niveau sont obligatoires.', 'erreur'); return;
+  }
+  // Master : la filière (de master) est obligatoire — pas d'inscription M1/M2
+  // sans filière choisie.
+  if (niveauEstMaster(corps.niveau) && !corps.filiere) {
+    afficherToast('⚠️ Pour un Master, veuillez choisir une filière de master.', 'erreur'); return;
   }
   try {
     const r = await fetchAdmin(`${BASE_URL}/api/reinscriptions/nouveau`, {

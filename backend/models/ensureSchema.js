@@ -408,6 +408,31 @@ async function corrigerPreUErrones(pool) {
   if (corriges) console.log(`✅ Étudiants Pré-U corrigés vers L1 (filière hors SI/GL/IA) : ${corriges}.`);
 }
 
+// Correction idempotente : un étudiant de Master (niveau M1/M2) dont la
+// « promotion » n'est PAS une filière de master (ex. le nom de la faculté
+// « Théologie » saisi par erreur, sans filière) reçoit la 1ʳᵉ filière de master
+// de sa faculté (promotion + filiere_id), pour ne jamais laisser un Master sans
+// filière. L'admin peut ensuite affiner via la fiche étudiant.
+async function corrigerMasterSansFiliere(pool) {
+  const [mauvais] = await pool.query(
+    `SELECT id, faculte FROM etudiant
+     WHERE niveau REGEXP '^M' AND (promotion IS NULL OR promotion NOT REGEXP '^[Mm]aster')`
+  );
+  let corriges = 0;
+  for (const e of mauvais) {
+    if (!e.faculte) continue;
+    const [[fil]] = await pool.query(
+      `SELECT f.id, f.nom FROM filiere f JOIN faculte fa ON f.faculte_id = fa.id
+       WHERE fa.nom = ? AND f.nom REGEXP '^[Mm]aster' ORDER BY f.id LIMIT 1`,
+      [e.faculte]
+    );
+    if (!fil) continue; // la faculté n'a pas de filière de master → on laisse tel quel
+    await pool.query('UPDATE etudiant SET promotion = ?, filiere_id = ? WHERE id = ?', [fil.nom, fil.id, e.id]);
+    corriges++;
+  }
+  if (corriges) console.log(`✅ Étudiants Master sans filière corrigés (1ʳᵉ filière de master) : ${corriges}.`);
+}
+
 async function assurerSchema(pool) {
   await assurerSchemaFraisScolarite(pool);
   await assurerSchemaJournalAudit(pool);
@@ -425,6 +450,9 @@ async function assurerSchema(pool) {
   try { await seedMaquetteIG(); } catch (e) { console.error('⚠️ Seed maquette IG :', e.message); }
   // Correction des Pré-U illégitimes (hors SI/GL/IA/Design) → L1, avant la resync.
   try { await corrigerPreUErrones(pool); } catch (e) { console.error('⚠️ Correction Pré-U :', e.message); }
+  // Correction des Master sans filière (ex. « M1 Théologie » sans filière) → 1ʳᵉ
+  // filière de master de la faculté.
+  try { await corrigerMasterSansFiliere(pool); } catch (e) { console.error('⚠️ Correction Master sans filière :', e.message); }
   // Données de test : 5 étudiants fictifs par filière (idempotent).
   try { if (typeof seedEtudiantsTest === 'function') await seedEtudiantsTest(); } catch (e) { console.error('⚠️ Seed étudiants test :', e.message); }
   // Resynchronisation des inscriptions EN DERNIER : après tout nettoyage/seed de

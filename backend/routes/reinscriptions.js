@@ -80,6 +80,11 @@ router.post('/nouveau', requireGestionInscrits, async (req, res) => {
   if (!nom || !prenom || !faculte || !niveau || !annee_academique) {
     return res.status(400).json({ erreur: 'Nom, prénom, faculté, niveau et année académique sont obligatoires.' });
   }
+  // Master (M1/M2) : la filière de master est obligatoire — aucune inscription en
+  // Master sans filière (le nom d'une filière de master commence par « Master »).
+  if (/^M/i.test(niveau) && (!filiere || !/^master/i.test(filiere))) {
+    return res.status(400).json({ erreur: 'Pour un Master, une filière de master doit être choisie.' });
+  }
   try {
     // Résoudre la filière (scopée à la faculté choisie)
     let filiere_id = null;
