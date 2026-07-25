@@ -585,13 +585,15 @@ h2 {
 
 .facultes-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* minmax(0,1fr) : les 4 colonnes ont EXACTEMENT la même largeur (avec 1fr seul,
+     une colonne s'élargirait au contenu le plus long, ex. « Sciences Économiques »). */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 20px;
 }
 
 /* Tablette : 2 colonnes (le passage à 1 colonne est géré plus bas pour mobile). */
 @media (max-width: 992px) {
-  .facultes-grid { grid-template-columns: repeat(2, 1fr); }
+  .facultes-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .faculte-card {
