@@ -745,11 +745,19 @@ async function chargerCommuniquesEtudiant() {
 // Carte « communiqué » : mise en avant (accent jaune + libellé) et affichée en
 // tête de la page Annonces tant que l'admin ne l'a pas désactivée (actif=0).
 function carteCommunique(c) {
+  // Un communiqué émis par la comptabilité (AB / caisse) est présenté comme une
+  // « Information de la comptabilité », en VIOLET (côté étudiant), pour le
+  // distinguer des communiqués de l'administration (jaune).
+  const estCompta = c.emetteur === 'caisse';
+  const couleur = estCompta ? '#7a2d7a' : 'var(--jaune)';
+  const fond    = estCompta ? 'rgba(122,45,122,0.08)' : 'rgba(245,181,32,0.08)';
+  const libelle = estCompta ? 'Information de la comptabilité' : "Communiqué de l'administration";
+  const emoji   = estCompta ? '💰' : '📣';
   return `
-    <div class="ia-alerte" style="border-left:4px solid var(--jaune);background:rgba(245,181,32,0.08)">
-      <span class="ia-alerte-icon">📣</span>
+    <div class="ia-alerte" style="border-left:4px solid ${couleur};background:${fond}">
+      <span class="ia-alerte-icon">${emoji}</span>
       <span class="ia-alerte-texte">
-        <span style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--jaune);text-transform:uppercase">Communiqué de l'administration</span><br>
+        <span style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:.5px;color:${couleur};text-transform:uppercase">${libelle}</span><br>
         <b>${c.titre}</b><br>${c.description || ''}
       </span>
     </div>`;
@@ -829,8 +837,8 @@ function construireNotifications() {
     });
   });
   (communiquesEtudiant || []).forEach(c => items.push({
-    categorie: 'info', id: c.id, icone: '📣',
-    titre: c.titre, sousTitre: c.description || 'Communiqué de l\'administration'
+    categorie: 'info', id: c.id, icone: c.emetteur === 'caisse' ? '💰' : '📣',
+    titre: c.titre, sousTitre: c.description || (c.emetteur === 'caisse' ? 'Information de la comptabilité' : 'Communiqué de l\'administration')
   }));
   (paiementsEtudiant || []).forEach(p => items.push({
     categorie: 'paiement', id: p.id, icone: '💵',

@@ -727,14 +727,24 @@ async function chargerAnnoncesProf() {
 function afficherAnnoncesProf() {
   const zone = document.getElementById('prof-annonces-liste');
   if (!zone) return;
-  const communiques = (communiquesProf || []).map(c => `
-    <div class="ia-alerte" style="border-left:4px solid var(--jaune);background:rgba(245,181,32,0.08)">
-      <span class="ia-alerte-icon">📣</span>
+  const communiques = (communiquesProf || []).map(c => {
+    // Un communiqué de la comptabilité (AB / caisse) → « Information de la
+    // comptabilité », en VERT (côté enseignant), distinct des communiqués de
+    // l'administration (jaune).
+    const estCompta = c.emetteur === 'caisse';
+    const couleur = estCompta ? 'var(--vert, #2d7a2d)' : 'var(--jaune)';
+    const fond    = estCompta ? 'rgba(45,122,45,0.08)' : 'rgba(245,181,32,0.08)';
+    const libelle = estCompta ? 'Information de la comptabilité' : "Communiqué de l'administration";
+    const emoji   = estCompta ? '💰' : '📣';
+    return `
+    <div class="ia-alerte" style="border-left:4px solid ${couleur};background:${fond}">
+      <span class="ia-alerte-icon">${emoji}</span>
       <span class="ia-alerte-texte">
-        <span style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--jaune);text-transform:uppercase">Communiqué de l'administration</span><br>
+        <span style="display:inline-block;font-size:11px;font-weight:700;letter-spacing:.5px;color:${couleur};text-transform:uppercase">${libelle}</span><br>
         <b>${c.titre}</b><br>${c.description || ''}
       </span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   const actualites = (actualitesProf || []).map(a => `
     <div class="ia-alerte ok">
       <span class="ia-alerte-icon">${a.icone || '📢'}</span>
@@ -772,10 +782,10 @@ function majNotifsProf() {
       ? '<p class="notif-vide">Aucune information pour le moment.</p>'
       : nouvelles.map(c => `
           <div class="notif-item" role="button" tabindex="0" onclick="ouvrirAnnoncesProfDepuisCloche(${JSON.stringify(c.id)})">
-            <span class="notif-item-icone">📣</span>
+            <span class="notif-item-icone">${c.emetteur === 'caisse' ? '💰' : '📣'}</span>
             <div>
               <span class="notif-item-titre">${c.titre}</span>
-              <span class="notif-item-sous">${c.description || ''}</span>
+              <span class="notif-item-sous">${c.description || (c.emetteur === 'caisse' ? 'Information de la comptabilité' : '')}</span>
             </div>
           </div>`).join('');
   }
