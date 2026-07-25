@@ -2789,7 +2789,12 @@ async function chargerCommuniques() {
     const params = new URLSearchParams({ type: 'communique' });
     if (role) params.append('role', role);
     const r = await fetch(`${BASE_URL}/api/annonces?${params}`);
-    communiquesAdmin = await r.json();
+    let liste = await r.json();
+    // Les communiqués émis par la CAISSE (frais) sont privés : réservés à la
+    // caisse, à l'admin et aux destinataires (étudiant/enseignant). Ils ne sont
+    // JAMAIS visibles au décanat.
+    if (estDoyen()) liste = liste.filter(c => c.emetteur !== 'caisse');
+    communiquesAdmin = liste;
     afficherTableauCommuniques();
   } catch { tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">⚠️ Erreur.</td></tr>`; }
 }
