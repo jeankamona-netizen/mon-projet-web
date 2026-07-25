@@ -224,6 +224,7 @@ const ICO_FAC = {
   building: '<line x1="3" y1="21" x2="21" y2="21"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/>',
 };
 const svgFac = (p, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+let facultesPubliques = []; // liste ordonnée, réutilisée par le modal « En savoir plus »
 const escFacPub = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function accentFaculte(nom) {
@@ -271,40 +272,63 @@ async function chargerFacultesPubliques() {
     if (/[eé]conomi|gestion/.test(n)) return 3;
     return 4; // autres facultés éventuelles à la suite
   };
-  const facsOrdonnees = [...facs].sort((a, b) => rangFaculte(a.nom) - rangFaculte(b.nom));
-  grid.innerHTML = facsOrdonnees.map(f => {
+  facultesPubliques = [...facs].sort((a, b) => rangFaculte(a.nom) - rangFaculte(b.nom));
+  grid.innerHTML = facultesPubliques.map((f, i) => {
     const accent = accentFaculte(f.nom);
-    const filieres = (f.filieres || []).map(x => (typeof x === 'string' ? x : x.nom));
-    const aMaster = filieres.some(filiereEstMaster);
-    const lis = filieres.map(fl =>
-      `<li><span class="fac-fil-ico" style="color:${accent}">${svgFac(iconeFiliere(fl), 16)}</span>${escFacPub(fl)}</li>`
-    ).join('');
+    const img = photoFaculte(f.nom);
     return `
-      <div class="faculte-card">
-        <button type="button" class="fac-entete" aria-expanded="false" onclick="basculerFaculte(this)">
-          <span class="fac-icone" style="color:${accent};background:${accent}1f">${svgFac(iconeFaculte(f.nom), 24)}</span>
-          <span class="fac-textes">
-            <span class="fac-titre"${(f.nom || '').length > 24 ? ' style="font-size:12.5px"' : ''}>${escFacPub(f.nom)}</span>
-            <span class="fac-bas">
-              <span class="fac-meta">${filieres.length} filière${filieres.length > 1 ? 's' : ''}</span>
-              <span class="fac-chevron">${svgFac('<polyline points="6 9 12 15 18 9"/>', 18)}</span>
-            </span>
-          </span>
-        </button>
-        <div class="fac-corps">
-          <ul class="fac-filieres">${lis || '<li style="color:#999">Aucune filière renseignée</li>'}</ul>
-          ${aMaster ? '<div class="master-badge">Master disponible</div>' : ''}
+      <article class="fac-card2" style="--accent:${accent}">
+        <div class="fac-visuel" style="background:linear-gradient(135deg, ${accent}e6, ${accent}8c), url('${img}') center/cover no-repeat">
+          <span class="fac-badge" style="color:${accent}">${svgFac(iconeFaculte(f.nom), 26)}</span>
         </div>
-      </div>`;
+        <div class="fac-body">
+          <h3 class="fac-nom">${escFacPub(f.nom)}</h3>
+          <p class="fac-desc">${escFacPub(descriptionFaculte(f))}</p>
+          <button type="button" class="fac-plus" onclick="ouvrirFilieres(${i})">En savoir plus <span aria-hidden="true">→</span></button>
+        </div>
+      </article>`;
   }).join('');
 }
 
-function basculerFaculte(btn) {
-  const carte = btn.closest('.faculte-card');
-  if (!carte) return;
-  const ouvert = carte.classList.toggle('ouvert');
-  btn.setAttribute('aria-expanded', ouvert ? 'true' : 'false');
+// Photo d'illustration (accent coloré appliqué en surimpression) par faculté.
+function photoFaculte(nom) {
+  const n = (nom || '').toLowerCase();
+  if (/th[eé]olog/.test(n)) return 'img/consacration.jpg';
+  if (/informati|num[eé]rique/.test(n)) return 'img/salle.jpg';
+  if (/[eé]ducation|psycholog/.test(n)) return 'img/cours.jpg';
+  if (/[eé]conomi|gestion/.test(n)) return 'img/conference.jpg';
+  return 'img/uml.jpg';
 }
+
+// Courte description par faculté (repli : liste des premières filières).
+function descriptionFaculte(f) {
+  const n = (f.nom || '').toLowerCase();
+  if (/th[eé]olog/.test(n)) return "Formations en théologie, exégèse, missiologie et sciences des religions.";
+  if (/informati|num[eé]rique/.test(n)) return "Formations en génie logiciel, réseaux, intelligence artificielle et systèmes d'information.";
+  if (/[eé]ducation|psycholog/.test(n)) return "Formations pour les enseignants et professionnels de l'éducation et de la psychologie.";
+  if (/[eé]conomi|gestion/.test(n)) return "Formations en économie, gestion, finance, comptabilité et management.";
+  const fl = (f.filieres || []).map(x => (typeof x === 'string' ? x : x.nom));
+  return fl.length ? 'Filières : ' + fl.slice(0, 3).join(', ') + (fl.length > 3 ? '…' : '') + '.' : 'Formations diplômantes de qualité.';
+}
+
+// Modal « En savoir plus » : liste des filières de la faculté (icônes cohérentes).
+function ouvrirFilieres(i) {
+  const f = (facultesPubliques || [])[i];
+  if (!f) return;
+  const accent = accentFaculte(f.nom);
+  const filieres = (f.filieres || []).map(x => (typeof x === 'string' ? x : x.nom));
+  const box = document.getElementById('fac-modal-box');
+  const titre = document.getElementById('fac-modal-titre');
+  const liste = document.getElementById('fac-modal-liste');
+  if (!box || !titre || !liste) return;
+  box.style.setProperty('--accent', accent);
+  titre.textContent = f.nom;
+  liste.innerHTML = filieres.length
+    ? filieres.map(fl => `<li><span class="fac-fil-ico" style="color:${accent}">${svgFac(iconeFiliere(fl), 16)}</span>${escFacPub(fl)}</li>`).join('')
+    : '<li style="color:#999">Aucune filière renseignée</li>';
+  document.getElementById('fac-modal')?.classList.add('actif');
+}
+function fermerFilieres() { document.getElementById('fac-modal')?.classList.remove('actif'); }
 
 document.addEventListener('DOMContentLoaded', () => {
   initialiserLightbox();

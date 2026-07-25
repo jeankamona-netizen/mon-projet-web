@@ -15,8 +15,9 @@ const TRADUCTIONS = {
 
     'ticker.label': '📢 Actualités',
 
-    'facultes.titre': 'Facultés organisées',
-    'facultes.soustitre': '4 facultés avec plusieurs filières spécialisées',
+    'facultes.overline': 'Nos facultés',
+    'facultes.titre': 'Découvrez nos Facultés',
+    'facultes.soustitre': "Une formation d'excellence dans des domaines variés pour préparer les leaders de demain.",
 
     'apropos.titre': 'À propos de l\'UML',
     'apropos.soustitre': 'Notre histoire, notre mission, nos valeurs et notre localisation',
@@ -129,8 +130,9 @@ const TRADUCTIONS = {
 
     'ticker.label': '📢 News',
 
-    'facultes.titre': 'Our Faculties',
-    'facultes.soustitre': '4 faculties with several specialized programs',
+    'facultes.overline': 'Our faculties',
+    'facultes.titre': 'Discover our Faculties',
+    'facultes.soustitre': "Excellence education across diverse fields to prepare tomorrow's leaders.",
 
     'apropos.titre': 'About UML',
     'apropos.soustitre': 'Our history, our mission, our values and our location',

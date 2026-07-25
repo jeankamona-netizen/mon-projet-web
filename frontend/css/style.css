@@ -784,6 +784,142 @@ h2 {
 .fac-filieres li:last-child { border-bottom: none; }
 .fac-fil-ico { display: flex; flex-shrink: 0; }
 
+/* ===== Cartes facultés — modèle « visuel + description + En savoir plus » ===== */
+.section-overline {
+  display: block;
+  text-align: center;
+  color: var(--bleu);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.section-overline::before,
+.section-overline::after {
+  content: "";
+  display: inline-block;
+  width: 26px;
+  height: 2px;
+  background: var(--jaune);
+  vertical-align: middle;
+  margin: 0 10px;
+}
+
+.fac-card2 {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(15, 35, 80, 0.09);
+  border-bottom: 4px solid var(--accent, var(--bleu));
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.fac-card2:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 18px 38px rgba(15, 35, 80, 0.16);
+}
+.fac-visuel {
+  position: relative;
+  height: 150px;
+}
+.fac-badge {
+  position: absolute;
+  left: 20px;
+  bottom: -24px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fac-body {
+  padding: 36px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.fac-nom {
+  font-size: 18px;
+  font-weight: 800;
+  color: #17223b;
+  line-height: 1.25;
+  margin: 0 0 10px;
+  min-height: 2.5em; /* aligne les descriptions entre cartes */
+}
+.fac-desc {
+  font-size: 13.5px;
+  color: #5b6472;
+  line-height: 1.6;
+  margin: 0 0 16px;
+  flex: 1;
+}
+.fac-plus {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent, var(--bleu));
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.fac-plus span { transition: transform 0.2s ease; }
+.fac-plus:hover span { transform: translateX(4px); }
+
+/* Modal des filières */
+.fac-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.fac-modal.actif { display: flex; }
+.fac-modal-box {
+  background: #fff;
+  border-radius: 16px;
+  max-width: 460px;
+  width: 100%;
+  padding: 24px;
+  position: relative;
+  max-height: 85vh;
+  overflow: auto;
+  border-top: 4px solid var(--accent, var(--bleu));
+}
+.fac-modal-box h3 {
+  font-size: 19px;
+  color: #17223b;
+  margin: 0 0 12px;
+  padding-right: 34px;
+}
+.fac-modal-box .fac-filieres { padding: 0; }
+.fac-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: #f0f2f5;
+  color: #555;
+  cursor: pointer;
+  font-size: 15px;
+}
+.fac-modal-close:hover { background: #e4e8ee; }
+
 /* =====================
    GALERIE
    ===================== */

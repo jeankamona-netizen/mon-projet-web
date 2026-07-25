@@ -83,13 +83,23 @@
   <!-- ========== FACULTES ========== -->
   <section class="facultes" id="facultes">
     <div class="container">
-      <h2 data-i18n="facultes.titre">Facultés organisées</h2>
-      <p class="sous-titre" data-i18n="facultes.soustitre">4 facultés avec plusieurs filières spécialisées</p>
+      <span class="section-overline" data-i18n="facultes.overline">Nos facultés</span>
+      <h2 data-i18n="facultes.titre">Découvrez nos Facultés</h2>
+      <p class="sous-titre" data-i18n="facultes.soustitre">Une formation d'excellence dans des domaines variés pour préparer les leaders de demain.</p>
       <div class="facultes-grid" id="facultes-grid">
         <p class="admin-vide" style="grid-column:1/-1;text-align:center;color:#999">Chargement des facultés…</p>
       </div>
     </div>
   </section>
+
+  <!-- MODAL : filières d'une faculté (page d'accueil) -->
+  <div class="fac-modal" id="fac-modal" aria-hidden="true" onclick="if(event.target===this)fermerFilieres()">
+    <div class="fac-modal-box" id="fac-modal-box" role="dialog" aria-modal="true" aria-labelledby="fac-modal-titre">
+      <button class="fac-modal-close" onclick="fermerFilieres()" aria-label="Fermer">✕</button>
+      <h3 id="fac-modal-titre"></h3>
+      <ul class="fac-filieres" id="fac-modal-liste"></ul>
+    </div>
+  </div>
 
     <!-- EVENEMENTS -->
 <section class="evenements" id="evenements">
