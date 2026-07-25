@@ -674,36 +674,44 @@ h2 {
 }
 .facultes-grid { align-items: start; }
 
-/* La carte : l'en-tête coloré est un bouton, le corps se déplie au clic. */
+/* La carte : rendu « miroir » (verre translucide + brillance), sans fond coloré. */
 .faculte-card {
-  border-radius: 12px;
-  box-shadow: 0 3px 12px rgba(15, 35, 80, 0.08);
+  position: relative;
+  border-radius: 14px;
+  background: linear-gradient(150deg, #ffffff 0%, #eef2f8 100%);
+  border: 1px solid rgba(15, 35, 80, 0.10);
+  box-shadow: 0 6px 18px rgba(15, 35, 80, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  overflow: hidden;
+}
+/* Reflet lumineux diagonal (effet miroir). */
+.faculte-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 46%);
+  pointer-events: none;
 }
 .fac-entete {
+  position: relative;
+  z-index: 1;
   width: 100%;
   border: none;
+  background: transparent;
   cursor: pointer;
-  color: #fff;
+  color: #1b2740;
   display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 16px 18px;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
   text-align: left;
   font-family: inherit;
-  /* Hauteur identique pour toutes les cartes, quel que soit le nom. */
-  min-height: 150px;
-}
-.fac-haut {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  min-height: 78px; /* hauteur identique pour toutes les cartes */
 }
 .fac-icone {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 10px;
+  border-radius: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -711,25 +719,24 @@ h2 {
 .fac-titre {
   font-size: 15px;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.25;
   flex: 1;
+  color: #17223b;
+  /* Nom sur 2 lignes maximum (tronqué au-delà). */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-/* Nombre de filières + chevron : ancrés EN BAS de l'en-tête. */
-.fac-bas {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
+/* Nombre de filières + chevron : juste après le nom. */
 .fac-meta {
   font-size: 12px;
-  opacity: 0.9;
+  color: #6b7791;
   white-space: nowrap;
 }
 .fac-chevron {
   display: flex;
-  opacity: 0.9;
+  color: #8a94a8;
   transition: transform 0.25s ease;
 }
 .faculte-card.ouvert .fac-chevron { transform: rotate(180deg); }
