@@ -88,6 +88,10 @@
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
           Listes
         </a>
+        <a href="#" class="nav-item" onclick="afficherSectionCaisse('caisse-communiques', this)">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          Communiqués
+        </a>
         <a href="#" class="nav-item" onclick="afficherSectionCaisse('caisse-inscrits', this)">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Gérer les inscrits
@@ -235,6 +239,23 @@
           <table class="dash-table" id="liste-table">
             <thead id="liste-thead"></thead>
             <tbody id="liste-body"><tr><td class="admin-vide">Chargement...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== COMMUNIQUÉS (caissier + administrateur du budget) ===== -->
+      <section id="caisse-communiques" class="dash-section">
+        <h2>Communiqués</h2>
+        <p class="dash-sous-titre">Informez les étudiants et les enseignants au sujet des frais</p>
+
+        <div class="admin-toolbar">
+          <button class="btn-ajouter" onclick="ouvrirModalCommuniqueCaisse()">+ Nouveau communiqué</button>
+        </div>
+
+        <div class="dash-card" style="overflow-x:auto">
+          <table class="dash-table">
+            <thead><tr><th>Titre</th><th>Destinataire</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
+            <tbody id="caisse-communiques-body"><tr><td colspan="5" class="admin-vide">Chargement...</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -601,6 +622,82 @@
         <button class="btn-annuler" onclick="fermerModalNouvelInscritCaisse()">Annuler</button>
         <button class="btn-sauvegarder" onclick="reinscrireNouvelEtudiantCaisse()">✅ Inscrire l'étudiant</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL : PUBLIER / MODIFIER UN COMMUNIQUÉ (caisse) -->
+  <div class="admin-modal-overlay" id="modal-communique-caisse">
+    <div class="admin-modal" style="max-width:560px">
+      <div class="admin-modal-header">
+        <h3 id="modal-communique-caisse-titre">Nouveau communiqué</h3>
+        <button class="admin-modal-close" onclick="fermerModalCommuniqueCaisse()" aria-label="Fermer">✕</button>
+      </div>
+      <input type="hidden" id="comm-caisse-id">
+
+      <div class="form-group-dash">
+        <label>Destinataire <span class="required">*</span></label>
+        <select id="comm-caisse-destinataire" onchange="majCibleCommuniqueCaisse()">
+          <option value="etudiants">Tous les étudiants</option>
+          <option value="non_regle">Étudiants non en règle (frais)</option>
+          <option value="etudiant_precis">Un étudiant précis</option>
+          <option value="enseignant_precis">Un enseignant précis</option>
+        </select>
+      </div>
+
+      <!-- Sélecteur d'étudiant précis (par matricule/nom) -->
+      <div class="form-group-dash" id="comm-caisse-bloc-etudiant" style="display:none">
+        <label>Étudiant (matricule ou nom) <span class="required">*</span></label>
+        <input type="text" id="comm-caisse-etudiant-recherche" placeholder="Rechercher un étudiant..." oninput="rechercherEtudiantCommunique()" autocomplete="off">
+        <input type="hidden" id="comm-caisse-etudiant-id">
+        <div id="comm-caisse-etudiant-resultats" class="admin-suggestions"></div>
+        <p id="comm-caisse-etudiant-choisi" style="font-size:12px;color:var(--bleu);margin:6px 0 0"></p>
+      </div>
+
+      <!-- Sélecteur d'enseignant précis -->
+      <div class="form-group-dash" id="comm-caisse-bloc-enseignant" style="display:none">
+        <label>Enseignant <span class="required">*</span></label>
+        <select id="comm-caisse-enseignant-id"><option value="">— Choisir un enseignant —</option></select>
+      </div>
+
+      <div class="form-group-dash">
+        <label>Titre <span class="required">*</span></label>
+        <input type="text" id="comm-caisse-titre" placeholder="Ex : Rappel de solde de scolarité">
+      </div>
+      <div class="form-group-dash">
+        <label>Message <span class="required">*</span></label>
+        <textarea id="comm-caisse-message" rows="4" placeholder="Contenu du communiqué..."></textarea>
+      </div>
+      <div class="form-row-admin">
+        <div class="form-group-dash">
+          <label>Date</label>
+          <input type="date" id="comm-caisse-date">
+        </div>
+        <div class="form-group-dash" style="align-self:end">
+          <label class="checkbox-label"><input type="checkbox" id="comm-caisse-actif" checked> Visible (actif)</label>
+        </div>
+      </div>
+
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalCommuniqueCaisse()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="sauvegarderCommuniqueCaisse()">📣 Publier</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL : LECTURE D'UN COMMUNIQUÉ (caisse) -->
+  <div class="admin-modal-overlay" id="modal-lire-communique-caisse">
+    <div class="admin-modal" style="max-width:540px">
+      <div class="admin-modal-header">
+        <h3>Communiqué</h3>
+        <button class="admin-modal-close" onclick="fermerLireCommuniqueCaisse()" aria-label="Fermer">✕</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+        <span class="annee-badge" id="lire-comm-caisse-dest"></span>
+        <span style="font-size:12px;color:#888" id="lire-comm-caisse-date"></span>
+      </div>
+      <h4 id="lire-comm-caisse-titre" style="font-size:17px;color:var(--bleu);margin:0 0 10px"></h4>
+      <div id="lire-comm-caisse-message" style="font-size:14px;line-height:1.7;color:#333;white-space:pre-wrap;background:#f7f9fc;border:1px solid #e6ecf5;border-radius:8px;padding:14px 16px;max-height:50vh;overflow:auto"></div>
+      <div class="admin-modal-actions"><button class="btn-annuler" onclick="fermerLireCommuniqueCaisse()">Fermer</button></div>
     </div>
   </div>
 

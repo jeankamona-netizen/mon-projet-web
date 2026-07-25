@@ -15,6 +15,27 @@ async function annonceDansFaculte(id, facDoyen) {
   return !!a && a.cible_faculte === facDoyen;
 }
 
+// « Non en règle avec les frais » : l'étudiant doit encore de l'argent pour SON
+// année en cours (total du barème faculté+promotion+niveau+année > total versé).
+// Sert au groupe dynamique 'etudiant_non_regle' des communiqués de la caisse.
+async function etudiantDoitFrais(matricule) {
+  const [[e]] = await pool.query(
+    'SELECT faculte, promotion, niveau, annee_academique FROM etudiant WHERE id = ?', [matricule]
+  );
+  if (!e) return false;
+  const [[bareme]] = await pool.query(
+    'SELECT SUM(montant) AS total FROM frais_scolarite WHERE faculte = ? AND promotion = ? AND niveau = ? AND annee_academique = ?',
+    [e.faculte, e.promotion, e.niveau, e.annee_academique]
+  );
+  const attendu = bareme && bareme.total !== null ? Number(bareme.total) : null;
+  if (attendu === null || attendu <= 0) return false; // barème inconnu → on ne présume rien
+  const [[p]] = await pool.query(
+    'SELECT COALESCE(SUM(montant),0) AS total FROM paiement WHERE etudiant_id = ? AND annee_academique = ?',
+    [matricule, e.annee_academique]
+  );
+  return Number(p.total) < attendu;
+}
+
 // ===== POST /api/annonces/image — téléverser l'image d'un événement (admin) =====
 // L'image est choisie sur le disque de l'utilisateur (input type=file), envoyée
 // en multipart et enregistrée dans frontend/uploads. On renvoie son chemin
@@ -27,7 +48,7 @@ router.post('/image', requireAdmin, upload.single('image'), upload.verifierConte
 // ===== GET /api/annonces — toutes les annonces (avec filtres type/actif/faculté) =====
 router.get('/', async (req, res) => {
   try {
-    const { type, actif, faculte, role } = req.query;
+    const { type, actif, faculte, role, matricule } = req.query;
 
     let sql = 'SELECT * FROM annonce WHERE 1=1';
     const params = [];
@@ -36,8 +57,21 @@ router.get('/', async (req, res) => {
     if (actif !== undefined) { sql += ' AND actif = ?'; params.push(actif === 'true' ? 1 : 0); }
     // faculte fourni → annonces visibles par tous (cible_faculte NULL) OU ciblant cette faculté
     if (faculte) { sql += ' AND (cible_faculte IS NULL OR cible_faculte = ?)'; params.push(faculte); }
-    // role fourni (communiqués) → destinés à ce rôle OU à « tous »
-    if (role) { sql += " AND (cible_role = 'tous' OR cible_role = ?)"; params.push(role); }
+    // role fourni (communiqués) → destinés à ce rôle OU à « tous ». Si le
+    // destinataire fournit son matricule, il reçoit AUSSI les communiqués qui lui
+    // sont personnellement adressés (cible_matricule) ; les messages individuels
+    // d'autrui restent invisibles (cible_matricule IS NULL pour les diffusions).
+    if (role) {
+      const clauses = ["(cible_matricule IS NULL AND (cible_role = 'tous' OR cible_role = ?))"];
+      params.push(role);
+      if (matricule) { clauses.push('cible_matricule = ?'); params.push(matricule); }
+      // Groupe dynamique « étudiants non en règle » : visible seulement si CET
+      // étudiant doit encore des frais.
+      if (role === 'etudiant' && matricule && await etudiantDoitFrais(matricule)) {
+        clauses.push("(cible_matricule IS NULL AND cible_role = 'etudiant_non_regle')");
+      }
+      sql += ' AND (' + clauses.join(' OR ') + ')';
+    }
 
     sql += ' ORDER BY date_annonce DESC';
 
@@ -66,10 +100,11 @@ router.post('/', requireAdmin, async (req, res) => {
       return res.status(403).json({ erreur: "Le décanat ne peut publier que des communiqués internes." });
     }
     const cibleFaculteFinale = facDoyen || cible_faculte || null;
+    const emetteur = (req.utilisateur && req.utilisateur.role) || 'admin';
 
     const [resultat] = await pool.query(
-      'INSERT INTO annonce (type, titre, description, date_annonce, icone, image, actif, cible_faculte, cible_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [type, titre, description, date_annonce, icone || '📢', image || '', actif !== false, cibleFaculteFinale, cible_role || null]
+      'INSERT INTO annonce (type, titre, description, date_annonce, icone, image, actif, cible_faculte, cible_role, cible_matricule, emetteur) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [type, titre, description, date_annonce, icone || '📢', image || '', actif !== false, cibleFaculteFinale, cible_role || null, req.body.cible_matricule || null, emetteur]
     );
 
     journaliser({ ...acteurDeReq(req), action: 'Publication annonce', details: `${type} · ${titre}`, ip: ipDeRequete(req) });

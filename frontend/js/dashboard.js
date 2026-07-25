@@ -730,7 +730,11 @@ let communiquesEtudiant = [];
 
 async function chargerCommuniquesEtudiant() {
   try {
-    const r = await fetch(`${BASE_URL}/api/annonces?type=communique&role=etudiant&actif=true`);
+    // On transmet le matricule pour recevoir AUSSI les communiqués personnels
+    // (message individuel de la caisse) et ceux des « non en règle » si concerné.
+    const etu = getEtudiantConnecte ? getEtudiantConnecte() : null;
+    const matr = etu && etu.id ? `&matricule=${encodeURIComponent(etu.id)}` : '';
+    const r = await fetch(`${BASE_URL}/api/annonces?type=communique&role=etudiant&actif=true${matr}`);
     if (!r.ok) throw new Error();
     communiquesEtudiant = await r.json();
     mettreAJourNotifications();

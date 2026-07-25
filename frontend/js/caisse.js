@@ -111,6 +111,7 @@ function afficherSectionCaisse(id, lien) {
   if (id === 'caisse-frais')    chargerEtudiantsCaisse();
   if (id === 'caisse-rapports') initRapports();
   if (id === 'caisse-listes')   chargerListes();
+  if (id === 'caisse-communiques') chargerCommuniquesCaisseSection();
   if (id === 'caisse-inscrits') chargerInscritsCaisse();
   if (id === 'caisse-bareme')   chargerBareme();
 }
@@ -1692,6 +1693,186 @@ function imprimerCarteEtudiantCaisse(id) {
   if (!w) { afficherToast('⚠️ Autorisez les pop-ups pour imprimer la carte.', 'erreur'); return; }
   w.document.open(); w.document.write(html); w.document.close();
 }
+
+// =====================
+// COMMUNIQUÉS DE LA CAISSE (émettre + consulter)
+// =====================
+let communiquesCaisseSection = [];
+
+// Libellé du destinataire d'un communiqué (à partir de cible_role / cible_matricule).
+function libelleDestCommunique(c) {
+  if (c.cible_matricule) return c.cible_role === 'professeur'
+    ? `Enseignant ${c.cible_matricule}` : `Étudiant ${c.cible_matricule}`;
+  const map = {
+    etudiant: 'Tous les étudiants', etudiant_non_regle: 'Étudiants non en règle',
+    professeur: 'Enseignants', caisse: 'Caisse', budget: 'Adm. du budget', tous: 'Tout le monde'
+  };
+  return map[c.cible_role] || c.cible_role || '—';
+}
+
+async function chargerCommuniquesCaisseSection() {
+  const tbody = document.getElementById('caisse-communiques-body');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Chargement...</td></tr>`;
+  try {
+    const r = await fetchCaisse(`${BASE_URL}/api/caisse/communiques`);
+    communiquesCaisseSection = await r.json();
+    if (!communiquesCaisseSection.length) { tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">Aucun communiqué.</td></tr>`; return; }
+    tbody.innerHTML = communiquesCaisseSection.map(c => {
+      const actions = c.mien
+        ? `<button class="btn-icone" onclick="event.stopPropagation();basculerCommuniqueCaisse(${c.id})" title="${c.actif ? 'Masquer' : 'Afficher'}">${icone(c.actif ? 'oeil' : 'oeil-barre')}</button>
+           <button class="btn-icone" onclick="event.stopPropagation();modifierCommuniqueCaisse(${c.id})" title="Modifier">${icone('crayon')}</button>
+           <button class="btn-icone danger" onclick="event.stopPropagation();supprimerCommuniqueCaisse(${c.id})" title="Supprimer">${icone('corbeille')}</button>`
+        : `<span style="color:#aaa;font-size:12px;white-space:nowrap">🔒 Reçu</span>`;
+      return `<tr style="cursor:pointer" onclick="lireCommuniqueCaisse(${c.id})" title="Cliquer pour lire">
+        <td>📣 ${escHtmlC(c.titre)}</td>
+        <td><span class="annee-badge">${escHtmlC(libelleDestCommunique(c))}</span></td>
+        <td>${formaterDateCaisse(c.date_annonce)}</td>
+        <td><span class="badge ${c.actif ? 'actif' : 'inactif'}">${c.actif ? 'Actif' : 'Masqué'}</span></td>
+        <td class="admin-actions-cell">${actions}</td>
+      </tr>`;
+    }).join('');
+  } catch { tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">⚠️ Erreur.</td></tr>`; }
+}
+
+function escHtmlC(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+async function ouvrirModalCommuniqueCaisse() {
+  document.getElementById('modal-communique-caisse-titre').textContent = 'Nouveau communiqué';
+  document.getElementById('comm-caisse-id').value = '';
+  document.getElementById('comm-caisse-destinataire').value = 'etudiants';
+  document.getElementById('comm-caisse-titre').value = '';
+  document.getElementById('comm-caisse-message').value = '';
+  document.getElementById('comm-caisse-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('comm-caisse-actif').checked = true;
+  document.getElementById('comm-caisse-etudiant-recherche').value = '';
+  document.getElementById('comm-caisse-etudiant-id').value = '';
+  document.getElementById('comm-caisse-etudiant-choisi').textContent = '';
+  document.getElementById('comm-caisse-etudiant-resultats').innerHTML = '';
+  await chargerEnseignantsCommunique();
+  majCibleCommuniqueCaisse();
+  document.getElementById('modal-communique-caisse')?.classList.add('active');
+}
+function fermerModalCommuniqueCaisse() { document.getElementById('modal-communique-caisse')?.classList.remove('active'); }
+
+// Affiche le bon sélecteur (étudiant / enseignant) selon le destinataire choisi.
+function majCibleCommuniqueCaisse() {
+  const d = document.getElementById('comm-caisse-destinataire').value;
+  document.getElementById('comm-caisse-bloc-etudiant').style.display = d === 'etudiant_precis' ? '' : 'none';
+  document.getElementById('comm-caisse-bloc-enseignant').style.display = d === 'enseignant_precis' ? '' : 'none';
+}
+
+async function chargerEnseignantsCommunique() {
+  const sel = document.getElementById('comm-caisse-enseignant-id');
+  if (!sel || sel.dataset.charge === '1') return;
+  try {
+    const r = await fetchCaisse(`${BASE_URL}/api/caisse/enseignants`);
+    const profs = await r.json();
+    sel.innerHTML = '<option value="">— Choisir un enseignant —</option>' +
+      profs.map(p => `<option value="${p.id}">${escHtmlC(`${p.prenom || ''} ${p.nom || ''}`.trim())}${p.email ? ' — ' + escHtmlC(p.email) : ''}</option>`).join('');
+    sel.dataset.charge = '1';
+  } catch { /* silencieux */ }
+}
+
+// Recherche d'étudiant (par nom/matricule) pour un message individuel.
+let _timerRechCommunique = null;
+function rechercherEtudiantCommunique() {
+  clearTimeout(_timerRechCommunique);
+  const q = document.getElementById('comm-caisse-etudiant-recherche').value.trim();
+  const zone = document.getElementById('comm-caisse-etudiant-resultats');
+  if (!q) { zone.innerHTML = ''; return; }
+  _timerRechCommunique = setTimeout(async () => {
+    try {
+      const r = await fetchCaisse(`${BASE_URL}/api/caisse/etudiants?nom=${encodeURIComponent(q)}`);
+      const etus = (await r.json()).slice(0, 8);
+      zone.innerHTML = etus.length ? etus.map(e =>
+        `<div class="admin-suggestion" onclick="choisirEtudiantCommunique('${e.id}','${escHtmlC(`${e.nom} ${e.prenom || ''}`.trim()).replace(/'/g, "\\'")}')">${escHtmlC(`${e.nom} ${e.prenom || ''}`.trim())} <small style="color:#999">${e.id}</small></div>`
+      ).join('') : '<div class="admin-suggestion" style="color:#999">Aucun étudiant</div>';
+    } catch { zone.innerHTML = ''; }
+  }, 250);
+}
+function choisirEtudiantCommunique(id, nom) {
+  document.getElementById('comm-caisse-etudiant-id').value = id;
+  document.getElementById('comm-caisse-etudiant-choisi').textContent = `✓ ${nom} (${id})`;
+  document.getElementById('comm-caisse-etudiant-resultats').innerHTML = '';
+  document.getElementById('comm-caisse-etudiant-recherche').value = '';
+}
+
+async function sauvegarderCommuniqueCaisse() {
+  const id = document.getElementById('comm-caisse-id').value;
+  const destinataire = document.getElementById('comm-caisse-destinataire').value;
+  const titre = document.getElementById('comm-caisse-titre').value.trim();
+  const message = document.getElementById('comm-caisse-message').value.trim();
+  const date_annonce = document.getElementById('comm-caisse-date').value;
+  const actif = document.getElementById('comm-caisse-actif').checked;
+  if (!titre || !message || !date_annonce) { afficherToast('⚠️ Titre, message et date sont obligatoires.', 'erreur'); return; }
+  let cible_id = null;
+  if (destinataire === 'etudiant_precis') {
+    cible_id = document.getElementById('comm-caisse-etudiant-id').value;
+    if (!cible_id) { afficherToast('⚠️ Choisissez l\'étudiant destinataire.', 'erreur'); return; }
+  } else if (destinataire === 'enseignant_precis') {
+    cible_id = document.getElementById('comm-caisse-enseignant-id').value;
+    if (!cible_id) { afficherToast('⚠️ Choisissez l\'enseignant destinataire.', 'erreur'); return; }
+  }
+  const corps = { titre, message, date_annonce, actif, destinataire, cible_id };
+  try {
+    const url = id ? `${BASE_URL}/api/caisse/communiques/${id}` : `${BASE_URL}/api/caisse/communiques`;
+    const r = await fetchCaisse(url, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+    const dd = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + dd.erreur, 'erreur'); return; }
+    afficherToast(id ? '✅ Communiqué modifié.' : '📣 Communiqué publié.');
+    fermerModalCommuniqueCaisse(); chargerCommuniquesCaisseSection();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+function modifierCommuniqueCaisse(id) {
+  const c = communiquesCaisseSection.find(x => x.id === id);
+  if (!c) return;
+  ouvrirModalCommuniqueCaisse().then(() => {
+    document.getElementById('modal-communique-caisse-titre').textContent = 'Modifier le communiqué';
+    document.getElementById('comm-caisse-id').value = c.id;
+    // Reconstitue le destinataire à partir de cible_role / cible_matricule.
+    let dest = 'etudiants';
+    if (c.cible_matricule) dest = c.cible_role === 'professeur' ? 'enseignant_precis' : 'etudiant_precis';
+    else if (c.cible_role === 'etudiant_non_regle') dest = 'non_regle';
+    else if (c.cible_role === 'etudiant') dest = 'etudiants';
+    document.getElementById('comm-caisse-destinataire').value = dest;
+    majCibleCommuniqueCaisse();
+    if (dest === 'etudiant_precis') {
+      document.getElementById('comm-caisse-etudiant-id').value = c.cible_matricule;
+      document.getElementById('comm-caisse-etudiant-choisi').textContent = `✓ ${c.cible_matricule}`;
+    } else if (dest === 'enseignant_precis') {
+      document.getElementById('comm-caisse-enseignant-id').value = c.cible_matricule;
+    }
+    document.getElementById('comm-caisse-titre').value = c.titre || '';
+    document.getElementById('comm-caisse-message').value = c.description || '';
+    document.getElementById('comm-caisse-date').value = (c.date_annonce || '').split('T')[0];
+    document.getElementById('comm-caisse-actif').checked = !!c.actif;
+  });
+}
+
+async function basculerCommuniqueCaisse(id) {
+  try { await fetchCaisse(`${BASE_URL}/api/caisse/communiques/${id}/toggle`, { method: 'PATCH' }); chargerCommuniquesCaisseSection(); }
+  catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+async function supprimerCommuniqueCaisse(id) {
+  if (!await confirmerAction('Supprimer ce communiqué ?', { titre: 'Supprimer', texteConfirmer: 'Supprimer' })) return;
+  try { const r = await fetchCaisse(`${BASE_URL}/api/caisse/communiques/${id}`, { method: 'DELETE' }); const d = await r.json(); if (!r.ok) { afficherToast('❌ ' + d.erreur, 'erreur'); return; } afficherToast('🗑️ Supprimé.'); chargerCommuniquesCaisseSection(); }
+  catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+function lireCommuniqueCaisse(id) {
+  const c = communiquesCaisseSection.find(x => x.id === id);
+  if (!c) return;
+  const set = (elId, val) => { const el = document.getElementById(elId); if (el) el.textContent = val; };
+  set('lire-comm-caisse-dest', libelleDestCommunique(c));
+  set('lire-comm-caisse-date', formaterDateCaisse(c.date_annonce));
+  set('lire-comm-caisse-titre', c.titre || '');
+  set('lire-comm-caisse-message', c.description || '');
+  document.getElementById('modal-lire-communique-caisse')?.classList.add('active');
+}
+function fermerLireCommuniqueCaisse() { document.getElementById('modal-lire-communique-caisse')?.classList.remove('active'); }
 
 document.addEventListener('DOMContentLoaded', () => {
   const champPass = document.getElementById('caisse-pass');

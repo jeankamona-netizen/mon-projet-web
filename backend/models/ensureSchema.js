@@ -136,6 +136,19 @@ async function assurerSchemaNoteComposantes(pool) {
   }
 }
 
+// Communiqués : ciblage individuel (cible_matricule = un étudiant ou un
+// enseignant précis) et émetteur (qui a publié : admin / doyen / caisse). Permet
+// à la caisse d'écrire à un étudiant/enseignant précis ou aux étudiants « non en
+// règle » (rôle spécial 'etudiant_non_regle', évalué dynamiquement à la lecture).
+async function assurerSchemaAnnonceCiblage(pool) {
+  const [cols] = await pool.query(
+    "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'annonce'"
+  );
+  const noms = cols.map(c => c.COLUMN_NAME.toLowerCase());
+  if (!noms.includes('cible_matricule')) await pool.query("ALTER TABLE annonce ADD COLUMN cible_matricule VARCHAR(30) NULL");
+  if (!noms.includes('emetteur'))        await pool.query("ALTER TABLE annonce ADD COLUMN emetteur VARCHAR(20) NULL");
+}
+
 // Présences : feuille de présence par créneau d'horaire et par séance
 // (present / retard / absent). La table peut manquer sur une base de production
 // créée avant l'ajout de la fonctionnalité → sans elle, la saisie des présences
@@ -439,6 +452,7 @@ async function assurerSchema(pool) {
   await assurerSchemaPaiement(pool);
   await assurerSchemaPresence(pool);
   await assurerSchemaNoteComposantes(pool);
+  await assurerSchemaAnnonceCiblage(pool);
   await assurerSchemaPromotionLongue(pool);
   await assurerSchemaDateInscription(pool);
   await assurerSchemaAgentFaculte(pool);

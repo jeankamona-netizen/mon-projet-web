@@ -686,9 +686,16 @@ document.addEventListener('DOMContentLoaded', () => {
 // =====================
 let communiquesProf = [];
 
+// Matricule/id de l'enseignant → reçoit AUSSI les communiqués personnels
+// (ex. honoraires prêts, message de la caisse).
+function paramMatriculeProf() {
+  const p = getProfesseurConnecte && getProfesseurConnecte();
+  return p && p.id ? `&matricule=${encodeURIComponent(p.id)}` : '';
+}
+
 async function chargerCommuniquesProf() {
   try {
-    const r = await fetch(`${BASE_URL}/api/annonces?type=communique&role=professeur&actif=true`);
+    const r = await fetch(`${BASE_URL}/api/annonces?type=communique&role=professeur&actif=true${paramMatriculeProf()}`);
     if (!r.ok) throw new Error();
     communiquesProf = await r.json();
     majNotifsProf();
@@ -703,7 +710,7 @@ async function chargerAnnoncesProf() {
   try {
     const [ra, rc] = await Promise.all([
       fetch(`${BASE_URL}/api/annonces?actif=true`),
-      fetch(`${BASE_URL}/api/annonces?type=communique&role=professeur&actif=true`)
+      fetch(`${BASE_URL}/api/annonces?type=communique&role=professeur&actif=true${paramMatriculeProf()}`)
     ]);
     actualitesProf = ra.ok ? (await ra.json()).filter(a => a.type !== 'communique') : [];
     communiquesProf = rc.ok ? await rc.json() : communiquesProf;

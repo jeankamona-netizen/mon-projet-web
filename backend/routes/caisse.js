@@ -428,4 +428,104 @@ router.get('/rapport', async (req, res) => {
   }
 });
 
+// =====================
+// COMMUNIQUÉS DE LA CAISSE (caissier + administrateur du budget)
+// La caisse émet des communiqués relatifs aux FRAIS : à tous les étudiants, à un
+// étudiant précis, à un enseignant précis (honoraires prêts…), ou à l'ensemble
+// des étudiants « non en règle ». Elle voit aussi les communiqués qui la concernent.
+// =====================
+
+// Liste des enseignants (pour cibler un enseignant précis).
+router.get('/enseignants', async (req, res) => {
+  try {
+    const [profs] = await pool.query(
+      "SELECT id, nom, prenom, email FROM professeur ORDER BY nom, prenom"
+    );
+    res.json(profs);
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+// Communiqués visibles par la caisse : ceux qu'elle a émis (emetteur='caisse')
+// ET ceux qui lui sont destinés (rôle caisse/budget/tous).
+router.get('/communiques', async (req, res) => {
+  try {
+    const [lignes] = await pool.query(
+      `SELECT * FROM annonce
+       WHERE type = 'communique'
+         AND (emetteur = 'caisse' OR cible_role IN ('caisse','budget','tous'))
+       ORDER BY date_annonce DESC, id DESC`
+    );
+    res.json(lignes.map(l => ({ ...l, mien: l.emetteur === 'caisse' })));
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+// Traduit le destinataire choisi en (cible_role, cible_matricule).
+function ciblageCommuniqueCaisse(destinataire, cible_id) {
+  switch (destinataire) {
+    case 'etudiants':        return { cible_role: 'etudiant',            cible_matricule: null };
+    case 'non_regle':        return { cible_role: 'etudiant_non_regle',  cible_matricule: null };
+    case 'etudiant_precis':  return { cible_role: 'etudiant',            cible_matricule: cible_id || null };
+    case 'enseignant_precis':return { cible_role: 'professeur',          cible_matricule: cible_id || null };
+    default: return null;
+  }
+}
+
+router.post('/communiques', async (req, res) => {
+  try {
+    const { titre, message, date_annonce, actif, destinataire, cible_id } = req.body;
+    if (!titre || !message || !date_annonce) return res.status(400).json({ erreur: 'Titre, message et date sont obligatoires.' });
+    const cible = ciblageCommuniqueCaisse(destinataire, cible_id);
+    if (!cible) return res.status(400).json({ erreur: 'Destinataire invalide.' });
+    if ((destinataire === 'etudiant_precis' || destinataire === 'enseignant_precis') && !cible.cible_matricule) {
+      return res.status(400).json({ erreur: 'Veuillez préciser le destinataire (étudiant ou enseignant).' });
+    }
+    const [r] = await pool.query(
+      `INSERT INTO annonce (type, titre, description, date_annonce, icone, image, actif, cible_faculte, cible_role, cible_matricule, emetteur)
+       VALUES ('communique', ?, ?, ?, '💰', '', ?, NULL, ?, ?, 'caisse')`,
+      [titre, message, date_annonce, actif !== false, cible.cible_role, cible.cible_matricule]
+    );
+    res.status(201).json({ message: 'Communiqué publié.', id: r.insertId });
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+// La caisse ne modifie/supprime QUE ses propres communiqués (emetteur='caisse').
+async function communiqueDeCaisse(id) {
+  const [[a]] = await pool.query("SELECT emetteur FROM annonce WHERE id = ? AND type = 'communique'", [id]);
+  return !!a && a.emetteur === 'caisse';
+}
+
+router.put('/communiques/:id', async (req, res) => {
+  try {
+    if (!await communiqueDeCaisse(req.params.id)) return res.status(403).json({ erreur: "Vous ne pouvez modifier que les communiqués de la caisse." });
+    const { titre, message, date_annonce, actif, destinataire, cible_id } = req.body;
+    if (!titre || !message || !date_annonce) return res.status(400).json({ erreur: 'Titre, message et date sont obligatoires.' });
+    const cible = ciblageCommuniqueCaisse(destinataire, cible_id);
+    if (!cible) return res.status(400).json({ erreur: 'Destinataire invalide.' });
+    await pool.query(
+      'UPDATE annonce SET titre=?, description=?, date_annonce=?, actif=?, cible_role=?, cible_matricule=? WHERE id=?',
+      [titre, message, date_annonce, actif !== false, cible.cible_role, cible.cible_matricule, req.params.id]
+    );
+    res.json({ message: 'Communiqué mis à jour.' });
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+router.patch('/communiques/:id/toggle', async (req, res) => {
+  try {
+    if (!await communiqueDeCaisse(req.params.id)) return res.status(403).json({ erreur: "Action non autorisée." });
+    const [[a]] = await pool.query('SELECT actif FROM annonce WHERE id = ?', [req.params.id]);
+    if (!a) return res.status(404).json({ erreur: 'Communiqué introuvable.' });
+    const nouveau = a.actif ? 0 : 1;
+    await pool.query('UPDATE annonce SET actif = ? WHERE id = ?', [nouveau, req.params.id]);
+    res.json({ actif: !!nouveau });
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
+router.delete('/communiques/:id', async (req, res) => {
+  try {
+    if (!await communiqueDeCaisse(req.params.id)) return res.status(403).json({ erreur: "Action non autorisée." });
+    await pool.query('DELETE FROM annonce WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Communiqué supprimé.' });
+  } catch (erreur) { res.status(500).json({ erreur: erreur.message }); }
+});
+
 module.exports = router;

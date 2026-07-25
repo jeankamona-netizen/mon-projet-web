@@ -1399,3 +1399,17 @@
 body.espace-doyen #row-graphiques-bas {
   grid-template-columns: 1fr;
 }
+
+/* ===== Suggestions de recherche (ex. étudiant destinataire d'un communiqué) ===== */
+.admin-suggestions { margin-top: 4px; }
+.admin-suggestion {
+  padding: 7px 10px;
+  border: 1px solid #e6ecf5;
+  border-top: none;
+  cursor: pointer;
+  font-size: 13px;
+  background: #fff;
+}
+.admin-suggestion:first-child { border-top: 1px solid #e6ecf5; border-radius: 6px 6px 0 0; }
+.admin-suggestion:last-child { border-radius: 0 0 6px 6px; }
+.admin-suggestion:hover { background: #eef4ff; }
