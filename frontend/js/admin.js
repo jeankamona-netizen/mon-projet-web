@@ -2790,10 +2790,15 @@ async function chargerCommuniques() {
     if (role) params.append('role', role);
     const r = await fetch(`${BASE_URL}/api/annonces?${params}`);
     let liste = await r.json();
-    // Les communiqués émis par la CAISSE (frais) sont privés : réservés à la
-    // caisse, à l'admin et aux destinataires (étudiant/enseignant). Ils ne sont
-    // JAMAIS visibles au décanat.
-    if (estDoyen()) liste = liste.filter(c => c.emetteur !== 'caisse');
+    // Le décanat ne voit QUE les communiqués qui le concernent : ceux ciblant SA
+    // faculté (les siens + ceux de son binôme doyen/vice-doyen) et ceux adressés
+    // au décanat ('doyen') ou à tout le monde ('tous'). Les communiqués d'une
+    // autre faculté et ceux de la CAISSE (privés) sont exclus.
+    if (estDoyen()) {
+      const fac = faculteDoyenCourant();
+      liste = liste.filter(c => c.emetteur !== 'caisse'
+        && (c.cible_faculte === fac || c.cible_role === 'doyen' || c.cible_role === 'tous'));
+    }
     communiquesAdmin = liste;
     afficherTableauCommuniques();
   } catch { tbody.innerHTML = `<tr><td colspan="5" class="admin-vide">⚠️ Erreur.</td></tr>`; }
