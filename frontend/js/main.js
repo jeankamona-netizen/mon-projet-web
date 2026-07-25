@@ -206,9 +206,95 @@ async function inscrireNewsletter() {
   }
 }
 
+// =====================
+// FACULTÉS (page d'accueil) — cartes cliquables, icônes professionnelles
+// =====================
+const ICO_FAC = {
+  book:     '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  bookOpen: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  monitor:  '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>',
+  code:     '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+  chip:     '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>',
+  chart:    '<path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/>',
+  bars:     '<line x1="6" y1="20" x2="6" y2="14"/><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/>',
+  cap:      '<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/>',
+  bulb:     '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>',
+  pen:      '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  award:    '<circle cx="12" cy="8" r="6"/><path d="M15.5 13.5 17 22l-5-3-5 3 1.5-8.5"/>',
+  building: '<line x1="3" y1="21" x2="21" y2="21"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/>',
+};
+const svgFac = (p, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const escFacPub = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function accentFaculte(nom) {
+  const n = (nom || '').toLowerCase();
+  if (/th[eé]olog/.test(n)) return '#1a3a6b';
+  if (/informati|num[eé]rique/.test(n)) return '#2d7a2d';
+  if (/[eé]conomi|gestion/.test(n)) return '#9a7000';
+  if (/[eé]ducation|psycholog/.test(n)) return '#c0392b';
+  return '#1a3a6b';
+}
+function iconeFaculte(nom) {
+  const n = (nom || '').toLowerCase();
+  if (/th[eé]olog/.test(n)) return ICO_FAC.bookOpen;
+  if (/informati|num[eé]rique/.test(n)) return ICO_FAC.monitor;
+  if (/[eé]conomi|gestion/.test(n)) return ICO_FAC.chart;
+  if (/[eé]ducation|psycholog/.test(n)) return ICO_FAC.cap;
+  return ICO_FAC.building;
+}
+function iconeFiliere(nom) {
+  const n = (nom || '').toLowerCase();
+  if (/^master/.test(n)) return ICO_FAC.cap;
+  if (/intelligence|\bia\b/.test(n)) return ICO_FAC.chip;
+  if (/design/.test(n)) return ICO_FAC.pen;
+  if (/logiciel|syst[eè]me|r[eé]seau|t[eé]l[eé]com|s[eé]curit|informati/.test(n)) return ICO_FAC.code;
+  if (/gestion|[eé]conomi|comptab|finance/.test(n)) return ICO_FAC.bars;
+  if (/psycholog/.test(n)) return ICO_FAC.bulb;
+  if (/[eé]ducation/.test(n)) return ICO_FAC.cap;
+  if (/th[eé]olog|ex[eé]g|mission|[eé]glise|religion|pastoral|testament|bibl/.test(n)) return ICO_FAC.book;
+  return ICO_FAC.award;
+}
+
+async function chargerFacultesPubliques() {
+  const grid = document.getElementById('facultes-grid');
+  if (!grid || typeof chargerFacultesDB !== 'function') return;
+  await chargerFacultesDB();
+  const facs = facultesDB || [];
+  if (!facs.length) { grid.innerHTML = '<p class="admin-vide" style="grid-column:1/-1;text-align:center;color:#999">Aucune faculté pour le moment.</p>'; return; }
+  grid.innerHTML = facs.map(f => {
+    const accent = accentFaculte(f.nom);
+    const filieres = (f.filieres || []).map(x => (typeof x === 'string' ? x : x.nom));
+    const aMaster = filieres.some(filiereEstMaster);
+    const lis = filieres.map(fl =>
+      `<li><span class="fac-fil-ico" style="color:${accent}">${svgFac(iconeFiliere(fl), 16)}</span>${escFacPub(fl)}</li>`
+    ).join('');
+    return `
+      <div class="faculte-card">
+        <button type="button" class="fac-entete" style="background:${accent}" aria-expanded="false" onclick="basculerFaculte(this)">
+          <span class="fac-icone">${svgFac(iconeFaculte(f.nom), 24)}</span>
+          <span class="fac-titre">${escFacPub(f.nom)}</span>
+          <span class="fac-meta">${filieres.length} filière${filieres.length > 1 ? 's' : ''}</span>
+          <span class="fac-chevron">${svgFac('<polyline points="6 9 12 15 18 9"/>', 18)}</span>
+        </button>
+        <div class="fac-corps">
+          <ul class="fac-filieres">${lis || '<li style="color:#999">Aucune filière renseignée</li>'}</ul>
+          ${aMaster ? '<div class="master-badge">Master disponible</div>' : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function basculerFaculte(btn) {
+  const carte = btn.closest('.faculte-card');
+  if (!carte) return;
+  const ouvert = carte.classList.toggle('ouvert');
+  btn.setAttribute('aria-expanded', ouvert ? 'true' : 'false');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initialiserLightbox();
   chargerAnnoncesPubliques();
+  chargerFacultesPubliques();
 
   const lightbox = document.getElementById('lightbox');
   lightbox?.addEventListener('click', e => { if (e.target === lightbox) fermerLightbox(); });
