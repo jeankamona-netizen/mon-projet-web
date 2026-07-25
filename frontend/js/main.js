@@ -273,7 +273,7 @@ async function chargerFacultesPubliques() {
         <button type="button" class="fac-entete" aria-expanded="false" onclick="basculerFaculte(this)">
           <span class="fac-icone" style="color:${accent};background:${accent}1f">${svgFac(iconeFaculte(f.nom), 24)}</span>
           <span class="fac-textes">
-            <span class="fac-titre">${escFacPub(f.nom)}</span>
+            <span class="fac-titre"${(f.nom || '').length > 24 ? ' style="font-size:12.5px"' : ''}>${escFacPub(f.nom)}</span>
             <span class="fac-bas">
               <span class="fac-meta">${filieres.length} filière${filieres.length > 1 ? 's' : ''}</span>
               <span class="fac-chevron">${svgFac('<polyline points="6 9 12 15 18 9"/>', 18)}</span>
