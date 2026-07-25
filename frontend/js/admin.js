@@ -1162,34 +1162,10 @@ function rendreParticipationsJour(canvas, participations, date, champDate) {
   if (wrapS) wrapS.style.height = Math.max(220, participations.length * 62 + 60) + 'px';
   if (graphiqueSondage) graphiqueSondage.destroy();
 
-  // Intitulé de cours sur 1 ligne si court, 2 lignes maximum si long
-  // (au-delà, la 2ᵉ ligne est tronquée avec « … »).
-  const couperLibelle = (nom, max = 24) => {
-    const texte = String(nom || '').trim();
-    if (texte.length <= max) return [texte];
-    const mots = texte.split(' ');
-    const lignes = []; let cur = '';
-    for (const m of mots) {
-      if ((cur + ' ' + m).trim().length > max && cur) { lignes.push(cur); cur = m; }
-      else cur = (cur + ' ' + m).trim();
-      if (lignes.length === 2) break; // on ne garde que 2 lignes
-    }
-    if (lignes.length < 2 && cur) lignes.push(cur);
-    // Tronque la 2ᵉ ligne si le nom déborde encore.
-    const total = lignes.join(' ').length;
-    if (total < texte.length && lignes[1]) lignes[1] = lignes[1].slice(0, max - 1).trimEnd() + '…';
-    return lignes.slice(0, 2);
-  };
-  const labels = participations.map(p => couperLibelle(p.cours));
-
-  // Partage 50/50 : la zone des intitulés occupe la moitié gauche, les barres la moitié droite.
-  const pluginDemiLargeur = {
-    id: 'demiLargeurY',
-    beforeInit(chart) {
-      const yScale = chart.options.scales.y;
-      yScale.afterFit = (scale) => { scale.width = scale.chart.width * 0.5; };
-    }
-  };
+  // Intitulés de cours en une SEULE ligne (texte complet) ; la largeur de la zone
+  // des intitulés s'ajuste au plus long cours (voir scales.y.afterFit ci-dessous).
+  const labels = participations.map(p => p.cours);
+  const POLICE_LIBELLE = '11px Segoe UI, Arial';
 
   // Plugin : valeur au bout de CHAQUE barre non nulle.
   const pluginValeurs3 = {
@@ -1234,10 +1210,38 @@ function rendreParticipationsJour(canvas, participations, date, champDate) {
       // Barres groupées (non empilées) : 3 barres côte à côte par cours.
       scales: {
         x: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#eef1f5' } },
-        y: { ticks: { autoSkip: false, font: { size: 11 }, crossAlign: 'far' }, grid: { display: false } }
+        y: {
+          grid: { display: false },
+          // La zone des intitulés s'ajuste au plus long cours (pour le voir sur une
+          // seule ligne), sans dépasser 66 % de la largeur (les barres gardent de
+          // la place) : petits noms → zone étroite ; noms longs → zone plus large.
+          afterFit(scale) {
+            const ctx = scale.chart.ctx;
+            ctx.font = POLICE_LIBELLE;
+            let maxW = 0;
+            for (const p of participations) maxW = Math.max(maxW, ctx.measureText(p.cours).width);
+            const cap = scale.chart.width * 0.66;
+            scale.width = Math.min(maxW + 20, Math.max(90, cap));
+          },
+          ticks: {
+            autoSkip: false, crossAlign: 'far', font: { size: 11 },
+            // Tronque UNIQUEMENT si le cours dépasse la zone (cas extrême), pour
+            // qu'il reste sur une seule ligne.
+            callback(value) {
+              const label = this.getLabelForValue(value);
+              const ctx = this.chart.ctx;
+              ctx.font = POLICE_LIBELLE;
+              const dispo = this.width - 14;
+              if (ctx.measureText(label).width <= dispo) return label;
+              let s = label;
+              while (s.length > 1 && ctx.measureText(s + '…').width > dispo) s = s.slice(0, -1);
+              return s.trimEnd() + '…';
+            }
+          }
+        }
       }
     },
-    plugins: [pluginValeurs3, pluginDemiLargeur]
+    plugins: [pluginValeurs3]
   });
 }
 
