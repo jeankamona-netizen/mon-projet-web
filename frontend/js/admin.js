@@ -1147,24 +1147,39 @@ function rendreParticipationsJour(canvas, participations, date, champDate) {
     ? `Présences par cours — ${dateLisible} (votre faculté)`
     : `Aucun cours aligné ${dateLisible ? 'le ' + dateLisible : 'ce jour'}.`;
 
+  // 3 barres GROUPÉES par cours → il faut plus de hauteur par cours.
   const wrapS = document.getElementById('wrap-sondage');
-  if (wrapS) wrapS.style.height = Math.max(200, participations.length * 34 + 54) + 'px';
+  if (wrapS) wrapS.style.height = Math.max(220, participations.length * 62 + 60) + 'px';
   if (graphiqueSondage) graphiqueSondage.destroy();
 
-  const labels = participations.map(p => p.cours);
-  // Plugin : total « participants » (présents + retards) au bout de chaque barre.
-  const pluginTotalPart = {
-    id: 'totalParticipants',
+  // Intitulé de cours coupé en plusieurs lignes s'il est long (reste lisible).
+  const couperLibelle = (nom, max = 22) => {
+    const mots = String(nom || '').split(' ');
+    const lignes = []; let cur = '';
+    for (const m of mots) {
+      if ((cur + ' ' + m).trim().length > max) { if (cur) lignes.push(cur); cur = m; }
+      else cur = (cur + ' ' + m).trim();
+    }
+    if (cur) lignes.push(cur);
+    return lignes.length ? lignes : [String(nom || '')];
+  };
+  const labels = participations.map(p => couperLibelle(p.cours));
+
+  // Plugin : valeur au bout de CHAQUE barre non nulle.
+  const pluginValeurs3 = {
+    id: 'valeurs3Barres',
     afterDatasetsDraw(chart) {
       const { ctx } = chart;
-      const metaAbs = chart.getDatasetMeta(2); // dernière pile (absents) → bord droit
       ctx.save();
-      ctx.font = '700 11px Segoe UI, Arial'; ctx.fillStyle = '#555';
+      ctx.font = '700 10px Segoe UI, Arial'; ctx.fillStyle = '#555';
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      metaAbs.data.forEach((bar, i) => {
-        const p = participations[i];
-        const part = p.present + p.retard;
-        ctx.fillText(`${part}/${p.total || 0}`, bar.x + 6, bar.y);
+      chart.data.datasets.forEach((ds, di) => {
+        const meta = chart.getDatasetMeta(di);
+        meta.data.forEach((bar, i) => {
+          const v = ds.data[i];
+          if (!v) return;
+          ctx.fillText(v, bar.x + 4, bar.y);
+        });
       });
       ctx.restore();
     }
@@ -1175,27 +1190,28 @@ function rendreParticipationsJour(canvas, participations, date, champDate) {
     data: {
       labels,
       datasets: [
-        { label: 'Présents',  data: participations.map(p => p.present), backgroundColor: '#2d7a2d', stack: 'p', borderRadius: 3 },
-        { label: 'En retard', data: participations.map(p => p.retard),  backgroundColor: '#f0a020', stack: 'p', borderRadius: 3 },
-        { label: 'Absents',   data: participations.map(p => p.absent),  backgroundColor: '#cc4400', stack: 'p', borderRadius: 3 },
+        { label: 'Présents',  data: participations.map(p => p.present), backgroundColor: '#2d7a2d', borderRadius: 2, maxBarThickness: 12 },
+        { label: 'En retard', data: participations.map(p => p.retard),  backgroundColor: '#f0a020', borderRadius: 2, maxBarThickness: 12 },
+        { label: 'Absents',   data: participations.map(p => p.absent),  backgroundColor: '#cc4400', borderRadius: 2, maxBarThickness: 12 },
       ]
     },
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      layout: { padding: { right: 46 } },
+      layout: { padding: { right: 40 } },
       plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, padding: 8 } },
+        legend: { position: 'top', align: 'end', labels: { boxWidth: 12, font: { size: 11 }, padding: 10 } },
         tooltip: { callbacks: { title: items => {
           const p = participations[items[0].dataIndex];
           return `${p.cours}${p.promotion ? ' — ' + p.promotion : ''}`;
         } } }
       },
+      // Barres groupées (non empilées) : 3 barres côte à côte par cours.
       scales: {
-        x: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#eef1f5' } },
-        y: { stacked: true, ticks: { font: { size: 11 } }, grid: { display: false } }
+        x: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#eef1f5' } },
+        y: { ticks: { autoSkip: false, font: { size: 11 } }, grid: { display: false } }
       }
     },
-    plugins: [pluginTotalPart]
+    plugins: [pluginValeurs3]
   });
 }
 
