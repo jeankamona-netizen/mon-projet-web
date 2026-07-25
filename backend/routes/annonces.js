@@ -62,11 +62,32 @@ router.get('/', async (req, res) => {
     // sont personnellement adressés (cible_matricule) ; les messages individuels
     // d'autrui restent invisibles (cible_matricule IS NULL pour les diffusions).
     if (role) {
-      const clauses = ["(cible_matricule IS NULL AND (cible_role = 'tous' OR cible_role = ?))"];
-      params.push(role);
+      const clauses = [];
+      // Diffusion à un rôle. Un communiqué du DÉCANAT (cible_faculte non nul) ne
+      // parvient qu'aux membres de CETTE faculté :
+      //  - enseignant : il doit avoir une attribution (cours) dans cette faculté
+      //    pour l'année COURANTE ;
+      //  - étudiant : il doit appartenir à cette faculté.
+      // Les communiqués sans faculté (admin/caisse) parviennent à tout le rôle.
+      if (matricule && role === 'professeur') {
+        clauses.push(`(cible_matricule IS NULL AND (cible_role = 'tous' OR cible_role = 'professeur')
+          AND (cible_faculte IS NULL OR cible_faculte IN (
+            SELECT DISTINCT c.faculte FROM cours c
+            WHERE c.professeur_id = ?
+              AND c.annee_academique = (SELECT libelle FROM annee_academique WHERE est_courante = 1 LIMIT 1))))`);
+        params.push(matricule);
+      } else if (matricule && role === 'etudiant') {
+        clauses.push(`(cible_matricule IS NULL AND (cible_role = 'tous' OR cible_role = 'etudiant')
+          AND (cible_faculte IS NULL OR cible_faculte = (SELECT faculte FROM etudiant WHERE id = ?)))`);
+        params.push(matricule);
+      } else {
+        clauses.push("(cible_matricule IS NULL AND (cible_role = 'tous' OR cible_role = ?))");
+        params.push(role);
+      }
+      // Messages individuels adressés personnellement à ce destinataire.
       if (matricule) { clauses.push('cible_matricule = ?'); params.push(matricule); }
-      // Groupe dynamique « étudiants non en règle » : visible seulement si CET
-      // étudiant doit encore des frais.
+      // Groupe dynamique « étudiants non en règle » (caisse) : visible seulement
+      // si CET étudiant doit encore des frais.
       if (role === 'etudiant' && matricule && await etudiantDoitFrais(matricule)) {
         clauses.push("(cible_matricule IS NULL AND cible_role = 'etudiant_non_regle')");
       }

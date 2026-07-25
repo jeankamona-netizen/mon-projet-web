@@ -493,7 +493,7 @@ async function chargerEtudiantsCours() {
     const etudiants = await r.json();
 
     const v = x => (x !== null && x !== undefined && x !== '') ? x : '';
-    const champ = (pref, id, val) => `<input type="number" min="0" max="10" step="0.25" id="${pref}-${id}" value="${val}" oninput="recalcTousProf()" style="width:62px;padding:5px 6px;border:1.5px solid #ddd;border-radius:6px" placeholder="0-10">`;
+    const champ = (pref, id, val) => `<input type="number" min="0" max="10" step="0.25" id="${pref}-${id}" value="${val}" oninput="recalcTousProf()" style="width:62px;padding:5px 6px;border:1.5px solid #ddd;border-radius:6px">`;
     tbody.innerHTML = etudiants.length === 0
       ? '<tr><td colspan="9" class="admin-vide">Aucun étudiant dans cette promotion.</td></tr>'
       : etudiants.map((e, i) => {
@@ -504,7 +504,7 @@ async function chargerEtudiantsCours() {
             <td>${champ('note-tp', e.id, v(e.tp))}</td>
             <td>${champ('note-td', e.id, v(e.td))}</td>
             <td>${champ('note-interro', e.id, v(e.interro))}</td>
-            <td><input type="number" id="note-moy-${e.id}" value="${v(e.note_cc)}" readonly title="Moy = somme des composantes ÷ nombre de composantes cotées pour ce cours (2 ou 3)" style="width:62px;padding:5px 6px;border:1.5px solid #c7d2e0;border-radius:6px;background:#eef2f8;font-weight:700;color:var(--bleu)" placeholder="auto"></td>
+            <td><strong id="note-moy-${e.id}" title="Moy = somme des composantes ÷ nombre de composantes cotées pour ce cours (2 ou 3)" style="color:var(--bleu)">-</strong></td>
             <td>${champ('note-exam', e.id, v(e.note_examen))}</td>
             <td><strong id="note-total-${e.id}">${total}</strong></td>
             <td><button class="btn-icone" onclick="sauvegarderNoteProf('${e.id}', ${coursId})" aria-label="Enregistrer">${icone('coche')}</button></td>
@@ -531,17 +531,22 @@ function recalcTousProf() {
     const moyEl = document.getElementById(`note-moy-${id}`);
     const aUne = actives.some(c => lire(c, id) !== null);
     if (moyEl) {
-      moyEl.value = (diviseur > 0 && aUne)
+      const moyNum = (diviseur > 0 && aUne)
         ? Math.round((actives.reduce((s, c) => s + (lire(c, id) ?? 0), 0) / diviseur) * 100) / 100
-        : '';
+        : null;
+      // Moy affichée en texte simple (comme Total G.) : « - » si aucune composante.
+      moyEl.dataset.value = moyNum !== null ? String(moyNum) : '';
+      moyEl.textContent = moyNum !== null ? moyNum : '-';
     }
     recalcTotalProf(id);
   });
 }
 // Total Général /20 = Moy/10 + Exam/10 (affiché seulement si les deux sont là).
 function recalcTotalProf(id) {
-  const lire = x => { const val = document.getElementById(`note-${x}-${id}`)?.value; return (val === '' || val === undefined) ? null : parseFloat(val); };
-  const moy = lire('moy'), exam = lire('exam');
+  const moyEl = document.getElementById(`note-moy-${id}`);
+  const moy = (moyEl && moyEl.dataset.value !== '') ? parseFloat(moyEl.dataset.value) : null;
+  const examVal = document.getElementById(`note-exam-${id}`)?.value;
+  const exam = (examVal === '' || examVal === undefined) ? null : parseFloat(examVal);
   const el = document.getElementById(`note-total-${id}`);
   if (el) el.textContent = (moy !== null && exam !== null && !isNaN(moy) && !isNaN(exam)) ? Math.round((moy + exam) * 100) / 100 + '/20' : '—';
 }
