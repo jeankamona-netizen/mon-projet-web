@@ -141,6 +141,18 @@ function preparerEspaceDoyen() {
   if (sousAnn) sousAnn.style.display = 'none';
   const sousComm = document.getElementById('soustitre-onglet-communiques');
   if (sousComm) sousComm.style.margin = '0 0 12px'; // resserre les interlignes
+
+  // Le décanat n'a qu'un contenu sous « Partager des informations » (les
+  // communiqués). On remplace donc le groupe déroulant par un LIEN DIRECT
+  // « Communiqués » (plus de sous-menu ni de chevron).
+  const grpAnnonces = document.getElementById('nav-annonces-groupe');
+  if (grpAnnonces) {
+    const sousMenu = grpAnnonces.closest('.nav-item-groupe')?.querySelector('.nav-sous-menu');
+    if (sousMenu) sousMenu.style.display = 'none';
+    grpAnnonces.classList.remove('nav-item-toggle');
+    grpAnnonces.onclick = (e) => { e.preventDefault(); afficherOngletAnnonces('annonces-onglet-communiques'); };
+    grpAnnonces.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> Communiqués`;
+  }
   // En-tête de la cloche : le décanat reçoit des « Informations » (annonces /
   // communiqués), pas les « Messages & Newsletter » de l'admin.
   const enteteCloche = document.getElementById('admin-notif-entete');
