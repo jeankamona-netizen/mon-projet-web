@@ -204,6 +204,14 @@
             <span class="stat-valeur" id="cpt-annonces">—</span>
             <span class="stat-label">Annonces actives</span>
           </div>
+          <!-- Carte réservée au décanat : nombre de communiqués -->
+          <div class="stat-card stat-card-clickable" role="button" tabindex="0" data-doyen-seul style="display:none"
+               onclick="afficherOngletAnnonces('annonces-onglet-communiques')"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <span class="stat-icon vert"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span>
+            <span class="stat-valeur" id="cpt-communiques">—</span>
+            <span class="stat-label">Communiqués</span>
+          </div>
         </div>
 
         <div class="dash-card" style="margin-top:20px">
@@ -214,7 +222,7 @@
           </div>
         </div>
 
-        <div class="dash-row" style="margin-top:20px">
+        <div class="dash-row" id="row-graphiques-bas" style="margin-top:20px">
           <div class="dash-card">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
               <div>
@@ -479,8 +487,8 @@
 
       <!-- ==================== ANNONCES & EVENEMENTS ==================== -->
       <section id="admin-annonces" class="dash-section">
-        <h2>Annonces & événements</h2>
-        <p class="dash-sous-titre">Ce contenu alimente le bandeau d'actualités et la galerie du site public</p>
+        <h2 id="titre-section-annonces">Annonces & événements</h2>
+        <p class="dash-sous-titre" id="soustitre-section-annonces">Ce contenu alimente le bandeau d'actualités et la galerie du site public</p>
 
         <!-- ONGLET 1 : ANNONCES & ÉVÉNEMENTS (site public) -->
         <div class="notes-onglet-contenu active" id="annonces-onglet-public">
@@ -512,7 +520,7 @@
 
         <!-- ONGLET 2 : COMMUNIQUÉS (comptes étudiants / enseignants) -->
         <div class="notes-onglet-contenu" id="annonces-onglet-communiques">
-          <p class="dash-sous-titre" style="margin-top:0">Messages internes affichés dans la cloche de notifications des étudiants et des enseignants</p>
+          <p class="dash-sous-titre" id="soustitre-onglet-communiques" style="margin-top:0">Messages internes affichés dans la cloche de notifications des étudiants et des enseignants</p>
           <div class="admin-toolbar">
             <select class="admin-recherche" id="filtre-role-communique" style="flex:0 0 220px" onchange="chargerCommuniques()">
               <option value="">Tous les destinataires</option>
@@ -1480,6 +1488,26 @@
       <div class="admin-modal-actions">
         <button class="btn-annuler" onclick="fermerModalCommunique()">Annuler</button>
         <button class="btn-sauvegarder" onclick="sauvegarderCommunique()">📣 Diffuser</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL LECTURE INTÉGRALE D'UN COMMUNIQUÉ (lecture seule) -->
+  <div class="admin-modal-overlay" id="modal-lire-communique">
+    <div class="admin-modal" style="max-width:540px">
+      <div class="admin-modal-header">
+        <h3>Communiqué</h3>
+        <button class="admin-modal-close" onclick="fermerLireCommunique()" aria-label="Fermer">✕</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+        <span class="annee-badge" id="lire-comm-origine" style="background:#eef1f5;color:#667"></span>
+        <span class="annee-badge" id="lire-comm-destinataires"></span>
+        <span style="font-size:12px;color:#888" id="lire-comm-date"></span>
+      </div>
+      <h4 id="lire-comm-titre" style="font-size:17px;color:var(--bleu);margin:0 0 10px"></h4>
+      <div id="lire-comm-message" style="font-size:14px;line-height:1.7;color:#333;white-space:pre-wrap;background:#f7f9fc;border:1px solid #e6ecf5;border-radius:8px;padding:14px 16px;max-height:50vh;overflow:auto"></div>
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerLireCommunique()">Fermer</button>
       </div>
     </div>
   </div>

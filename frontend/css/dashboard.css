@@ -1394,3 +1394,8 @@
   border-radius: 3px;
   flex-shrink: 0;
 }
+
+/* ===== Décanat : graphiques du bas empilés (pleine largeur), comme la répartition ===== */
+body.espace-doyen #row-graphiques-bas {
+  grid-template-columns: 1fr;
+}

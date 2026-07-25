@@ -202,7 +202,12 @@ app.get('/api/stats', requireAdminOuDoyen, async (req, res) => {
       [[{ annonces }]] = await pool.query("SELECT COUNT(*) AS annonces FROM annonce WHERE actif = 1 AND type <> 'communique'");
     }
 
-    res.json({ etudiants, preinscriptions, cours, annonces });
+    // Communiqués : nombre total de communiqués internes (tous destinataires),
+    // utilisé par la carte « Communiqués » du décanat (qui les consulte tous,
+    // même ceux d'une autre entité, en lecture seule).
+    const [[{ communiques }]] = await pool.query("SELECT COUNT(*) AS communiques FROM annonce WHERE type = 'communique'");
+
+    res.json({ etudiants, preinscriptions, cours, annonces, communiques });
   } catch (erreur) {
     console.error('Erreur stats:', erreur);
     res.status(500).json({ erreur: erreur.message });

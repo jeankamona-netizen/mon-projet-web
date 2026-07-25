@@ -131,6 +131,16 @@ function preparerEspaceDoyen() {
   // Le décanat peut modifier ses informations personnelles (comme les agents).
   const infosItem = document.getElementById('doyen-infos-item');
   if (infosItem) infosItem.style.display = 'flex';
+  // Éléments réservés au décanat (carte « Communiqués » de la vue d'ensemble).
+  document.querySelectorAll('[data-doyen-seul]').forEach(el => { el.style.display = 'flex'; });
+  // Section « Partager des informations » : le décanat ne gère que des
+  // communiqués → on renomme le titre et on masque le sous-titre « site public ».
+  const titreAnn = document.getElementById('titre-section-annonces');
+  if (titreAnn) titreAnn.textContent = 'Communiqués';
+  const sousAnn = document.getElementById('soustitre-section-annonces');
+  if (sousAnn) sousAnn.style.display = 'none';
+  const sousComm = document.getElementById('soustitre-onglet-communiques');
+  if (sousComm) sousComm.style.margin = '0 0 12px'; // resserre les interlignes
   // En-tête de la cloche : le décanat reçoit des « Informations » (annonces /
   // communiqués), pas les « Messages & Newsletter » de l'admin.
   const enteteCloche = document.getElementById('admin-notif-entete');
@@ -931,8 +941,8 @@ async function chargerStats() {
     const reponse = await fetchAdmin(`${BASE_URL}/api/stats${annee ? '?annee=' + encodeURIComponent(annee) : ''}`);
     if (!reponse.ok) throw new Error('Erreur serveur');
     const stats = await reponse.json();
-    const ids = { 'cpt-etudiants': stats.etudiants, 'cpt-preinscriptions': stats.preinscriptions, 'cpt-cours': stats.cours, 'cpt-annonces': stats.annonces };
-    Object.entries(ids).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.textContent = val; });
+    const ids = { 'cpt-etudiants': stats.etudiants, 'cpt-preinscriptions': stats.preinscriptions, 'cpt-cours': stats.cours, 'cpt-annonces': stats.annonces, 'cpt-communiques': stats.communiques };
+    Object.entries(ids).forEach(([id, val]) => { const el = document.getElementById(id); if (el && val !== undefined) el.textContent = val; });
   } catch (erreur) {
     console.error('chargerStats:', erreur);
     ['cpt-etudiants','cpt-preinscriptions','cpt-cours','cpt-annonces'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
@@ -2777,11 +2787,15 @@ function afficherTableauCommuniques(liste = communiquesAdmin) {
       const libel = c.cible_faculte ? c.cible_faculte : 'Administration';
       provenance = ` <span class="annee-badge" style="background:#eef1f5;color:#667" title="Émetteur">${libel}</span>`;
     }
+    // Lire le communiqué en intégralité (disponible pour tous, y compris ceux
+    // d'une autre entité en lecture seule).
+    const btnLire = `<button class="btn-icone" onclick="lireCommunique(${c.id})" aria-label="Lire" title="Lire le communiqué en entier">${icone('livre')}</button>`;
     const actions = editable
-      ? `<button class="btn-icone" onclick="toggleActifAnnonce(${c.id}); setTimeout(chargerCommuniques,150)" aria-label="${c.actif?'Masquer':'Afficher'}">${icone(c.actif?'oeil':'oeil-barre')}</button>
-         <button class="btn-icone" onclick="modifierCommunique(${c.id})" aria-label="Modifier">${icone('crayon')}</button>
-         <button class="btn-icone danger" onclick="supprimerCommunique(${c.id})" aria-label="Supprimer">${icone('corbeille')}</button>`
-      : `<span title="Communiqué d'une autre entité — lecture seule" style="color:#aaa;font-size:12px;white-space:nowrap">🔒 Lecture seule</span>`;
+      ? `${btnLire}
+         <button class="btn-icone" onclick="toggleActifAnnonce(${c.id}); setTimeout(chargerCommuniques,150)" aria-label="${c.actif?'Masquer':'Afficher'}" title="${c.actif?'Masquer':'Afficher'}">${icone(c.actif?'oeil':'oeil-barre')}</button>
+         <button class="btn-icone" onclick="modifierCommunique(${c.id})" aria-label="Modifier" title="Modifier">${icone('crayon')}</button>
+         <button class="btn-icone danger" onclick="supprimerCommunique(${c.id})" aria-label="Supprimer" title="Supprimer">${icone('corbeille')}</button>`
+      : `${btnLire}<span title="Communiqué d'une autre entité — lecture seule" style="color:#aaa;font-size:12px;white-space:nowrap;margin-left:4px">🔒 Lecture seule</span>`;
     return `
     <tr>
       <td>📣 ${c.titre}${provenance}</td>
@@ -2818,6 +2832,23 @@ function modifierCommunique(id) {
 }
 
 function fermerModalCommunique() { document.getElementById('modal-communique')?.classList.remove('active'); }
+
+// Lecture intégrale d'un communiqué (titre, message, date, émetteur, destinataires)
+// — disponible pour le décanat même sur un communiqué d'une autre entité, en
+// consultation seule (aucune possibilité de modification depuis ce modal).
+function lireCommunique(id) {
+  const c = communiquesAdmin.find(x => x.id === id);
+  if (!c) return;
+  const set = (elId, val) => { const el = document.getElementById(elId); if (el) el.textContent = val; };
+  set('lire-comm-origine', c.cible_faculte ? c.cible_faculte : 'Administration');
+  set('lire-comm-destinataires', LIBELLE_ROLE[c.cible_role] || 'Étudiants');
+  set('lire-comm-date', formatDateAffichage(c.date_annonce));
+  set('lire-comm-titre', c.titre || '');
+  set('lire-comm-message', c.description || '');
+  document.getElementById('modal-lire-communique')?.classList.add('active');
+}
+
+function fermerLireCommunique() { document.getElementById('modal-lire-communique')?.classList.remove('active'); }
 
 async function sauvegarderCommunique() {
   const idEdit = document.getElementById('communique-id-edit').value;
