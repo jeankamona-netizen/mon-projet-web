@@ -261,7 +261,18 @@ async function chargerFacultesPubliques() {
   await chargerFacultesDB();
   const facs = facultesDB || [];
   if (!facs.length) { grid.innerHTML = '<p class="admin-vide" style="grid-column:1/-1;text-align:center;color:#999">Aucune faculté pour le moment.</p>'; return; }
-  grid.innerHTML = facs.map(f => {
+  // Ordre d'affichage demandé : Théologie, Sciences Informatiques,
+  // Sciences de l'Éducation & Psychologie, puis Sciences Économiques (fin).
+  const rangFaculte = (nom) => {
+    const n = (nom || '').toLowerCase();
+    if (/th[eé]olog/.test(n)) return 0;
+    if (/informati|num[eé]rique/.test(n)) return 1;
+    if (/[eé]ducation|psycholog/.test(n)) return 2;
+    if (/[eé]conomi|gestion/.test(n)) return 3;
+    return 4; // autres facultés éventuelles à la suite
+  };
+  const facsOrdonnees = [...facs].sort((a, b) => rangFaculte(a.nom) - rangFaculte(b.nom));
+  grid.innerHTML = facsOrdonnees.map(f => {
     const accent = accentFaculte(f.nom);
     const filieres = (f.filieres || []).map(x => (typeof x === 'string' ? x : x.nom));
     const aMaster = filieres.some(filiereEstMaster);
