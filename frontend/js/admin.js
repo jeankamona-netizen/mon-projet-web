@@ -1159,7 +1159,7 @@ function rendreParticipationsJour(canvas, participations, date, champDate) {
 
   // 3 barres GROUPÉES par cours → il faut plus de hauteur par cours.
   const wrapS = document.getElementById('wrap-sondage');
-  if (wrapS) wrapS.style.height = Math.max(220, participations.length * 62 + 60) + 'px';
+  if (wrapS) wrapS.style.height = Math.max(210, participations.length * 52 + 60) + 'px';
   if (graphiqueSondage) graphiqueSondage.destroy();
 
   // Intitulés de cours en une SEULE ligne (texte complet) ; la largeur de la zone
@@ -1191,10 +1191,12 @@ function rendreParticipationsJour(canvas, participations, date, champDate) {
     type: 'bar',
     data: {
       labels,
+      // categoryPercentage : espace ENTRE les cours ; barPercentage 1 : les 3
+      // barres d'un même cours se touchent (aucun espace entre présents/retard/absents).
       datasets: [
-        { label: 'Présents',  data: participations.map(p => p.present), backgroundColor: '#2d7a2d', borderRadius: 2, maxBarThickness: 12 },
-        { label: 'En retard', data: participations.map(p => p.retard),  backgroundColor: '#f0a020', borderRadius: 2, maxBarThickness: 12 },
-        { label: 'Absents',   data: participations.map(p => p.absent),  backgroundColor: '#cc4400', borderRadius: 2, maxBarThickness: 12 },
+        { label: 'Présents',  data: participations.map(p => p.present), backgroundColor: '#2d7a2d', categoryPercentage: 0.7, barPercentage: 1 },
+        { label: 'En retard', data: participations.map(p => p.retard),  backgroundColor: '#f0a020', categoryPercentage: 0.7, barPercentage: 1 },
+        { label: 'Absents',   data: participations.map(p => p.absent),  backgroundColor: '#cc4400', categoryPercentage: 0.7, barPercentage: 1 },
       ]
     },
     options: {
