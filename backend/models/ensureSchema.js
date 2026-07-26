@@ -464,7 +464,7 @@ async function synchroniserFilieresAffiche(pool) {
       'Gestion des Ressources Humaines', 'Finances, Banque et Comptabilité',
       'Gestion Marketing', 'Entreprenariat', 'Douane',
     ],
-    "Sciences de l'Éducation & Psychologie": [],
+    "Sciences de l'Éducation & Psychologie": ["Sciences de l'Éducation", 'Sciences Psychologiques'],
   };
   let ajouts = 0, suppr = 0;
   for (const [facNom, filieres] of Object.entries(cible)) {
@@ -492,8 +492,13 @@ async function synchroniserFilieresAffiche(pool) {
 // Inséré une seule fois (idempotent sur le titre).
 async function seedEvenementDefenses(pool) {
   const titre = 'UML — Défenses académiques en Master et Licence (Théologie)';
+  const imageEvt = 'Uml defense master (18).jpeg'; // photo dans frontend/img
   const [[ex]] = await pool.query("SELECT id FROM annonce WHERE titre = ? AND type = 'evenement' LIMIT 1", [titre]);
-  if (ex) return;
+  if (ex) {
+    // Événement déjà présent : on s'assure seulement que sa photo est renseignée.
+    await pool.query('UPDATE annonce SET image = ? WHERE id = ?', [imageEvt, ex.id]);
+    return;
+  }
   const description =
     "Au total 20 étudiants en Théologie, dont 7 en Master et 13 en Licence, ont défendu leur travail scientifique le mardi 22 et le mercredi 23 juillet 2026. " +
     "Cette défense publique vient de tracer un envol stratégique pour l'Université Méthodiste de Lubumbashi (UML). " +
@@ -506,8 +511,8 @@ async function seedEvenementDefenses(pool) {
     "La rentrée académique est prévue pour le 19 août 2026.";
   await pool.query(
     `INSERT INTO annonce (type, titre, description, date_annonce, icone, image, actif, cible_faculte, cible_role, emetteur)
-     VALUES ('evenement', ?, ?, '2026-07-22', '🎓', '', 1, NULL, NULL, 'admin')`,
-    [titre, description]
+     VALUES ('evenement', ?, ?, '2026-07-22', '🎓', ?, 1, NULL, NULL, 'admin')`,
+    [titre, description, imageEvt]
   );
   console.log('✅ Événement « Défenses académiques (Théologie) » ajouté.');
 }
