@@ -17,7 +17,7 @@ const pool = require('../database');
 
 const FACULTE = 'Sciences Informatiques';
 const FILIERE_LICENCE = 'Informatique de Gestion';
-const FILIERE_MASTER  = 'Master Informatique de Gestion';
+const FILIERE_MASTER  = 'Master en Informatique Appliquée à la Gestion des Entreprises';
 const ANNEES = ['2026-2027', '2027-2028'];
 
 // [code, intitulé, CM, TD, TP, Cr]
@@ -154,10 +154,13 @@ async function assurerFiliere(nom, faculteId) {
 // Gestion ». Renomme la filière et les libellés de promotion des cours déjà
 // enregistrés (sans effet si l'ancien nom n'existe pas).
 async function renommerAncienMaster() {
-  const ancien = 'Master Informatique de Gestion (MIAGE-IMSI)';
-  await pool.query('UPDATE filiere SET nom = ? WHERE nom = ?', [FILIERE_MASTER, ancien]);
-  await pool.query('UPDATE cours SET promotion = REPLACE(promotion, ?, ?) WHERE promotion LIKE ?',
-    [ancien, FILIERE_MASTER, `%${ancien}%`]);
+  // Anciens intitulés du master IG, migrés vers le libellé officiel actuel.
+  const anciens = ['Master Informatique de Gestion (MIAGE-IMSI)', 'Master Informatique de Gestion'];
+  for (const ancien of anciens) {
+    await pool.query('UPDATE filiere SET nom = ? WHERE nom = ?', [FILIERE_MASTER, ancien]);
+    await pool.query('UPDATE cours SET promotion = REPLACE(promotion, ?, ?) WHERE promotion LIKE ?',
+      [ancien, FILIERE_MASTER, `%${ancien}%`]);
+  }
 }
 
 async function seedMaquetteIG() {

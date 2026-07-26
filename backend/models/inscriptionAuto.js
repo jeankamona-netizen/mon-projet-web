@@ -5,7 +5,7 @@ const pool = require('../database');
 // de la faculté. Leurs étudiants ne suivent QUE les cours de leur filière — pas
 // les cours communs (filiere_id NULL). Ex. « Informatique de Gestion » (LIAGE)
 // et son master, qui n'ont pas de tronc commun avec Génie Logiciel, Design, etc.
-const FILIERES_AUTONOMES = ['Informatique de Gestion', 'Master Informatique de Gestion'];
+const FILIERES_AUTONOMES = ['Informatique de Gestion', 'Master en Informatique Appliquée à la Gestion des Entreprises'];
 
 // Filières scientifiques qui passent par l'année préparatoire commune
 // (Pré-U Sciences) avant la Licence. TOUTE autre filière/faculté (Informatique

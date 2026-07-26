@@ -314,7 +314,7 @@ async function nettoyerCoursCommunEtFiliere(pool) {
 // INSERT IGNORE : idempotent, n'ajoute que ce qui manque, ne retire jamais rien.
 async function resynchroniserInscriptions(pool) {
   const [auto] = await pool.query(
-    "SELECT id FROM filiere WHERE nom IN ('Informatique de Gestion','Master Informatique de Gestion')"
+    "SELECT id FROM filiere WHERE nom IN ('Informatique de Gestion','Master en Informatique Appliquée à la Gestion des Entreprises')"
   );
   const autoIds = auto.map(a => a.id);
   const horsAutonomes = autoIds.length
@@ -456,13 +456,13 @@ async function synchroniserFilieresAffiche(pool) {
     // faculté elle-même ; les autres intitulés sont des spécialités de MASTER.
     'Faculté de Théologie': [
       'Faculté de Théologie',
-      'Master Missiologie', 'Master Théologie Pratique',
-      'Master Théologie Systématique', 'Master Théologie Biblique AT&NT',
+      'Master Missiologie', 'Master Théologie Pratique', 'Master Théologie Systématique',
+      'Master Théologie Biblique Ancien Testament', 'Master Théologie Biblique Nouveau Testament',
     ],
     // Informatique : chaque filière de licence a sa spécialité de Master.
     'Sciences Informatiques': [
       'Informatique de Gestion', 'Réseau & Télécom', 'Génie Logiciel', 'Design',
-      'Master Informatique de Gestion', 'Master Réseau & Télécom',
+      'Master en Informatique Appliquée à la Gestion des Entreprises', 'Master Réseau & Télécom',
       'Master Génie Logiciel', 'Master Design',
     ],
     'Sciences Économiques': [
