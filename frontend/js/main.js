@@ -44,9 +44,13 @@ function initialiserLightbox() {
 }
 
 function ouvrirLightbox(index) {
+  // Sans l'élément lightbox, on n'ouvre rien ET on ne gèle pas le défilement
+  // (évite une page « figée » si le markup est absent).
+  const lb = document.getElementById('lightbox');
+  if (!lb) return;
   indexPhotoActuelle = index;
   afficherPhotoActuelle();
-  document.getElementById('lightbox')?.classList.add('active');
+  lb.classList.add('active');
   document.body.style.overflow = 'hidden';
 }
 

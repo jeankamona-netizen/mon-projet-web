@@ -505,6 +505,17 @@
 
   </footer>
 
+  <!-- LIGHTBOX GALERIE : agrandissement + navigation entre photos -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Photo agrandie">
+    <button class="lb-fermer" onclick="fermerLightbox()" aria-label="Fermer">✕</button>
+    <button class="lb-prev" onclick="changerPhoto(-1)" aria-label="Photo précédente">‹</button>
+    <div class="lb-contenu">
+      <img id="lb-img" src="" alt="">
+      <p id="lb-legende"></p>
+    </div>
+    <button class="lb-next" onclick="changerPhoto(1)" aria-label="Photo suivante">›</button>
+  </div>
+
   <script src="js/config.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/i18n.js"></script>
