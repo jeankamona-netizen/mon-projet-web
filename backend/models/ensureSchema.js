@@ -488,33 +488,46 @@ async function synchroniserFilieresAffiche(pool) {
   if (ajouts || suppr) console.log(`✅ Filières alignées sur l'affiche (ajoutées : ${ajouts}, supprimées : ${suppr}).`);
 }
 
-// Événement (page d'accueil) : communiqué des défenses académiques de juillet 2026.
-// Inséré une seule fois (idempotent sur le titre).
-async function seedEvenementDefenses(pool) {
-  const titre = 'UML — Défenses académiques en Master et Licence (Théologie)';
-  const imageEvt = 'Uml defense master (18).jpeg'; // photo dans frontend/img
-  const [[ex]] = await pool.query("SELECT id FROM annonce WHERE titre = ? AND type = 'evenement' LIMIT 1", [titre]);
-  if (ex) {
-    // Événement déjà présent : on s'assure seulement que sa photo est renseignée.
-    await pool.query('UPDATE annonce SET image = ? WHERE id = ?', [imageEvt, ex.id]);
-    return;
+// Événements (page d'accueil) : défenses académiques de Master du 22 juillet 2026.
+// Trois événements distincts (idempotents sur le titre) ; l'ancien événement
+// générique est supprimé au passage.
+async function seedEvenementsDefenses(pool) {
+  // Retrait de l'ancien événement générique (remplacé par des événements détaillés).
+  await pool.query("DELETE FROM annonce WHERE type = 'evenement' AND titre = ?",
+    ['UML — Défenses académiques en Master et Licence (Théologie)']);
+
+  const DATE = '2026-07-22';
+  const evts = [
+    {
+      titre: 'Défense de mémoire de Master — Rév. Olivier IZWELA SAKANONO',
+      description: "Défense publique du mémoire de Master du Révérend Olivier IZWELA SAKANONO, Doyen des Surintendants du Sud-Congo.",
+      image: 'Uml defense master (18).jpeg',
+    },
+    {
+      titre: 'UML — Défenses académiques en Master (Jury 1)',
+      description: "Jury 1 de Master — 22 juillet 2026.",
+      image: 'Uml defense master (2).jpeg',
+    },
+    {
+      titre: 'Défense de mémoire de Master — Rév. Jacques MUTOND',
+      description: "Le Surintendant du district de Mémorial Bishop Kasap, Révérend Jacques MUTOND — une défense soldée par une mention Grande Distinction.",
+      image: 'Uml defense master (17).jpeg',
+    },
+  ];
+  for (const e of evts) {
+    const [[ex]] = await pool.query("SELECT id FROM annonce WHERE titre = ? AND type = 'evenement' LIMIT 1", [e.titre]);
+    if (ex) {
+      await pool.query('UPDATE annonce SET description = ?, date_annonce = ?, image = ?, actif = 1 WHERE id = ?',
+        [e.description, DATE, e.image, ex.id]);
+    } else {
+      await pool.query(
+        `INSERT INTO annonce (type, titre, description, date_annonce, icone, image, actif, cible_faculte, cible_role, emetteur)
+         VALUES ('evenement', ?, ?, ?, '🎓', ?, 1, NULL, NULL, 'admin')`,
+        [e.titre, e.description, DATE, e.image]
+      );
+    }
   }
-  const description =
-    "Au total 20 étudiants en Théologie, dont 7 en Master et 13 en Licence, ont défendu leur travail scientifique le mardi 22 et le mercredi 23 juillet 2026. " +
-    "Cette défense publique vient de tracer un envol stratégique pour l'Université Méthodiste de Lubumbashi (UML). " +
-    "La cérémonie s'est déroulée en présence des autorités académiques, notamment le Recteur de cette alma mater, le Rév. Pr Jean-Marie KONGE.\n\n" +
-    "Parmi les lauréats figuraient des autorités ecclésiastiques, notamment le Doyen des Surintendants du Sud-Congo, Révérend Olivier IZWELA SAKANONO, " +
-    "et le Surintendant du district de Mémorial Bishop Kasap, Révérend Jacques MUTOND, qui ont achevé cette étape académique avec mention Grande Distinction.\n\n" +
-    "La cérémonie de collation des grades académiques est prévue pour le 1er août 2026. " +
-    "L'UML prône un enseignement de qualité dans un élan scientifique de sainteté et de vérité, et organise plusieurs filières : Faculté de Théologie, " +
-    "Sciences Économiques, Sciences Informatiques et Sciences de l'Éducation & Psychologie.\n\n" +
-    "La rentrée académique est prévue pour le 19 août 2026.";
-  await pool.query(
-    `INSERT INTO annonce (type, titre, description, date_annonce, icone, image, actif, cible_faculte, cible_role, emetteur)
-     VALUES ('evenement', ?, ?, '2026-07-22', '🎓', ?, 1, NULL, NULL, 'admin')`,
-    [titre, description, imageEvt]
-  );
-  console.log('✅ Événement « Défenses académiques (Théologie) » ajouté.');
+  console.log('✅ Événements « Défenses de Master (22 juillet) » synchronisés.');
 }
 
 async function assurerSchema(pool) {
@@ -536,8 +549,8 @@ async function assurerSchema(pool) {
   // Alignement des filières sur l'affiche officielle « Nos filières » (ajoute
   // celles de l'affiche, supprime les autres). Après le seed de la maquette IG.
   try { await synchroniserFilieresAffiche(pool); } catch (e) { console.error('⚠️ Synchronisation filières (affiche) :', e.message); }
-  // Événement des défenses académiques (page d'accueil), idempotent.
-  try { await seedEvenementDefenses(pool); } catch (e) { console.error('⚠️ Seed événement défenses :', e.message); }
+  // Événements des défenses académiques (page d'accueil), idempotents.
+  try { await seedEvenementsDefenses(pool); } catch (e) { console.error('⚠️ Seed événements défenses :', e.message); }
   // Correction des Pré-U illégitimes (hors SI/GL/IA/Design) → L1, avant la resync.
   try { await corrigerPreUErrones(pool); } catch (e) { console.error('⚠️ Correction Pré-U :', e.message); }
   // Correction des Master sans filière (ex. « M1 Théologie » sans filière) → 1ʳᵉ
