@@ -446,6 +446,72 @@ async function corrigerMasterSansFiliere(pool) {
   if (corriges) console.log(`✅ Étudiants Master sans filière corrigés (1ʳᵉ filière de master) : ${corriges}.`);
 }
 
+// Aligne la liste des filières de chaque faculté sur l'AFFICHE officielle « NOS
+// FILIÈRES » : on ajoute celles de l'affiche et on supprime celles qui n'y
+// figurent pas (après avoir détaché les étudiants/cours qui y étaient rattachés,
+// leur libellé « promotion » restant conservé). Idempotent.
+async function synchroniserFilieresAffiche(pool) {
+  const cible = {
+    'Faculté de Théologie': [
+      'Missiologie', 'Théologie Pratique', 'Théologie Systématique',
+      'Théologie Biblique AT&NT', 'Master Théologie',
+    ],
+    'Sciences Informatiques': [
+      'Informatique de Gestion', 'Réseau & Télécom', 'Génie Logiciel', 'Design',
+      'Master Informatique',
+    ],
+    'Sciences Économiques': [
+      'Gestion des Ressources Humaines', 'Finances, Banque et Comptabilité',
+      'Gestion Marketing', 'Entreprenariat', 'Douane',
+    ],
+    "Sciences de l'Éducation & Psychologie": [],
+  };
+  let ajouts = 0, suppr = 0;
+  for (const [facNom, filieres] of Object.entries(cible)) {
+    const [[fac]] = await pool.query('SELECT id FROM faculte WHERE nom = ?', [facNom]);
+    if (!fac) continue;
+    // 1) Ajouter les filières de l'affiche encore absentes.
+    for (const nom of filieres) {
+      const [[ex]] = await pool.query('SELECT id FROM filiere WHERE faculte_id = ? AND nom = ?', [fac.id, nom]);
+      if (!ex) { await pool.query('INSERT INTO filiere (nom, faculte_id) VALUES (?, ?)', [nom, fac.id]); ajouts++; }
+    }
+    // 2) Supprimer les filières hors affiche (en détachant d'abord étudiants/cours).
+    const [existantes] = await pool.query('SELECT id, nom FROM filiere WHERE faculte_id = ?', [fac.id]);
+    for (const f of existantes) {
+      if (filieres.includes(f.nom)) continue;
+      await pool.query('UPDATE etudiant SET filiere_id = NULL WHERE filiere_id = ?', [f.id]);
+      await pool.query('UPDATE cours    SET filiere_id = NULL WHERE filiere_id = ?', [f.id]);
+      await pool.query('DELETE FROM filiere WHERE id = ?', [f.id]);
+      suppr++;
+    }
+  }
+  if (ajouts || suppr) console.log(`✅ Filières alignées sur l'affiche (ajoutées : ${ajouts}, supprimées : ${suppr}).`);
+}
+
+// Événement (page d'accueil) : communiqué des défenses académiques de juillet 2026.
+// Inséré une seule fois (idempotent sur le titre).
+async function seedEvenementDefenses(pool) {
+  const titre = 'UML — Défenses académiques en Master et Licence (Théologie)';
+  const [[ex]] = await pool.query("SELECT id FROM annonce WHERE titre = ? AND type = 'evenement' LIMIT 1", [titre]);
+  if (ex) return;
+  const description =
+    "Au total 20 étudiants en Théologie, dont 7 en Master et 13 en Licence, ont défendu leur travail scientifique le mardi 22 et le mercredi 23 juillet 2026. " +
+    "Cette défense publique vient de tracer un envol stratégique pour l'Université Méthodiste de Lubumbashi (UML). " +
+    "La cérémonie s'est déroulée en présence des autorités académiques, notamment le Recteur de cette alma mater, le Rév. Pr Jean-Marie KONGE.\n\n" +
+    "Parmi les lauréats figuraient des autorités ecclésiastiques, notamment le Doyen des Surintendants du Sud-Congo, Révérend Olivier IZWELA SAKANONO, " +
+    "et le Surintendant du district de Mémorial Bishop Kasap, Révérend Jacques MUTOND, qui ont achevé cette étape académique avec mention Grande Distinction.\n\n" +
+    "La cérémonie de collation des grades académiques est prévue pour le 1er août 2026. " +
+    "L'UML prône un enseignement de qualité dans un élan scientifique de sainteté et de vérité, et organise plusieurs filières : Faculté de Théologie, " +
+    "Sciences Économiques, Sciences Informatiques et Sciences de l'Éducation & Psychologie.\n\n" +
+    "La rentrée académique est prévue pour le 19 août 2026.";
+  await pool.query(
+    `INSERT INTO annonce (type, titre, description, date_annonce, icone, image, actif, cible_faculte, cible_role, emetteur)
+     VALUES ('evenement', ?, ?, '2026-07-22', '🎓', '', 1, NULL, NULL, 'admin')`,
+    [titre, description]
+  );
+  console.log('✅ Événement « Défenses académiques (Théologie) » ajouté.');
+}
+
 async function assurerSchema(pool) {
   await assurerSchemaFraisScolarite(pool);
   await assurerSchemaJournalAudit(pool);
@@ -462,6 +528,11 @@ async function assurerSchema(pool) {
   // Chargement (idempotent) de la maquette Informatique de Gestion. Placé APRÈS
   // le nettoyage des cours pour ne pas être altéré par celui-ci.
   try { await seedMaquetteIG(); } catch (e) { console.error('⚠️ Seed maquette IG :', e.message); }
+  // Alignement des filières sur l'affiche officielle « Nos filières » (ajoute
+  // celles de l'affiche, supprime les autres). Après le seed de la maquette IG.
+  try { await synchroniserFilieresAffiche(pool); } catch (e) { console.error('⚠️ Synchronisation filières (affiche) :', e.message); }
+  // Événement des défenses académiques (page d'accueil), idempotent.
+  try { await seedEvenementDefenses(pool); } catch (e) { console.error('⚠️ Seed événement défenses :', e.message); }
   // Correction des Pré-U illégitimes (hors SI/GL/IA/Design) → L1, avant la resync.
   try { await corrigerPreUErrones(pool); } catch (e) { console.error('⚠️ Correction Pré-U :', e.message); }
   // Correction des Master sans filière (ex. « M1 Théologie » sans filière) → 1ʳᵉ
