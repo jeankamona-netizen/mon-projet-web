@@ -117,7 +117,7 @@
       <div class="event-statique">
         <span class="event-statique-icone">🎓</span>
         <h4 data-i18n="evenements.s1_titre">Rentrée académique</h4>
-        <p data-i18n="evenements.s1_desc">Accueil des nouveaux étudiants et ouverture solennelle de l'année.</p>
+        <p data-i18n="evenements.s1_desc">Accueil des nouveaux étudiants et ouverture solennelle de l'année est prévue pour le 19 Août 2026</p>
       </div>
       <div class="event-statique">
         <span class="event-statique-icone">🔬</span>
@@ -127,12 +127,12 @@
       <div class="event-statique">
         <span class="event-statique-icone">🏅</span>
         <h4 data-i18n="evenements.s3_titre">Collation des grades</h4>
-        <p data-i18n="evenements.s3_desc">Cérémonie solennelle de remise des diplômes aux lauréats.</p>
+        <p data-i18n="evenements.s3_desc">Cérémonie solennelle de remise des diplômes aux lauréats est prévue pour ce 01 Août 2026.</p>
       </div>
     </div>
 
     <!-- PARTIE DYNAMIQUE — événements ajoutés par l'administration (Annonces & événements) -->
-    <h3 class="evenements-sous-titre" data-i18n="evenements.dynamique_titre">Prochains événements</h3>
+    <!--<h3 class="evenements-sous-titre" data-i18n="evenements.dynamique_titre">Prochains événements</h3>-->
       <div class="events-grid" id="evenements-grid">
         <p style="text-align:center;color:#888;grid-column:1/-1">Chargement des événements...</p>
       </div>
@@ -152,7 +152,7 @@
           <img src="img/Uml defense master (15).jpeg" alt="Étudiant présentant sa défense de Master" loading="lazy">
           <div class="galerie-overlay">
             <span class="galerie-tag">Défenses</span>
-            <p>Présentation devant le jury académique</p>
+            <p>Réverend Recteur P.O Jean-Marie Nkon de l'UML, lors de la cérémonie de remise des défenses</p>
           </div>
         </div>
 
@@ -504,6 +504,17 @@
     </div>
 
   </footer>
+
+  <!-- LIGHTBOX GALERIE : agrandissement + navigation entre photos -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Photo agrandie">
+    <button class="lb-fermer" onclick="fermerLightbox()" aria-label="Fermer">✕</button>
+    <button class="lb-prev" onclick="changerPhoto(-1)" aria-label="Photo précédente">‹</button>
+    <div class="lb-contenu">
+      <img id="lb-img" src="" alt="">
+      <p id="lb-legende"></p>
+    </div>
+    <button class="lb-next" onclick="changerPhoto(1)" aria-label="Photo suivante">›</button>
+  </div>
 
   <script src="js/config.js"></script>
   <script src="js/ui.js"></script>
