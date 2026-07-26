@@ -452,13 +452,18 @@ async function corrigerMasterSansFiliere(pool) {
 // leur libellé « promotion » restant conservé). Idempotent.
 async function synchroniserFilieresAffiche(pool) {
   const cible = {
+    // Théologie : UNE seule filière de licence (non subdivisée, L1→L3) = la
+    // faculté elle-même ; les autres intitulés sont des spécialités de MASTER.
     'Faculté de Théologie': [
-      'Missiologie', 'Théologie Pratique', 'Théologie Systématique',
-      'Théologie Biblique AT&NT', 'Master Théologie',
+      'Faculté de Théologie',
+      'Master Missiologie', 'Master Théologie Pratique',
+      'Master Théologie Systématique', 'Master Théologie Biblique AT&NT',
     ],
+    // Informatique : chaque filière de licence a sa spécialité de Master.
     'Sciences Informatiques': [
       'Informatique de Gestion', 'Réseau & Télécom', 'Génie Logiciel', 'Design',
-      'Master Informatique',
+      'Master Informatique de Gestion', 'Master Réseau & Télécom',
+      'Master Génie Logiciel', 'Master Design',
     ],
     'Sciences Économiques': [
       'Gestion des Ressources Humaines', 'Finances, Banque et Comptabilité',
