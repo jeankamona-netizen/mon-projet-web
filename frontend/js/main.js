@@ -83,6 +83,19 @@ function urlImageAnnonce(image) {
   return image.startsWith('uploads/') ? `${BASE_URL}/${image}` : `img/${image}`;
 }
 
+// Image de repli (versionnée dans frontend/img) choisie selon le sujet de
+// l'événement, quand l'image téléversée n'est pas disponible.
+function imageEvenementFallback(titre) {
+  const t = (titre || '').toLowerCase();
+  if (/rentr[ée]e|acad[ée]mique/.test(t)) return 'img/entree.jpg';
+  if (/collation|grade|dipl[oô]|graduation|laur[ée]at/.test(t)) return 'img/collation.jpg';
+  if (/d[ée]fense|m[ée]moire|soutenance|th[èe]se/.test(t)) return 'img/conference.jpg';
+  if (/conf[ée]rence|d[ée]bat|s[ée]minaire|colloque/.test(t)) return 'img/conference.jpg';
+  if (/f[êe]te|c[ée]l[ée]bration|c[ée]r[ée]monie|consacration/.test(t)) return 'img/fete.jpg';
+  if (/promotion|sortie/.test(t)) return 'img/promotion.jpg';
+  return 'img/campagne.jpg';
+}
+
 async function chargerAnnoncesPubliques() {
   const ticker = document.getElementById('ticker-contenu');
   const grille = document.getElementById('evenements-grid');
@@ -113,8 +126,12 @@ async function chargerAnnoncesPubliques() {
             const mois = MOIS_COURT[d.getUTCMonth()];
             const jour = String(d.getUTCDate()).padStart(2, '0');
             const image = urlImageAnnonce(e.image);
+            // Repli : si l'image (souvent un upload absent du serveur) ne charge
+            // pas, on affiche une image thématique versionnée dans frontend/img.
+            const repli = imageEvenementFallback(e.titre);
             return `<div class="event-card">
-              <div class="event-img" style="background-image: url('${image}')">
+              <div class="event-img">
+                <img class="event-photo" src="${image}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${repli}'">
                 <div class="event-date">
                   <span class="event-mois">${mois}</span>
                   <span class="event-jour">${jour}</span>

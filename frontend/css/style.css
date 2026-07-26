@@ -1073,12 +1073,25 @@ h2 {
   background-size: cover;
   background-position: center;
   position: relative;
+  overflow: hidden;
+  background: #eef2f8;
+}
+
+/* Photo de l'événement : couvre toute la zone (repli géré par onerror en JS). */
+.event-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
 }
 
 .event-date {
   position: absolute;
   top: 14px;
   left: 14px;
+  z-index: 1;
   background: var(--bleu);
   color: var(--blanc);
   border-radius: 8px;
