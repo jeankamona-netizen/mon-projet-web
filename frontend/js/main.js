@@ -87,8 +87,8 @@ function urlImageAnnonce(image) {
 // l'événement, quand l'image téléversée n'est pas disponible.
 function imageEvenementFallback(titre) {
   const t = (titre || '').toLowerCase();
-  if (/rentr[ée]e|acad[ée]mique/.test(t)) return 'img/entree.jpg';
-  if (/collation|grade|dipl[oô]|graduation|laur[ée]at/.test(t)) return 'img/collation.jpg';
+  if (/rentr[ée]e|acad[ée]mique/.test(t)) return 'img/promotion1.jpg';
+  if (/collation|grade|dipl[oô]|graduation|laur[ée]at/.test(t)) return 'img/grade.jpg';
   if (/d[ée]fense|m[ée]moire|soutenance|th[èe]se/.test(t)) return 'img/conference.jpg';
   if (/conf[ée]rence|d[ée]bat|s[ée]minaire|colloque/.test(t)) return 'img/conference.jpg';
   if (/f[êe]te|c[ée]l[ée]bration|c[ée]r[ée]monie|consacration/.test(t)) return 'img/fete.jpg';
