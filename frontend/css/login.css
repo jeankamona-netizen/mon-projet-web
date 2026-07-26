@@ -12,22 +12,34 @@
 .login-main {
   min-height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 40px 20px;
 }
+/* La page de connexion centre verticalement son panneau divisé ; les autres
+   pages (ex. préinscription, formulaire long) restent alignées en haut. */
+.login-page .login-main { align-items: center; }
 
-/* Carte en verre dépoli */
+/* Carte par défaut (ex. préinscription) : un seul panneau blanc centré. */
 .login-box {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+/* Carte en verre dépoli — UNIQUEMENT la page de connexion (panneau divisé). */
+.login-page .login-box {
   background: rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(24px) saturate(150%);
   -webkit-backdrop-filter: blur(24px) saturate(150%);
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 22px;
   box-shadow: 0 30px 80px rgba(6, 16, 42, 0.5);
-  width: 100%;
   max-width: 900px;
-  overflow: hidden;
   display: grid;
   grid-template-columns: 1fr 1fr;
   min-height: 500px;
@@ -518,7 +530,7 @@ input[type="file"] {
    ===================== */
 /* Tablette : le visuel se réduit */
 @media (max-width: 900px) {
-  .login-box {
+  .login-page .login-box {
     grid-template-columns: 1fr;
     max-width: 480px;
     min-height: 0;

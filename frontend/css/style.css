@@ -1144,6 +1144,8 @@ h2 {
   gap: 16px;
   flex-wrap: wrap;
 }
+/* Petit espace entre la grille des facultés et le bouton de pré-inscription. */
+.facultes .events-btns { margin-top: 32px; }
 
 .btn-events {
   background: var(--bleu);
