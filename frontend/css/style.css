@@ -1077,21 +1077,26 @@ h2 {
   background: #eef2f8;
 }
 
-/* Photo de l'événement : couvre toute la zone (repli géré par onerror en JS). */
+/* Photo de l'événement : couvre toute la zone (repli géré par onerror en JS).
+   Cadrage biaisé vers le haut pour garder les visages/têtes bien visibles. */
 .event-photo {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 22%;
   z-index: 0;
 }
 
+/* Badge date placé EN BAS à gauche (sur le buste/la table) pour ne jamais
+   masquer le visage du sujet, situé dans la partie haute de la photo. */
 .event-date {
   position: absolute;
-  top: 14px;
+  bottom: 14px;
   left: 14px;
   z-index: 1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
   background: var(--bleu);
   color: var(--blanc);
   border-radius: 8px;
