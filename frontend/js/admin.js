@@ -1167,7 +1167,7 @@ function rendreParticipationsJour(canvas, participations, date, champDate) {
   if (titre) titre.textContent = 'Participations aux cours du jour';
   if (sousTitre) sousTitre.textContent = participations.length
     ? `Présences par cours — ${dateLisible} (votre faculté)`
-    : `Aucun cours aligné ${dateLisible ? 'le ' + dateLisible : 'ce jour'}.`;
+    : `Aucune présence saisie ${dateLisible ? 'le ' + dateLisible : 'ce jour'}.`;
 
   // 3 barres GROUPÉES par cours → il faut plus de hauteur par cours.
   const wrapS = document.getElementById('wrap-sondage');

@@ -300,9 +300,10 @@ app.get('/api/stats/avancees', requireAdminOuDoyen, async (req, res) => {
                 SUM(CASE WHEN p.statut='absent'  THEN 1 ELSE 0 END) AS absent
          FROM horaire h
          JOIN cours c ON c.id = h.cours_id
-         LEFT JOIN presence p ON p.horaire_id = h.id AND p.date_seance = ?
+         JOIN presence p ON p.horaire_id = h.id AND p.date_seance = ?
          WHERE h.jour = ? AND (c.faculte = ? OR c.faculte IS NULL)${condAnneePart}
          GROUP BY c.id, c.nom, c.promotion, c.niveau
+         HAVING COUNT(p.id) > 0
          ORDER BY (SUM(CASE WHEN p.statut='present' THEN 1 ELSE 0 END)
                  + SUM(CASE WHEN p.statut='retard' THEN 1 ELSE 0 END)) DESC, c.nom`,
         paramsPart
