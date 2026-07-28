@@ -308,14 +308,15 @@ async function nettoyerCoursCommunEtFiliere(pool) {
 // étudiants n'étaient pas encore inscrits, une fusion de doublons, etc.
 // Règles (identiques à inscriptionAuto.js), pour un étudiant de même niveau + année :
 //   • cours propre à une filière  → seulement les étudiants de cette filière ;
-//   • cours commun (filiere_id NULL), de sa faculté OU inter-facultés (faculte NULL)
-//     → tous les étudiants, SAUF ceux d'une filière AUTONOME (ex. Informatique de
-//       Gestion), qui ne suivent que les cours de leur propre filière.
+//   • cours commun (filiere_id NULL) → uniquement les étudiants SANS filière
+//     (ex. Pré-U « Sciences », non subdivisé). Tout étudiant rattaché à une
+//     filière ne suit QUE les cours de sa propre filière (plus de cours communs
+//     partagés ; les cours vus ensemble se gèrent à l'horaire).
 // INSERT IGNORE : idempotent, n'ajoute que ce qui manque, ne retire jamais rien.
 async function resynchroniserInscriptions(pool) {
-  const [auto] = await pool.query(
-    "SELECT id FROM filiere WHERE nom IN ('Informatique de Gestion','Master en Informatique Appliquée à la Gestion des Entreprises')"
-  );
+  // Toutes les filières sont autonomes → on exclut TOUS les étudiants rattachés
+  // à une filière des cours communs.
+  const [auto] = await pool.query('SELECT id FROM filiere');
   const autoIds = auto.map(a => a.id);
   const horsAutonomes = autoIds.length
     ? `AND (e.filiere_id IS NULL OR e.filiere_id NOT IN (${autoIds.map(() => '?').join(',')}))`

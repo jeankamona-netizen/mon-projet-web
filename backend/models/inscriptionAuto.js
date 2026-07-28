@@ -1,10 +1,12 @@
 const pool = require('../database');
 
-// Filières « autonomes » : elles ont un cursus complet et propre (toutes leurs
-// UE/EC), incompatible avec les cours communs partagés par les autres filières
-// de la faculté. Leurs étudiants ne suivent QUE les cours de leur filière — pas
-// les cours communs (filiere_id NULL). Ex. « Informatique de Gestion » (LIAGE)
-// et son master, qui n'ont pas de tronc commun avec Génie Logiciel, Design, etc.
+// TOUTE filière est désormais « autonome » : chaque filière a son propre cursus
+// (ses propres cours), plus de cours « communs » partagés automatiquement entre
+// les filières d'une faculté. Un cours vu par plusieurs filières ensemble
+// (« cours d'ensemble ») se gère à l'HORAIRE, en programmant le créneau des
+// filières concernées au même moment/salle (session commune). Cette liste n'est
+// donc plus utilisée pour distinguer quelques filières ; elle est conservée par
+// compatibilité mais toute filière (nom non vide) est traitée comme autonome.
 const FILIERES_AUTONOMES = ['Informatique de Gestion', 'Master en Informatique Appliquée à la Gestion des Entreprises'];
 
 // Filières scientifiques qui passent par l'année préparatoire commune
@@ -13,25 +15,23 @@ const FILIERES_AUTONOMES = ['Informatique de Gestion', 'Master en Informatique A
 // démarre directement en L1.
 const FILIERES_PREU = ['Systèmes Informatiques', 'Génie Logiciel', 'Intelligence Artificielle', 'Design'];
 
-// Une filière (par NOM) est-elle autonome (cursus complet, sans cours communs) ?
+// Toute filière (nom non vide) est autonome → chaque filière n'a que ses cours.
 function nomFiliereEstAutonome(nom) {
-  return FILIERES_AUTONOMES.includes(String(nom || '').trim());
+  return !!String(nom || '').trim();
 }
 
-// Ids (en base) des filières autonomes — utilisés pour exclure les cours/étudiants.
+// Ids (en base) de TOUTES les filières : leurs étudiants ne suivent que les
+// cours de leur propre filière (aucun cours commun).
 async function idsFilieresAutonomes() {
-  const [rows] = await pool.query(
-    `SELECT id FROM filiere WHERE nom IN (${FILIERES_AUTONOMES.map(() => '?').join(',')})`,
-    FILIERES_AUTONOMES
-  );
+  const [rows] = await pool.query('SELECT id FROM filiere');
   return rows.map(r => r.id);
 }
 
-// La filière (par id) est-elle autonome (sans cours communs) ?
+// Un étudiant RATTACHÉ à une filière est autonome (ses propres cours seulement).
+// Un étudiant SANS filière (ex. Pré-U « Sciences », non subdivisé) conserve le
+// comportement par niveau/faculté.
 async function filiereEstAutonome(filiere_id) {
-  if (!filiere_id) return false;
-  const [[f]] = await pool.query('SELECT nom FROM filiere WHERE id = ?', [filiere_id]);
-  return !!f && FILIERES_AUTONOMES.includes(f.nom);
+  return !!filiere_id;
 }
 
 // Inscrit automatiquement un étudiant à tous les cours de sa faculté + niveau
