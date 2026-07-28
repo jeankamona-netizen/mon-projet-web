@@ -2129,7 +2129,7 @@ const heuresUE = (v) => v == null ? '—' : `${v}h`;
 
 function lignesCoursProgramme(cours, messageVide = 'Aucun cours.') {
   if (cours.length === 0) return `<tr><td colspan="7" class="admin-vide">${messageVide}</td></tr>`;
-  return cours.map(p => `<tr><td><span class="prog-code-admin">${p.code}</span></td><td>${p.nom}</td><td>${heuresUE(p.cmi)}</td><td>${heuresUE(p.td)}</td><td>${heuresUE(p.tp)}</td><td>${p.credits} cr.</td><td class="admin-actions-cell"><button class="btn-icone" onclick="ouvrirModalInscriptions(${p.id},'${p.nom.replace(/'/g,"\\'")}','${p.promotion}')" aria-label="Étudiants inscrits" title="Étudiants inscrits">${icone('utilisateurs')}</button><button class="btn-icone" onclick="modifierProgramme(${p.id})" aria-label="Modifier">${icone('crayon')}</button><button class="btn-icone danger" onclick="supprimerProgramme(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td></tr>`).join('');
+  return cours.map(p => `<tr><td><span class="prog-code-admin">${p.code}</span></td><td>${p.nom}</td><td>${heuresUE(p.cmi)}</td><td>${heuresUE(p.td)}</td><td>${heuresUE(p.tp)}</td><td>${p.credits} cr.</td><td class="admin-actions-cell"><button class="btn-icone" onclick="ouvrirModalInscriptions(${p.id},'${p.nom.replace(/'/g,"\\'")}','${p.promotion}')" aria-label="Étudiants inscrits" title="Étudiants inscrits">${icone('utilisateurs')}</button><button class="btn-icone" onclick="ouvrirModalDupliquerCours(${p.id})" aria-label="Ajouter à une autre filière" title="Ajouter ce cours à une autre filière">${icone('plus')}</button><button class="btn-icone" onclick="modifierProgramme(${p.id})" aria-label="Modifier">${icone('crayon')}</button><button class="btn-icone danger" onclick="supprimerProgramme(${p.id})" aria-label="Supprimer">${icone('corbeille')}</button></td></tr>`).join('');
 }
 
 async function chargerProgramme() {
@@ -2527,6 +2527,42 @@ async function sauvegarderProgramme() {
     if (document.getElementById('filtre-annee-prog'))   document.getElementById('filtre-annee-prog').value = annee_academique;
     if (document.getElementById('filtre-niveau-prog'))  document.getElementById('filtre-niveau-prog').value = niveau;
     fermerModalProgramme(); chargerProgramme(); chargerStats();
+  } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
+}
+
+// Ajouter un cours à une (ou plusieurs) AUTRE(S) filière(s) : un même cours peut
+// ainsi figurer dans plusieurs filières. On copie le cours pour chaque filière
+// cochée (backend /dupliquer), qui inscrit ses étudiants.
+function ouvrirModalDupliquerCours(id) {
+  const p = programmeAdmin.find(x => x.id === id);
+  if (!p) return;
+  const faculte = p.faculte || faculteDoyenCourant() || '';
+  const filieres = (filiereParFaculte[faculte] || []).map(x => (typeof x === 'string' ? x : x.nom));
+  const dispo = filieres.filter(f => f !== p.filiere_nom); // exclut la filière actuelle
+  document.getElementById('dupliquer-cours-id').value = id;
+  document.getElementById('dupliquer-cours-titre').textContent = `${p.code} — ${p.nom}`;
+  const info = document.getElementById('dupliquer-cours-info');
+  if (info) info.textContent = p.filiere_nom ? `Filière actuelle : ${p.filiere_nom}` : (faculte ? `Faculté : ${faculte}` : '');
+  const liste = document.getElementById('dupliquer-cours-liste');
+  liste.innerHTML = dispo.length
+    ? dispo.map(f => `<label class="dupli-item"><input type="checkbox" value="${f.replace(/"/g, '&quot;')}"> ${f}</label>`).join('')
+    : '<p class="admin-vide">Aucune autre filière disponible dans cette faculté.</p>';
+  document.getElementById('modal-dupliquer-cours')?.classList.add('active');
+}
+function fermerModalDupliquerCours() { document.getElementById('modal-dupliquer-cours')?.classList.remove('active'); }
+
+async function confirmerDupliquerCours() {
+  const id = document.getElementById('dupliquer-cours-id').value;
+  const cochees = Array.from(document.querySelectorAll('#dupliquer-cours-liste input:checked')).map(c => c.value);
+  if (!cochees.length) { afficherToast('⚠️ Cochez au moins une filière.', 'erreur'); return; }
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/programme/${id}/dupliquer`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filieres: cochees })
+    });
+    const d = await r.json();
+    if (!r.ok) { afficherToast('❌ ' + (d.erreur || 'Échec.'), 'erreur'); return; }
+    afficherToast('✅ ' + d.message);
+    fermerModalDupliquerCours(); chargerProgramme();
   } catch { afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 

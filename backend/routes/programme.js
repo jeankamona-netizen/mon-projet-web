@@ -289,4 +289,53 @@ router.delete('/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// ===== POST /api/programme/:id/dupliquer — copier un cours vers d'autres filières =====
+// Un même cours peut être enregistré dans plusieurs filières : on crée une copie
+// du cours pour chaque filière cible (de sa faculté) et on y inscrit les
+// étudiants de cette filière. Idempotent (ne recrée pas un cours déjà présent
+// pour cette filière).
+router.post('/:id/dupliquer', requireAdmin, async (req, res) => {
+  try {
+    const facDoyen = faculteDuDoyen(req);
+    if (!await coursModifiableParDoyen(req.params.id, facDoyen)) {
+      return res.status(403).json({ erreur: "Ce cours n'appartient pas à votre faculté." });
+    }
+    const [[src]] = await pool.query('SELECT * FROM cours WHERE id = ?', [req.params.id]);
+    if (!src) return res.status(404).json({ erreur: "Cours introuvable." });
+
+    const filieres = Array.isArray(req.body.filieres) ? req.body.filieres.filter(Boolean) : [];
+    if (!filieres.length) return res.status(400).json({ erreur: "Sélectionnez au moins une filière." });
+    // La faculté de destination = celle du cours (ou la faculté du doyen).
+    const faculte = src.faculte || facDoyen;
+    if (!faculte) return res.status(400).json({ erreur: "Ce cours n'a pas de faculté (cours commun) : éditez-le pour lui donner une faculté d'abord." });
+
+    let crees = 0, ignores = 0;
+    for (const nomFiliere of filieres) {
+      const { filiere_id, promotion } = await resoudreFiliereEtPromotion(src.niveau, faculte, nomFiliere);
+      if (!filiere_id) { ignores++; continue; } // filière inconnue dans cette faculté
+      if (filiere_id === src.filiere_id) { ignores++; continue; } // déjà cette filière
+      // Idempotence : ne pas recréer un cours identique déjà présent pour la filière.
+      const [[dejale]] = await pool.query(
+        `SELECT id FROM cours WHERE code = ? AND faculte = ? AND niveau = ? AND annee_academique = ?
+                AND COALESCE(semestre,'') = COALESCE(?,'') AND filiere_id = ?`,
+        [src.code, faculte, src.niveau, src.annee_academique, src.semestre, filiere_id]
+      );
+      if (dejale) { ignores++; continue; }
+      const [ins] = await pool.query(
+        `INSERT INTO cours (code, nom, faculte, filiere_id, niveau, promotion, annee_academique, semestre, credits, cmi, td, tp, professeur_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [src.code, src.nom, faculte, filiere_id, src.niveau, promotion, src.annee_academique, src.semestre,
+         src.credits, src.cmi, src.td, src.tp, src.professeur_id || null]
+      );
+      await inscrireEtudiantsAuCours(ins.insertId, faculte, src.niveau, filiere_id, src.annee_academique);
+      crees++;
+    }
+    journaliser({ ...acteurDeReq(req), action: 'Duplication cours vers filières', details: `${src.code} ${src.nom} → ${crees} filière(s)`, ip: ipDeRequete(req) });
+    res.status(201).json({ message: `Cours ajouté à ${crees} filière(s)${ignores ? ` (${ignores} ignorée·s)` : ''}.`, crees, ignores });
+  } catch (erreur) {
+    console.error(erreur);
+    res.status(500).json({ erreur: "Erreur lors de la duplication du cours." });
+  }
+});
+
 module.exports = router;

@@ -1625,6 +1625,25 @@
     </div>
   </div>
 
+  <!-- MODAL : AJOUTER UN COURS À D'AUTRES FILIÈRES -->
+  <div class="admin-modal-overlay" id="modal-dupliquer-cours">
+    <div class="admin-modal" style="max-width:460px">
+      <div class="admin-modal-header">
+        <h3>Ajouter le cours à d'autres filières</h3>
+        <button class="admin-modal-close" onclick="fermerModalDupliquerCours()" aria-label="Fermer">✕</button>
+      </div>
+      <input type="hidden" id="dupliquer-cours-id">
+      <p style="font-weight:700;color:var(--bleu);margin:0 0 2px" id="dupliquer-cours-titre"></p>
+      <p style="font-size:12px;color:#888;margin:0 0 12px" id="dupliquer-cours-info"></p>
+      <p style="font-size:13px;color:#555;margin:0 0 8px">Cochez la ou les filières dans lesquelles enregistrer aussi ce cours :</p>
+      <div id="dupliquer-cours-liste" class="dupli-liste"></div>
+      <div class="admin-modal-actions">
+        <button class="btn-annuler" onclick="fermerModalDupliquerCours()">Annuler</button>
+        <button class="btn-sauvegarder" onclick="confirmerDupliquerCours()">➕ Ajouter</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL GESTION DES INSCRIPTIONS À UN COURS -->
   <div class="admin-modal-overlay" id="modal-inscriptions">
     <div class="admin-modal" style="max-width:560px">
