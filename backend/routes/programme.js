@@ -268,7 +268,19 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       return res.status(403).json({ erreur: "Ce cours n'appartient pas à votre faculté." });
     }
     const [[c]] = await pool.query('SELECT code, nom FROM cours WHERE id = ?', [req.params.id]);
-    await pool.query('DELETE FROM cours WHERE id = ?', [req.params.id]);
+    if (!c) return res.status(404).json({ erreur: "Cours introuvable (déjà supprimé ?)." });
+    // Suppression robuste : on retire d'abord les dépendances (inscriptions,
+    // notes, créneaux d'horaire → présences en cascade) pour que la suppression
+    // du cours aboutisse même si des clés étrangères les protègent. Transaction.
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      await conn.query('DELETE FROM inscription_cours WHERE cours_id = ?', [req.params.id]);
+      await conn.query('DELETE FROM note WHERE cours_id = ?', [req.params.id]);
+      await conn.query('DELETE FROM horaire WHERE cours_id = ?', [req.params.id]);
+      await conn.query('DELETE FROM cours WHERE id = ?', [req.params.id]);
+      await conn.commit();
+    } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
     journaliser({ ...acteurDeReq(req), action: 'Suppression cours', details: c ? `${c.code} ${c.nom}` : `Cours #${req.params.id}`, ip: ipDeRequete(req) });
     res.json({ message: "Cours retiré du programme." });
   } catch (erreur) {

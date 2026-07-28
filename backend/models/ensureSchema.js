@@ -544,6 +544,34 @@ async function nettoyerHorairesOrphelins(pool) {
   if (r.affectedRows) console.log(`✅ Horaires orphelins supprimés : ${r.affectedRows}.`);
 }
 
+// Déduplique les cours IDENTIQUES (même code + faculté + niveau + année +
+// semestre + filière) : on conserve le plus ancien (id min), on lui rattache les
+// notes et créneaux d'horaire des doublons, puis on supprime les doublons (les
+// inscriptions seront recréées par la resynchronisation). Corrige l'affichage
+// d'un même cours en double dans le programme annuel.
+async function dedupliquerCours(pool) {
+  const [groupes] = await pool.query(`
+    SELECT MIN(id) AS garde, GROUP_CONCAT(id) AS ids, COUNT(*) AS n
+    FROM cours
+    GROUP BY code, COALESCE(faculte,''), COALESCE(niveau,''),
+             COALESCE(annee_academique,''), COALESCE(semestre,''), COALESCE(filiere_id,0)
+    HAVING n > 1
+  `);
+  let supprimes = 0;
+  for (const g of groupes) {
+    const dups = String(g.ids).split(',').map(Number).filter(id => id !== g.garde);
+    for (const dup of dups) {
+      await pool.query('UPDATE IGNORE note SET cours_id = ? WHERE cours_id = ?', [g.garde, dup]);
+      await pool.query('DELETE FROM note WHERE cours_id = ?', [dup]); // collisions restantes
+      await pool.query('UPDATE horaire SET cours_id = ? WHERE cours_id = ?', [g.garde, dup]);
+      await pool.query('DELETE FROM inscription_cours WHERE cours_id = ?', [dup]);
+      await pool.query('DELETE FROM cours WHERE id = ?', [dup]);
+      supprimes++;
+    }
+  }
+  if (supprimes) console.log(`✅ Cours en double supprimés : ${supprimes}.`);
+}
+
 async function assurerSchema(pool) {
   await assurerSchemaFraisScolarite(pool);
   await assurerSchemaJournalAudit(pool);
@@ -572,6 +600,8 @@ async function assurerSchema(pool) {
   try { await corrigerMasterSansFiliere(pool); } catch (e) { console.error('⚠️ Correction Master sans filière :', e.message); }
   // Données de test : 5 étudiants fictifs par filière (idempotent).
   try { if (typeof seedEtudiantsTest === 'function') await seedEtudiantsTest(); } catch (e) { console.error('⚠️ Seed étudiants test :', e.message); }
+  // Déduplication des cours identiques (avant la resync qui recrée les inscriptions).
+  try { await dedupliquerCours(pool); } catch (e) { console.error('⚠️ Déduplication cours :', e.message); }
   // Nettoyage des créneaux d'horaire orphelins (cours supprimé) → évite les faux
   // conflits de salle à l'ajout d'un cours.
   try { await nettoyerHorairesOrphelins(pool); } catch (e) { console.error('⚠️ Nettoyage horaires orphelins :', e.message); }

@@ -2532,8 +2532,12 @@ async function sauvegarderProgramme() {
 
 async function supprimerProgramme(id) {
   if (!await confirmerAction('Retirer ce cours du programme ? Cette action est irréversible.', { titre: 'Retirer le cours', texteConfirmer: 'Retirer' })) return;
-  try { await fetchAdmin(`${BASE_URL}/api/programme/${id}`,{method:'DELETE'}); afficherToast('🗑️ Supprimé.'); chargerProgramme(); chargerStats(); }
-  catch (err) { console.error(err); }
+  try {
+    const r = await fetchAdmin(`${BASE_URL}/api/programme/${id}`, { method: 'DELETE' });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { afficherToast('❌ ' + (d.erreur || "Échec de la suppression."), 'erreur'); return; }
+    afficherToast('🗑️ Supprimé.'); chargerProgramme(); chargerStats();
+  } catch (err) { console.error(err); afficherToast('⚠️ Serveur indisponible.', 'erreur'); }
 }
 
 // =====================
