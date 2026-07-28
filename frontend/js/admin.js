@@ -2276,7 +2276,7 @@ function afficherProgrammeGroupe() {
     // niveau (tronc commun M1 d'un côté, licence de l'autre, etc.) : les
     // mélanger dans un seul bloc "Cours communs" sans distinction de niveau
     // serait ambigu.
-    const COMMUN = 'Cours communs (toute la faculté)';
+    const COMMUN = 'Cours communs (toute la promotion)';
     const niveauxFac = [...new Set(coursFac.map(p => p.niveau))]
       .sort((a,b) => ORDRE_NIVEAUX.indexOf(a) - ORDRE_NIVEAUX.indexOf(b));
     const blocs = niveauxFac.map(niv => {
@@ -2340,7 +2340,7 @@ function imprimerProgrammeFaculte(fac) {
   // la vue à l'écran : un cours commun à toute la faculté existe à chaque
   // niveau (tronc commun M1 d'un côté, licence de l'autre...), les mélanger
   // sans distinction de niveau serait ambigu à l'impression aussi.
-  const COMMUN = 'Cours communs (toute la faculté)';
+  const COMMUN = 'Cours communs (toute la promotion)';
   const entete = '<tr><th>Code UE</th><th>Intitulé UE</th><th class="n">CMI</th><th class="n">TD</th><th class="n">TP</th><th class="n">Crédits</th></tr>';
   const niveaux = [...new Set(coursFac.map(p => p.niveau))]
     .sort((a,b) => ORDRE_NIVEAUX.indexOf(a) - ORDRE_NIVEAUX.indexOf(b));
