@@ -535,6 +535,15 @@ async function seedEvenementsDefenses(pool) {
   console.log('✅ Événements « Défenses de Master (22 juillet) » synchronisés.');
 }
 
+// Supprime les créneaux d'horaire ORPHELINS (dont le cours a été supprimé) :
+// ils n'apparaissent pas au calendrier (jointure cours) mais déclenchent de
+// FAUX conflits de salle/créneau à l'ajout. Les présences liées sont retirées
+// par cascade (FK presence → horaire ON DELETE CASCADE).
+async function nettoyerHorairesOrphelins(pool) {
+  const [r] = await pool.query('DELETE FROM horaire WHERE cours_id NOT IN (SELECT id FROM cours)');
+  if (r.affectedRows) console.log(`✅ Horaires orphelins supprimés : ${r.affectedRows}.`);
+}
+
 async function assurerSchema(pool) {
   await assurerSchemaFraisScolarite(pool);
   await assurerSchemaJournalAudit(pool);
@@ -563,6 +572,9 @@ async function assurerSchema(pool) {
   try { await corrigerMasterSansFiliere(pool); } catch (e) { console.error('⚠️ Correction Master sans filière :', e.message); }
   // Données de test : 5 étudiants fictifs par filière (idempotent).
   try { if (typeof seedEtudiantsTest === 'function') await seedEtudiantsTest(); } catch (e) { console.error('⚠️ Seed étudiants test :', e.message); }
+  // Nettoyage des créneaux d'horaire orphelins (cours supprimé) → évite les faux
+  // conflits de salle à l'ajout d'un cours.
+  try { await nettoyerHorairesOrphelins(pool); } catch (e) { console.error('⚠️ Nettoyage horaires orphelins :', e.message); }
   // Resynchronisation des inscriptions EN DERNIER : après tout nettoyage/seed de
   // cours, pour que chaque cours (commun ou de filière) atteigne bien tous ses
   // étudiants (programme annuel + horaire).

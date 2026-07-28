@@ -88,11 +88,15 @@ async function trouverConflits({ date_debut, heure_debut, heure_fin, promotion, 
   // Conflit de salle : même date, créneau qui chevauche, cours différent ET
   // professeur différent (même cours, ou même professeur = session commune,
   // jamais un conflit).
+  // « cours_id IN (SELECT id FROM cours) » : on ignore les créneaux orphelins
+  // (dont le cours a été supprimé) qui n'apparaissent pas au calendrier mais
+  // provoqueraient un faux conflit.
   let sqlSalle = `
     SELECT * FROM horaire
     WHERE date_debut = ? AND salle = ?
     AND heure_debut < ? AND heure_fin > ?
     AND cours_id != ?
+    AND cours_id IN (SELECT id FROM cours)
   `;
   const paramsSalle = [date_debut, salle, heure_fin, heure_debut, cours_id];
   if (professeur_id) { sqlSalle += ' AND (professeur_id IS NULL OR professeur_id != ?)'; paramsSalle.push(professeur_id); }
@@ -105,6 +109,7 @@ async function trouverConflits({ date_debut, heure_debut, heure_fin, promotion, 
     SELECT * FROM horaire
     WHERE date_debut = ? AND promotion = ?
     AND heure_debut < ? AND heure_fin > ?
+    AND cours_id IN (SELECT id FROM cours)
   `;
   const paramsPromo = [date_debut, promotion, heure_fin, heure_debut];
   if (excluId) { sqlPromo += ' AND id != ?'; paramsPromo.push(excluId); }
