@@ -82,32 +82,40 @@ router.get('/', async (req, res) => {
 // plusieurs cours_id différents (intitulés distincts par faculté, ex. cours
 // mutualisé entre Économie et Informatique). Ce n'est donc jamais un conflit
 // de salle ni de professeur, quel que soit le cours_id ou la faculté.
-async function trouverConflits({ date_debut, heure_debut, heure_fin, promotion, salle, professeur_id, cours_id, excluId }) {
+async function trouverConflits({ date_debut, annee_academique, heure_debut, heure_fin, promotion, salle, professeur_id, cours_id, excluId }) {
   const conflits = {};
 
-  // Conflit de salle : même date, créneau qui chevauche, cours différent ET
-  // professeur différent (même cours, ou même professeur = session commune,
-  // jamais un conflit).
-  // « cours_id IN (SELECT id FROM cours) » : on ignore les créneaux orphelins
-  // (dont le cours a été supprimé) qui n'apparaissent pas au calendrier mais
-  // provoqueraient un faux conflit.
-  let sqlSalle = `
-    SELECT * FROM horaire
-    WHERE date_debut = ? AND salle = ?
-    AND heure_debut < ? AND heure_fin > ?
-    AND cours_id != ?
-    AND cours_id IN (SELECT id FROM cours)
-  `;
-  const paramsSalle = [date_debut, salle, heure_fin, heure_debut, cours_id];
-  if (professeur_id) { sqlSalle += ' AND (professeur_id IS NULL OR professeur_id != ?)'; paramsSalle.push(professeur_id); }
-  if (excluId) { sqlSalle += ' AND id != ?'; paramsSalle.push(excluId); }
-  const [conflitsSalle] = await pool.query(sqlSalle, paramsSalle);
-  if (conflitsSalle.length > 0) conflits.salle = `Conflit : la salle ${salle} est déjà occupée à cette date et à cette heure.`;
+  // Conflit de SALLE (règle métier) : une salle ne peut pas être occupée à la
+  // MÊME DATE et à la MÊME HEURE par des PROFESSEURS DIFFÉRENTS.
+  //  • Deux DATES différentes (même jour de semaine ou non) ne sont JAMAIS en
+  //    conflit — une salle sert tous les jours à la même heure.
+  //  • Le MÊME professeur dans la même salle = session commune → jamais un conflit.
+  //  • Les créneaux orphelins (cours supprimé) sont ignorés (JOIN cours).
+  // On ne vérifie que si le nouveau cours a un professeur assigné.
+  if (professeur_id) {
+    let sqlSalle = `
+      SELECT h.*, c.nom AS cours_nom
+      FROM horaire h
+      JOIN cours c ON c.id = h.cours_id
+      WHERE DATE(h.date_debut) = DATE(?) AND h.salle = ?
+        AND h.heure_debut < ? AND h.heure_fin > ?
+        AND h.cours_id != ?
+        AND h.professeur_id IS NOT NULL AND h.professeur_id != ?
+    `;
+    const paramsSalle = [date_debut, salle, heure_fin, heure_debut, cours_id, professeur_id];
+    if (annee_academique) { sqlSalle += ' AND h.annee_academique = ?'; paramsSalle.push(annee_academique); }
+    if (excluId) { sqlSalle += ' AND h.id != ?'; paramsSalle.push(excluId); }
+    const [conflitsSalle] = await pool.query(sqlSalle, paramsSalle);
+    if (conflitsSalle.length > 0) {
+      const c = conflitsSalle[0];
+      conflits.salle = `Conflit : la salle ${salle} est déjà occupée à cette date et à cette heure par un AUTRE professeur (cours « ${c.cours_nom} » — ${c.promotion}).`;
+    }
+  }
 
   // Conflit de promotion : la même promotion ne peut pas avoir deux cours à la même date et à la même heure
   let sqlPromo = `
     SELECT * FROM horaire
-    WHERE date_debut = ? AND promotion = ?
+    WHERE DATE(date_debut) = DATE(?) AND promotion = ?
     AND heure_debut < ? AND heure_fin > ?
     AND cours_id IN (SELECT id FROM cours)
   `;
@@ -178,7 +186,7 @@ router.post('/', async (req, res) => {
       return res.status(403).json({ erreur: "Ce cours n'appartient pas à votre faculté." });
     }
 
-    const conflits = await trouverConflits({ date_debut, heure_debut, heure_fin, promotion, salle, professeur_id, cours_id });
+    const conflits = await trouverConflits({ date_debut, annee_academique, heure_debut, heure_fin, promotion, salle, professeur_id, cours_id });
     const premierConflit = conflits.salle || conflits.professeur || conflits.promotion || conflits.etudiant;
     if (premierConflit) {
       return res.status(409).json({ erreur: premierConflit });
@@ -210,7 +218,7 @@ router.put('/:id', async (req, res) => {
       return res.status(403).json({ erreur: "Ce cours n'appartient pas à votre faculté." });
     }
 
-    const conflits = await trouverConflits({ date_debut, heure_debut, heure_fin, promotion, salle, professeur_id, cours_id, excluId: req.params.id });
+    const conflits = await trouverConflits({ date_debut, annee_academique, heure_debut, heure_fin, promotion, salle, professeur_id, cours_id, excluId: req.params.id });
     const premierConflit = conflits.salle || conflits.professeur || conflits.promotion || conflits.etudiant;
     if (premierConflit) {
       return res.status(409).json({ erreur: premierConflit });
